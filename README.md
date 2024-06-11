@@ -4,4 +4,4 @@ Present a mixed immersion style space to draw content in a person's surroundings
 
 ## Overview
 
-- Note: This sample code project is associated with WWDC24 session 10092: [Render Metal with passthrough in visionOS](https://developer.apple.com/wwdc23/10092/).
+- Note: This sample code project is associated with WWDC24 session 10092: [Render Metal with passthrough in visionOS](https://developer.apple.com/wwdc24/10092/).
