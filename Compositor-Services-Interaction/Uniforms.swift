@@ -20,7 +20,7 @@ extension Uniforms {
         func createUniforms(forViewIndex viewIndex: Int) -> UniformsPerView {
             let view = drawable.views[viewIndex]
             let viewMatrix = (simdDeviceAnchor * view.transform).inverse
-            let projection = drawable.computeProjection(normalizedDeviceCoordinatesConvention: .rightUpBack,
+            let projection = drawable.computeProjection(convention: .rightUpBack,
                                                         viewIndex: viewIndex)
             
             return UniformsPerView(modelViewProjectionMatrix: projection * viewMatrix)
