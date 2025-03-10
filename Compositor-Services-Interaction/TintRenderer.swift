@@ -98,9 +98,9 @@ class TintRenderer {
         }
         
         let roseColor = SIMD3<Float>(1, 0.1, 0.25)
-        let horizontalScale: Float = 10.0
-        let verticalScale: Float = 10.0
-        let depth: Float = -2.0
+        let horizontalScale: Float = 1.0
+        let verticalScale: Float = 1.0
+        let depth: Float = -8.0
         
         // Lower triangle
         quadVertices[0] = Vertex(position: SIMD3<Float>(-1 * horizontalScale, (-1 * verticalScale), depth),
