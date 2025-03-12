@@ -15,19 +15,21 @@ extension SIMD4 {
 
 extension Uniforms {
     init(drawable: LayerRenderer.Drawable) {
-        let simdDeviceAnchor = drawable.deviceAnchor?.originFromAnchorTransform ?? matrix_identity_float4x4
+        let simdDeviceAnchor =
+            drawable.deviceAnchor?.originFromAnchorTransform ?? matrix_identity_float4x4
 
         func createUniforms(forViewIndex viewIndex: Int) -> UniformsPerView {
             let view = drawable.views[viewIndex]
             let viewMatrix = (simdDeviceAnchor * view.transform).inverse
-            let projection = drawable.computeProjection(convention: .rightUpBack,
-                                                        viewIndex: viewIndex)
-            
+            let projection = drawable.computeProjection(
+                convention: .rightUpBack,
+                viewIndex: viewIndex)
+
             return UniformsPerView(modelViewProjectionMatrix: projection * viewMatrix)
         }
-        
+
         let cameraPos = simdDeviceAnchor.columns.3.xyz
-        
+
         let firstView = createUniforms(forViewIndex: 0)
         let views: (UniformsPerView, UniformsPerView)
         if drawable.views.count == 1 {
@@ -35,8 +37,9 @@ extension Uniforms {
         } else {
             views = (firstView, createUniforms(forViewIndex: 1))
         }
-        
-        self.init(perView: views,
-                  cameraPos: cameraPos)
+
+        self.init(
+            perView: views,
+            cameraPos: cameraPos)
     }
 }

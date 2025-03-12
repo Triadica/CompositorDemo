@@ -44,7 +44,7 @@ struct InteractionView: View {
 
     @State private var selectedLVState: VisibilityState = .visibleState
     @State private var selectedIStyle: IStyle = .mixedStyle
-    
+
     @State private var tintOpacity = 0.0
 
     var body: some View {
@@ -99,7 +99,7 @@ struct InteractionView: View {
         .onChange(of: selectedLVState) { _, newState in
             appModel.upperLimbVisibility = newState.state
         }
-        .onChange(of: tintOpacity) {_, newState in
+        .onChange(of: tintOpacity) { _, newState in
             appModel.tintOpacity = Float(tintOpacity)
         }
         .onChange(of: selectedIStyle) { _, newStyle in

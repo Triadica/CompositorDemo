@@ -15,7 +15,7 @@ public class AppModel {
     public var showImmersiveSpace = false
     public var immersiveSpaceIsShown = false
     public var immersionStyle: ImmersionStyle = .mixed
-    
+
     // Limb visibility
     public var upperLimbVisibility: Visibility = .visible
 
