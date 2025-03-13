@@ -41,7 +41,6 @@ class Renderer {
     private let appModel: AppModel
 
     // Renderers
-    private let pathCollection: PathCollection
     private let tintRenderer: TintRenderer
 
     // Metal
@@ -60,12 +59,10 @@ class Renderer {
     init(
         _ layerRenderer: LayerRenderer,
         _ appModel: AppModel,
-        _ pathCollection: PathCollection,
         _ tintRenderer: TintRenderer
     ) throws {
         self.appModel = appModel
 
-        self.pathCollection = pathCollection
         self.tintRenderer = tintRenderer
 
         self.layerRenderer = layerRenderer
@@ -211,10 +208,6 @@ extension Renderer {
         guard let timing = frame.predictTiming() else { return }
 
         // Update scene and generate draw commands.
-        let pathCollectionDrawCommand = try await Task { @MainActor in
-            try pathCollection.update(withTiming: timing, worldTracking: worldTracking)
-            return try pathCollection.drawCommand(frame: frame)
-        }.result.get()
         let tintDrawCommand = try await Task { @MainActor in
             return try tintRenderer.drawCommand(frame: frame)
         }.result.get()
@@ -250,8 +243,6 @@ extension Renderer {
             }
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
-        pathCollection.encodeDraw(
-            pathCollectionDrawCommand, encoder: renderEncoder, commandBuffer: commandBuffer)
         tintRenderer.encodeDraw(
             tintDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
             tintValue: appModel.tintOpacity)
@@ -275,7 +266,6 @@ extension Renderer {
         drawable.deviceAnchor = deviceAnchor
 
         // Update the renderer uniforms using the latest device anchor.
-        pathCollection.updateUniformBuffers(pathCollectionDrawCommand, drawable: drawable)
         tintRenderer.updateUniformBuffers(tintDrawCommand, drawable: drawable)
 
         drawable.encodePresent(commandBuffer: commandBuffer)

@@ -22,5 +22,4 @@ public class AppModel {
     // Content rendering
     public var tintOpacity: Float = 0
     var tintRenderer: TintRenderer?
-    var pathCollection: PathCollection?
 }

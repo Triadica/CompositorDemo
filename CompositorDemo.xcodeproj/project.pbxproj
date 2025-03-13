@@ -16,7 +16,6 @@
 		D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274402BC734AD00E194CF /* InteractionScene.swift */; };
 		D11274462BC734AD00E194CF /* InteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274412BC734AD00E194CF /* InteractionView.swift */; };
 		D11274472BC734AD00E194CF /* Uniforms.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274442BC734AD00E194CF /* Uniforms.swift */; };
-		D11274482BC734AD00E194CF /* PathCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274422BC734AD00E194CF /* PathCollection.swift */; };
 		D117F6852BE8343800D8FA83 /* TintRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D117F6842BE8343800D8FA83 /* TintRenderer.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,7 +35,6 @@
 		D112743F2BC734AD00E194CF /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
 		D11274402BC734AD00E194CF /* InteractionScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionScene.swift; sourceTree = "<group>"; };
 		D11274412BC734AD00E194CF /* InteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionView.swift; sourceTree = "<group>"; };
-		D11274422BC734AD00E194CF /* PathCollection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathCollection.swift; sourceTree = "<group>"; };
 		D11274432BC734AD00E194CF /* PathProperties.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PathProperties.h; sourceTree = "<group>"; };
 		D11274442BC734AD00E194CF /* Uniforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Uniforms.swift; sourceTree = "<group>"; };
 		D117F6842BE8343800D8FA83 /* TintRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TintRenderer.swift; sourceTree = "<group>"; };
@@ -97,7 +95,6 @@
 				D11274292BC7318900E194CF /* InteractionApp.swift */,
 				D11274402BC734AD00E194CF /* InteractionScene.swift */,
 				D11274412BC734AD00E194CF /* InteractionView.swift */,
-				D11274422BC734AD00E194CF /* PathCollection.swift */,
 				D11274432BC734AD00E194CF /* PathProperties.h */,
 				D112742F2BC7318900E194CF /* Renderer.swift */,
 				D117F6842BE8343800D8FA83 /* TintRenderer.swift */,
@@ -135,7 +132,7 @@
 			dependencies = (
 			);
 			name = CompositorDemo;
-			productName = "CompositorDemo";
+			productName = CompositorDemo;
 			productReference = D11274222BC7318900E194CF /* CompositorDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -197,7 +194,6 @@
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				D11274472BC734AD00E194CF /* Uniforms.swift in Sources */,
-				D11274482BC734AD00E194CF /* PathCollection.swift in Sources */,
 				D11274322BC7318900E194CF /* Shaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

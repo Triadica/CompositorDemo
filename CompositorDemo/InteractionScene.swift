@@ -18,13 +18,6 @@ struct ImmersiveInteractionScene: Scene {
         ImmersiveSpace(id: Self.id) {
             CompositorLayer(configuration: ContentStageConfiguration()) { layerRenderer in
 
-                let pathCollection: PathCollection
-                do {
-                    pathCollection = try PathCollection(layerRenderer: layerRenderer)
-                } catch {
-                    fatalError("Failed to create path collection \(error)")
-                }
-
                 let tintRenderer: TintRenderer
                 do {
                     tintRenderer = try TintRenderer(layerRenderer: layerRenderer)
@@ -34,25 +27,18 @@ struct ImmersiveInteractionScene: Scene {
 
                 Task(priority: .high) { @RendererActor in
                     Task { @MainActor in
-                        appModel.pathCollection = pathCollection
                         appModel.tintRenderer = tintRenderer
                     }
 
                     let renderer = try await Renderer(
                         layerRenderer,
                         appModel,
-                        pathCollection,
                         tintRenderer)
                     try await renderer.renderLoop()
 
                     Task { @MainActor in
-                        appModel.pathCollection = nil
                         appModel.tintRenderer = nil
                     }
-                }
-
-                layerRenderer.onSpatialEvent = {
-                    pathCollection.addEvents(eventCollection: $0)
                 }
             }
         }
