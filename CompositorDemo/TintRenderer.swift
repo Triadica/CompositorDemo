@@ -13,9 +13,14 @@ import simd
 
 let maxFramesInFlight = 3
 
-let lampCount: Int = 10
-let verticesPerLamp: Int = 48  // 8 rectangles * 6 vertices per rectangle
+let lampCount: Int = 200
+let patelPerLamp: Int = 12
+let verticesPerLamp: Int = 6 * patelPerLamp  // 6 vertices per rectangle
 let numVertices: Int = lampCount * verticesPerLamp
+
+let verticalScale: Float = 0.4
+let upperRadius: Float = 0.14
+let lowerRadius: Float = 0.18
 
 @MainActor
 class TintRenderer {
@@ -43,66 +48,65 @@ class TintRenderer {
             lampVerticesBuffer.contents().assumingMemoryBound(to: Vertex.self)
         }
 
-        let horizontalScale: Float = 6.0
-        let verticalScale: Float = 2.0
-        let depth: Float = -6.0
-
         for i in 0..<lampCount {
             // Random position offsets for each lamp
             let xOffset = Float.random(in: -5...5)
-            let yOffset = Float.random(in: -5...5)
-            let zOffset = Float.random(in: -2...2)
+            let zOffset = Float.random(in: -5...5)
+            let yOffset = Float.random(in: 0...4)
 
             let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
             // Random color for each lamp
-            let r = Float.random(in: 0.5...1.0)
-            let g = Float.random(in: 0.0...0.5)
-            let b = Float.random(in: 0.1...0.8)
-            let roseColor = SIMD3<Float>(r, g, b)
+            let r = Float.random(in: 0.1...1.0)
+            let g = Float.random(in: 0.1...1.0)
+            let b = Float.random(in: 0.1...1.0)
+            let color = SIMD3<Float>(r, g, b)
+            let dimColor = color * 0.5
             let baseIndex = i * verticesPerLamp
-            let petals = 8
-            let radius: Float = 0.5
 
-            for p in 0..<petals {
-                let angle = Float(p) * (2 * Float.pi / Float(petals))
-                let nextAngle = Float(p + 1) * (2 * Float.pi / Float(petals))
+            for p in 0..<patelPerLamp {
+                let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+                let nextAngle = Float(p + 1) * (2 * Float.pi / Float(patelPerLamp))
 
                 // Calculate the four corners of this rectangular petal
-                let innerPoint1 = SIMD3<Float>(
-                    cos(angle) * radius, sin(angle) * radius, depth)
-                let innerPoint2 = SIMD3<Float>(
-                    cos(nextAngle) * radius, sin(nextAngle) * radius, depth)
-                let outerPoint1 = SIMD3<Float>(
-                    cos(angle) * radius * 2, sin(angle) * radius * 2, depth)
-                let outerPoint2 = SIMD3<Float>(
-                    cos(nextAngle) * radius * 2, sin(nextAngle) * radius * 2, depth)
+                // Calculate the upper and lower points of petals on x-z plane
+                // upper ring
+                let upperEdge = SIMD3<Float>(
+                    cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
+                let upperEdgeNext = SIMD3<Float>(
+                    cos(nextAngle) * upperRadius, verticalScale, sin(nextAngle) * upperRadius)
+
+                // lower ring
+                let lowerEdge = SIMD3<Float>(
+                    cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
+                let lowerEdgeNext = SIMD3<Float>(
+                    cos(nextAngle) * lowerRadius, 0, sin(nextAngle) * lowerRadius)
 
                 let vertexBase = baseIndex + p * 6
 
                 // First triangle of rectangle (inner1, outer1, inner2)
                 lampVertices[vertexBase] = Vertex(
-                    position: innerPoint1 + lampPosition, color: roseColor)
+                    position: upperEdge + lampPosition, color: color)
                 lampVertices[vertexBase + 1] = Vertex(
-                    position: outerPoint1 + lampPosition,
-                    color: roseColor
+                    position: lowerEdge + lampPosition,
+                    color: dimColor
                 )
                 lampVertices[vertexBase + 2] = Vertex(
-                    position: innerPoint2 + lampPosition,
-                    color: roseColor
+                    position: upperEdgeNext + lampPosition,
+                    color: color
                 )
 
                 // Second triangle of rectangle (inner2, outer1, outer2)
                 lampVertices[vertexBase + 3] = Vertex(
-                    position: innerPoint2 + lampPosition,
-                    color: roseColor
+                    position: upperEdgeNext + lampPosition,
+                    color: color
                 )
                 lampVertices[vertexBase + 4] = Vertex(
-                    position: outerPoint1 + lampPosition,
-                    color: roseColor
+                    position: lowerEdge + lampPosition,
+                    color: dimColor
                 )
                 lampVertices[vertexBase + 5] = Vertex(
-                    position: outerPoint2 + lampPosition,
-                    color: roseColor
+                    position: lowerEdgeNext + lampPosition,
+                    color: dimColor
                 )
             }
         }
