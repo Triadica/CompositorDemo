@@ -243,9 +243,9 @@ extension Renderer {
             }
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
-        tintRenderer.encodeDraw(
+        await tintRenderer.encodeDraw(
             tintDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
-            tintValue: appModel.tintOpacity)
+            tintValue: appModel.tintOpacity, buffer: tintRenderer.lampVerticesBuffer)
 
         renderEncoder.popDebugGroup()
         renderEncoder.endEncoding()

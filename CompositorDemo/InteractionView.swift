@@ -45,7 +45,7 @@ struct InteractionView: View {
     @State private var selectedLVState: VisibilityState = .visibleState
     @State private var selectedIStyle: IStyle = .mixedStyle
 
-    @State private var tintOpacity = 0.0
+    @State private var tintOpacity = 0.8
 
     var body: some View {
         VStack {

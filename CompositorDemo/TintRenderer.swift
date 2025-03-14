@@ -12,13 +12,27 @@ import Spatial
 import simd
 
 let maxFramesInFlight = 3
-let numVertices = 6
+
+let lampCount: Int = 2000
+let patelPerLamp: Int = 12
+let verticesPerLamp: Int = 6 * patelPerLamp  // 6 vertices per rectangle
+let numVertices: Int = lampCount * verticesPerLamp
+
+let verticalScale: Float = 0.4
+let upperRadius: Float = 0.14
+let lowerRadius: Float = 0.18
+
+struct Params {
+    var time: Float
+}
 
 @MainActor
 class TintRenderer {
     private let renderPipelineState: MTLRenderPipelineState & Sendable
 
-    private let uniformsBuffer: [MTLBuffer]
+    private var uniformsBuffer: [MTLBuffer]
+    /// a buffer to hold the vertices of the lamp
+    var lampVerticesBuffer: MTLBuffer!
 
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -26,6 +40,81 @@ class TintRenderer {
         }
 
         renderPipelineState = try Self.makePipelineDescriptor(layerRenderer: layerRenderer)
+        self.createLampVerticesBuffer(device: layerRenderer.device)
+    }
+
+    /// create and sets the vertices of the lamp
+    private func createLampVerticesBuffer(device: MTLDevice) {
+        let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        lampVerticesBuffer = device.makeBuffer(length: bufferLength)!
+        lampVerticesBuffer.label = "Lamp vertex buffer"
+        var lampVertices: UnsafeMutablePointer<Vertex> {
+            lampVerticesBuffer.contents().assumingMemoryBound(to: Vertex.self)
+        }
+
+        for i in 0..<lampCount {
+            // Random position offsets for each lamp
+            let xOffset = Float.random(in: -40...40)
+            let zOffset = Float.random(in: -40...2)
+            let yOffset = Float.random(in: 0...20)
+
+            let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+            // Random color for each lamp
+            let r = Float.random(in: 0.1...1.0)
+            let g = Float.random(in: 0.1...1.0)
+            let b = Float.random(in: 0.1...1.0)
+            let color = SIMD3<Float>(r, g, b)
+            let dimColor = color * 0.5
+            let baseIndex = i * verticesPerLamp
+
+            for p in 0..<patelPerLamp {
+                let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+                let nextAngle = Float(p + 1) * (2 * Float.pi / Float(patelPerLamp))
+
+                // Calculate the four corners of this rectangular petal
+                // Calculate the upper and lower points of petals on x-z plane
+                // upper ring
+                let upperEdge = SIMD3<Float>(
+                    cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
+                let upperEdgeNext = SIMD3<Float>(
+                    cos(nextAngle) * upperRadius, verticalScale, sin(nextAngle) * upperRadius)
+
+                // lower ring
+                let lowerEdge = SIMD3<Float>(
+                    cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
+                let lowerEdgeNext = SIMD3<Float>(
+                    cos(nextAngle) * lowerRadius, 0, sin(nextAngle) * lowerRadius)
+
+                let vertexBase = baseIndex + p * 6
+
+                // First triangle of rectangle (inner1, outer1, inner2)
+                lampVertices[vertexBase] = Vertex(
+                    position: upperEdge + lampPosition, color: color, seed: Float(i))
+                lampVertices[vertexBase + 1] = Vertex(
+                    position: lowerEdge + lampPosition,
+                    color: dimColor,
+                    seed: Float(i)
+                )
+                lampVertices[vertexBase + 2] = Vertex(
+                    position: upperEdgeNext + lampPosition,
+                    color: color, seed: Float(i)
+                )
+
+                // Second triangle of rectangle (inner2, outer1, outer2)
+                lampVertices[vertexBase + 3] = Vertex(
+                    position: upperEdgeNext + lampPosition,
+                    color: color, seed: Float(i)
+                )
+                lampVertices[vertexBase + 4] = Vertex(
+                    position: lowerEdge + lampPosition,
+                    color: dimColor, seed: Float(i)
+                )
+                lampVertices[vertexBase + 5] = Vertex(
+                    position: lowerEdgeNext + lampPosition,
+                    color: dimColor, seed: Float(i)
+                )
+            }
+        }
     }
 
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
@@ -51,6 +140,13 @@ class TintRenderer {
         mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
         mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
             MTLVertexStepFunction.perVertex
+        // add params for seed value
+        let nextOffset = offset + MemoryLayout<SIMD3<Float>>.stride
+        mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format =
+            MTLVertexFormat.float
+        mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = nextOffset
+        mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
+            BufferIndex.meshPositions.rawValue
 
         return mtlVertexDescriptor
     }
@@ -81,12 +177,21 @@ class TintRenderer {
             uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)])
     }
 
+    // in seconds
+    @RendererActor
+    func getTimeSinceStart() -> Float {
+        let time = DispatchTime.now().uptimeNanoseconds
+        let timeSinceStart = Float(time) / 1_000_000_000
+        return timeSinceStart
+    }
+
     @RendererActor
     func encodeDraw(
         _ drawCommand: TintDrawCommand,
         encoder: MTLRenderCommandEncoder,
         drawable: LayerRenderer.Drawable,
-        device: MTLDevice, tintValue: Float
+        device: MTLDevice, tintValue: Float,
+        buffer: MTLBuffer
     ) {
         encoder.setCullMode(.none)
 
@@ -103,44 +208,31 @@ class TintRenderer {
             offset: 0,
             index: BufferIndex.uniforms.rawValue)
 
-        let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        // let bufferLength = MemoryLayout<Vertex>.stride * numVertices
 
-        let quadVertexBuffer: MTLBuffer = device.makeBuffer(length: bufferLength)!
-        quadVertexBuffer.label = "Quad vertex buffer"
-        var quadVertices: UnsafeMutablePointer<Vertex> {
-            quadVertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
-        }
-
-        let roseColor = SIMD3<Float>(1, 0.1, 0.25)
-        let horizontalScale: Float = 1.0
-        let verticalScale: Float = 1.0
-        let depth: Float = -8.0
-
-        // Lower triangle
-        quadVertices[0] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[1] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[2] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
-        // Upper triangle
-        quadVertices[3] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[4] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[5] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
         encoder.setVertexBuffer(
-            quadVertexBuffer,
+            buffer,
             offset: 0,
             index: BufferIndex.meshPositions.rawValue)
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: numVertices)
+
+        var params_data = Params(time: getTimeSinceStart())
+
+        let params: any MTLBuffer = device.makeBuffer(
+            bytes: &params_data,
+            length: MemoryLayout<Params>.size,
+            options: .storageModeShared
+        )!
+
+        encoder.setVertexBuffer(
+            params,
+            offset: 0,
+            index: BufferIndex.params.rawValue)
+
+        encoder.drawPrimitives(
+            type: .triangle,
+            vertexStart: 0,
+            vertexCount: numVertices
+        )
     }
 
     @RendererActor
