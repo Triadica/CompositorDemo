@@ -12,13 +12,18 @@ import Spatial
 import simd
 
 let maxFramesInFlight = 3
-let numVertices = 6
+
+let lampCount: Int = 10
+let verticesPerLamp: Int = 48  // 8 rectangles * 6 vertices per rectangle
+let numVertices: Int = lampCount * verticesPerLamp
 
 @MainActor
 class TintRenderer {
     private let renderPipelineState: MTLRenderPipelineState & Sendable
 
-    private let uniformsBuffer: [MTLBuffer]
+    private var uniformsBuffer: [MTLBuffer]
+    /// a buffer to hold the vertices of the lamp
+    var lampVerticesBuffer: MTLBuffer!
 
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -26,6 +31,81 @@ class TintRenderer {
         }
 
         renderPipelineState = try Self.makePipelineDescriptor(layerRenderer: layerRenderer)
+        self.createLampVerticesBuffer(device: layerRenderer.device)
+    }
+
+    /// create and sets the vertices of the lamp
+    private func createLampVerticesBuffer(device: MTLDevice) {
+        let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        lampVerticesBuffer = device.makeBuffer(length: bufferLength)!
+        lampVerticesBuffer.label = "Lamp vertex buffer"
+        var lampVertices: UnsafeMutablePointer<Vertex> {
+            lampVerticesBuffer.contents().assumingMemoryBound(to: Vertex.self)
+        }
+
+        let horizontalScale: Float = 6.0
+        let verticalScale: Float = 2.0
+        let depth: Float = -6.0
+
+        for i in 0..<lampCount {
+            // Random position offsets for each lamp
+            let xOffset = Float.random(in: -5...5)
+            let yOffset = Float.random(in: -5...5)
+            let zOffset = Float.random(in: -2...2)
+
+            let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+            // Random color for each lamp
+            let r = Float.random(in: 0.5...1.0)
+            let g = Float.random(in: 0.0...0.5)
+            let b = Float.random(in: 0.1...0.8)
+            let roseColor = SIMD3<Float>(r, g, b)
+            let baseIndex = i * verticesPerLamp
+            let petals = 8
+            let radius: Float = 0.5
+
+            for p in 0..<petals {
+                let angle = Float(p) * (2 * Float.pi / Float(petals))
+                let nextAngle = Float(p + 1) * (2 * Float.pi / Float(petals))
+
+                // Calculate the four corners of this rectangular petal
+                let innerPoint1 = SIMD3<Float>(
+                    cos(angle) * radius, sin(angle) * radius, depth)
+                let innerPoint2 = SIMD3<Float>(
+                    cos(nextAngle) * radius, sin(nextAngle) * radius, depth)
+                let outerPoint1 = SIMD3<Float>(
+                    cos(angle) * radius * 2, sin(angle) * radius * 2, depth)
+                let outerPoint2 = SIMD3<Float>(
+                    cos(nextAngle) * radius * 2, sin(nextAngle) * radius * 2, depth)
+
+                let vertexBase = baseIndex + p * 6
+
+                // First triangle of rectangle (inner1, outer1, inner2)
+                lampVertices[vertexBase] = Vertex(
+                    position: innerPoint1 + lampPosition, color: roseColor)
+                lampVertices[vertexBase + 1] = Vertex(
+                    position: outerPoint1 + lampPosition,
+                    color: roseColor
+                )
+                lampVertices[vertexBase + 2] = Vertex(
+                    position: innerPoint2 + lampPosition,
+                    color: roseColor
+                )
+
+                // Second triangle of rectangle (inner2, outer1, outer2)
+                lampVertices[vertexBase + 3] = Vertex(
+                    position: innerPoint2 + lampPosition,
+                    color: roseColor
+                )
+                lampVertices[vertexBase + 4] = Vertex(
+                    position: outerPoint1 + lampPosition,
+                    color: roseColor
+                )
+                lampVertices[vertexBase + 5] = Vertex(
+                    position: outerPoint2 + lampPosition,
+                    color: roseColor
+                )
+            }
+        }
     }
 
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
@@ -86,7 +166,8 @@ class TintRenderer {
         _ drawCommand: TintDrawCommand,
         encoder: MTLRenderCommandEncoder,
         drawable: LayerRenderer.Drawable,
-        device: MTLDevice, tintValue: Float
+        device: MTLDevice, tintValue: Float,
+        buffer: MTLBuffer
     ) {
         encoder.setCullMode(.none)
 
@@ -103,44 +184,17 @@ class TintRenderer {
             offset: 0,
             index: BufferIndex.uniforms.rawValue)
 
-        let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        // let bufferLength = MemoryLayout<Vertex>.stride * numVertices
 
-        let quadVertexBuffer: MTLBuffer = device.makeBuffer(length: bufferLength)!
-        quadVertexBuffer.label = "Quad vertex buffer"
-        var quadVertices: UnsafeMutablePointer<Vertex> {
-            quadVertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
-        }
-
-        let roseColor = SIMD3<Float>(1, 0.1, 0.25)
-        let horizontalScale: Float = 1.0
-        let verticalScale: Float = 1.0
-        let depth: Float = -8.0
-
-        // Lower triangle
-        quadVertices[0] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[1] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[2] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
-        // Upper triangle
-        quadVertices[3] = Vertex(
-            position: SIMD3<Float>(-1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[4] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (-1 * verticalScale), depth),
-            color: roseColor)
-        quadVertices[5] = Vertex(
-            position: SIMD3<Float>(1 * horizontalScale, (1 * verticalScale), depth),
-            color: roseColor)
         encoder.setVertexBuffer(
-            quadVertexBuffer,
+            buffer,
             offset: 0,
             index: BufferIndex.meshPositions.rawValue)
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: numVertices)
+        encoder.drawPrimitives(
+            type: .triangle,
+            vertexStart: 0,
+            vertexCount: numVertices
+        )
     }
 
     @RendererActor
