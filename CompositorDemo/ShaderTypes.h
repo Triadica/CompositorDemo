@@ -25,12 +25,14 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
   BufferIndexMeshPositions = 0,
   BufferIndexUniforms = 1,
   BufferIndexTintUniforms = 2,
+  BufferIndexParams = 3,
   BufferIndexCount
 };
 
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
   VertexAttributePosition = 0,
   VertexAttributeColor = 1,
+  VertexAttributeSeed = 2,
 };
 
 typedef struct {
@@ -49,6 +51,7 @@ typedef struct {
 typedef struct {
   simd_float3 position;
   simd_float3 color;
+  float seed;
 } Vertex;
 
 #endif /* ShaderTypes_h */

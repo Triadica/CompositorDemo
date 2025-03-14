@@ -20,24 +20,33 @@ using namespace metal;
 typedef struct {
   float3 position [[attribute(VertexAttributePosition)]];
   float3 color [[attribute(VertexAttributeColor)]];
+  float seed [[attribute(VertexAttributeSeed)]];
 } VertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
+
 } TintInOut;
 
-vertex TintInOut tintVertexShader(VertexIn in [[stage_in]],
-                                  ushort amp_id [[amplification_id]],
-                                  constant Uniforms &uniformsArray
-                                  [[buffer(BufferIndexUniforms)]],
-                                  constant TintUniforms &tintUniform
-                                  [[buffer(BufferIndexTintUniforms)]]) {
+typedef struct {
+  float time;
+} Params;
+
+static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
+
+vertex TintInOut tintVertexShader(
+    VertexIn in [[stage_in]], ushort amp_id [[amplification_id]],
+    constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
+    constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
+    constant Params &params [[buffer(BufferIndexParams)]]) {
   TintInOut out;
 
   UniformsPerView uniformsPerView = uniformsArray.perView[amp_id];
-
-  float4 position = float4(in.position, 1.0);
+  float seed = fract(in.seed / 10.) * 10.;
+  float speed = random1D(seed) + 0.4;
+  float yFloating = sin((speed * params.time) * 0.02) * 10.0;
+  float4 position = float4(in.position, 1.0) + float4(0.0, yFloating, 0.0, 0.0);
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
