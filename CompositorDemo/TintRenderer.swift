@@ -15,8 +15,15 @@ let maxFramesInFlight = 3
 
 let lampCount: Int = 2000
 let patelPerLamp: Int = 12
-let verticesPerLamp: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-let numVertices: Int = lampCount * verticesPerLamp
+let verticesPerLamp = patelPerLamp * 2 + 1
+let verticesCount = verticesPerLamp * lampCount
+
+let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
+let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
+// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
+let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
+// prepare the indices for the lamp
+let indexesCount: Int = lampCount * indexesPerLamp
 
 let verticalScale: Float = 0.4
 let upperRadius: Float = 0.14
@@ -48,7 +55,7 @@ class TintRenderer {
 
     /// create and sets the vertices of the lamp
     private func createLampVerticesBuffer(device: MTLDevice) {
-        let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        let bufferLength = MemoryLayout<Vertex>.stride * verticesCount
         lampVerticesBuffer = device.makeBuffer(length: bufferLength)!
         lampVerticesBuffer.label = "Lamp vertex buffer"
         var lampVertices: UnsafeMutablePointer<Vertex> {
@@ -72,63 +79,76 @@ class TintRenderer {
 
             for p in 0..<patelPerLamp {
                 let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
-                let nextAngle = Float(p + 1) * (2 * Float.pi / Float(patelPerLamp))
 
                 // Calculate the four corners of this rectangular petal
                 // Calculate the upper and lower points of petals on x-z plane
                 // upper ring
                 let upperEdge = SIMD3<Float>(
                     cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
-                let upperEdgeNext = SIMD3<Float>(
-                    cos(nextAngle) * upperRadius, verticalScale, sin(nextAngle) * upperRadius)
 
                 // lower ring
                 let lowerEdge = SIMD3<Float>(
                     cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
-                let lowerEdgeNext = SIMD3<Float>(
-                    cos(nextAngle) * lowerRadius, 0, sin(nextAngle) * lowerRadius)
 
-                let vertexBase = baseIndex + p * 6
+                let vertexBase = baseIndex + p
 
                 // First triangle of rectangle (inner1, outer1, inner2)
                 lampVertices[vertexBase] = Vertex(
                     position: upperEdge + lampPosition, color: color, seed: Float(i))
-                lampVertices[vertexBase + 1] = Vertex(
+                lampVertices[vertexBase + patelPerLamp] = Vertex(
                     position: lowerEdge + lampPosition,
                     color: dimColor,
                     seed: Float(i)
                 )
-                lampVertices[vertexBase + 2] = Vertex(
-                    position: upperEdgeNext + lampPosition,
-                    color: color, seed: Float(i)
-                )
-
-                // Second triangle of rectangle (inner2, outer1, outer2)
-                lampVertices[vertexBase + 3] = Vertex(
-                    position: upperEdgeNext + lampPosition,
-                    color: color, seed: Float(i)
-                )
-                lampVertices[vertexBase + 4] = Vertex(
-                    position: lowerEdge + lampPosition,
-                    color: dimColor, seed: Float(i)
-                )
-                lampVertices[vertexBase + 5] = Vertex(
-                    position: lowerEdgeNext + lampPosition,
-                    color: dimColor, seed: Float(i)
-                )
             }
+            // top center of the lamp
+            lampVertices[baseIndex + patelPerLamp * 2] = Vertex(
+                position: SIMD3<Float>(0, verticalScale, 0) + lampPosition,
+                color: color * 1.2,
+                seed: Float(i)
+            )
         }
     }
 
     private func createLampIndexBuffer(device: MTLDevice) {
-        let bufferLength = MemoryLayout<UInt32>.stride * numVertices
+        let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
         lampIndexBuffer = device.makeBuffer(length: bufferLength)!
         lampIndexBuffer.label = "Lamp index buffer"
 
         let lampIndices = lampIndexBuffer.contents().bindMemory(
-            to: UInt32.self, capacity: numVertices)
-        for i in 0..<numVertices {
-            lampIndices[i] = UInt32(i)
+            to: UInt32.self, capacity: indexesCount)
+        for i in 0..<lampCount {
+            // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
+            let verticesBase = i * verticesPerLamp
+
+            let indexBase = i * indexesPerLamp
+            // rect angles of patel size
+            for p in 0..<patelPerLamp {
+                let vertexBase = verticesBase + p
+                let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
+                let nextIndexBase = indexBase + p * 6
+                // First triangle of rectangle (inner1, outer1, inner2)
+                lampIndices[nextIndexBase] = UInt32(vertexBase)
+                lampIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
+                lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+
+                // Second triangle of rectangle (inner2, outer1, outer2)
+                lampIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
+                lampIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
+                lampIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
+            }
+            // cover the top of the lamp with triangles
+            let topCenter = verticesBase + patelPerLamp * 2
+            let topCenterIndexBase = indexBase + rectIndexesPerRect
+            for p in 0..<patelPerLamp {
+                let vertexBase = verticesBase + p
+                let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
+                let nextIndexBase = topCenterIndexBase + p * 3
+                // First triangle of rectangle (inner1, outer1, inner2)
+                lampIndices[nextIndexBase] = UInt32(vertexBase)
+                lampIndices[nextIndexBase + 1] = UInt32(topCenter)
+                lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+            }
         }
 
     }
@@ -247,7 +267,7 @@ class TintRenderer {
 
         encoder.drawIndexedPrimitives(
             type: .triangle,
-            indexCount: numVertices,
+            indexCount: indexesCount,
             indexType: .uint32,
             indexBuffer: indexBuffer,
             indexBufferOffset: 0
@@ -278,7 +298,7 @@ struct TintDrawCommand {
 
     @MainActor
     fileprivate init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer) {
-        self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: numVertices)
+        self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: verticesCount)  // not really used
         self.frameIndex = frameIndex
         self.uniforms = uniforms
     }
