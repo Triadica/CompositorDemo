@@ -245,7 +245,10 @@ extension Renderer {
         }
         await tintRenderer.encodeDraw(
             tintDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
-            tintValue: appModel.tintOpacity, buffer: tintRenderer.lampVerticesBuffer)
+            tintValue: appModel.tintOpacity,
+            buffer: tintRenderer.lampVerticesBuffer,
+            indexBuffer: tintRenderer.lampIndexBuffer
+        )
 
         renderEncoder.popDebugGroup()
         renderEncoder.endEncoding()

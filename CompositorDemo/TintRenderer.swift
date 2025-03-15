@@ -34,6 +34,8 @@ class TintRenderer {
     /// a buffer to hold the vertices of the lamp
     var lampVerticesBuffer: MTLBuffer!
 
+    var lampIndexBuffer: MTLBuffer!
+
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
             layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
@@ -41,6 +43,7 @@ class TintRenderer {
 
         renderPipelineState = try Self.makePipelineDescriptor(layerRenderer: layerRenderer)
         self.createLampVerticesBuffer(device: layerRenderer.device)
+        self.createLampIndexBuffer(device: layerRenderer.device)
     }
 
     /// create and sets the vertices of the lamp
@@ -117,6 +120,19 @@ class TintRenderer {
         }
     }
 
+    private func createLampIndexBuffer(device: MTLDevice) {
+        let bufferLength = MemoryLayout<UInt32>.stride * numVertices
+        lampIndexBuffer = device.makeBuffer(length: bufferLength)!
+        lampIndexBuffer.label = "Lamp index buffer"
+
+        let lampIndices = lampIndexBuffer.contents().bindMemory(
+            to: UInt32.self, capacity: numVertices)
+        for i in 0..<numVertices {
+            lampIndices[i] = UInt32(i)
+        }
+
+    }
+
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
         // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
@@ -191,7 +207,8 @@ class TintRenderer {
         encoder: MTLRenderCommandEncoder,
         drawable: LayerRenderer.Drawable,
         device: MTLDevice, tintValue: Float,
-        buffer: MTLBuffer
+        buffer: MTLBuffer,
+        indexBuffer: MTLBuffer
     ) {
         encoder.setCullMode(.none)
 
@@ -228,10 +245,12 @@ class TintRenderer {
             offset: 0,
             index: BufferIndex.params.rawValue)
 
-        encoder.drawPrimitives(
+        encoder.drawIndexedPrimitives(
             type: .triangle,
-            vertexStart: 0,
-            vertexCount: numVertices
+            indexCount: numVertices,
+            indexType: .uint32,
+            indexBuffer: indexBuffer,
+            indexBufferOffset: 0
         )
     }
 
