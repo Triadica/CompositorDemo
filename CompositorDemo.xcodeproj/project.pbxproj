@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A45F3A92D889E1B0042486A /* LampsRenderer.swift */; };
 		D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274292BC7318900E194CF /* InteractionApp.swift */; };
 		D112742E2BC7318900E194CF /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742D2BC7318900E194CF /* AppModel.swift */; };
 		D11274302BC7318900E194CF /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742F2BC7318900E194CF /* Renderer.swift */; };
@@ -16,13 +17,13 @@
 		D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274402BC734AD00E194CF /* InteractionScene.swift */; };
 		D11274462BC734AD00E194CF /* InteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274412BC734AD00E194CF /* InteractionView.swift */; };
 		D11274472BC734AD00E194CF /* Uniforms.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274442BC734AD00E194CF /* Uniforms.swift */; };
-		D117F6852BE8343800D8FA83 /* TintRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D117F6842BE8343800D8FA83 /* TintRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0BE4D83FD393EC90F51070F3 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		33D190EEBFF9B25310AB436E /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		3E2802D1CC6386AC2E5A3992 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		9A45F3A92D889E1B0042486A /* LampsRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LampsRenderer.swift; sourceTree = "<group>"; };
 		D11274222BC7318900E194CF /* CompositorDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D11274292BC7318900E194CF /* InteractionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionApp.swift; sourceTree = "<group>"; };
 		D112742D2BC7318900E194CF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -37,7 +38,6 @@
 		D11274412BC734AD00E194CF /* InteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionView.swift; sourceTree = "<group>"; };
 		D11274432BC734AD00E194CF /* PathProperties.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PathProperties.h; sourceTree = "<group>"; };
 		D11274442BC734AD00E194CF /* Uniforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Uniforms.swift; sourceTree = "<group>"; };
-		D117F6842BE8343800D8FA83 /* TintRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TintRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,7 +97,7 @@
 				D11274412BC734AD00E194CF /* InteractionView.swift */,
 				D11274432BC734AD00E194CF /* PathProperties.h */,
 				D112742F2BC7318900E194CF /* Renderer.swift */,
-				D117F6842BE8343800D8FA83 /* TintRenderer.swift */,
+				9A45F3A92D889E1B0042486A /* LampsRenderer.swift */,
 				D11274442BC734AD00E194CF /* Uniforms.swift */,
 				D11274312BC7318900E194CF /* Shaders.metal */,
 				D11274332BC7318900E194CF /* ShaderTypes.h */,
@@ -188,9 +188,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
+				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */,
-				D117F6852BE8343800D8FA83 /* TintRenderer.swift in Sources */,
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				D11274472BC734AD00E194CF /* Uniforms.swift in Sources */,

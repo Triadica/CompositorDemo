@@ -34,7 +34,7 @@ struct Params {
 }
 
 @MainActor
-class TintRenderer {
+class LampsRenderer {
     private let renderPipelineState: MTLRenderPipelineState & Sendable
 
     private var uniformsBuffer: [MTLBuffer]
@@ -195,14 +195,14 @@ class TintRenderer {
 
         let library = layerRenderer.device.makeDefaultLibrary()!
 
-        let vertexFunction = library.makeFunction(name: "tintVertexShader")
-        let fragmentFunction = library.makeFunction(name: "tintFragmentShader")
+        let vertexFunction = library.makeFunction(name: "lampsVertexShader")
+        let fragmentFunction = library.makeFunction(name: "lampsFragmentShader")
 
         pipelineDescriptor.fragmentFunction = fragmentFunction
         pipelineDescriptor.vertexFunction = vertexFunction
 
         pipelineDescriptor.label = "TriangleRenderPipeline"
-        pipelineDescriptor.vertexDescriptor = TintRenderer.buildMetalVertexDescriptor()
+        pipelineDescriptor.vertexDescriptor = LampsRenderer.buildMetalVertexDescriptor()
 
         return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }
@@ -234,9 +234,9 @@ class TintRenderer {
 
         encoder.setRenderPipelineState(renderPipelineState)
 
-        var tintUniform: TintUniforms = TintUniforms(tintOpacity: tintValue)
+        var demoUniform: TintUniforms = TintUniforms(tintOpacity: tintValue)
         encoder.setVertexBytes(
-            &tintUniform,
+            &demoUniform,
             length: MemoryLayout<TintUniforms>.size,
             index: BufferIndex.tintUniforms.rawValue)
 

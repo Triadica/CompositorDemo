@@ -18,26 +18,26 @@ struct ImmersiveInteractionScene: Scene {
         ImmersiveSpace(id: Self.id) {
             CompositorLayer(configuration: ContentStageConfiguration()) { layerRenderer in
 
-                let tintRenderer: TintRenderer
+                let lampsRenderer: LampsRenderer
                 do {
-                    tintRenderer = try TintRenderer(layerRenderer: layerRenderer)
+                    lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
                 } catch {
-                    fatalError("Failed to create tint renderer \(error)")
+                    fatalError("Failed to create lamps renderer \(error)")
                 }
 
                 Task(priority: .high) { @RendererActor in
                     Task { @MainActor in
-                        appModel.tintRenderer = tintRenderer
+                        appModel.lampsRenderer = lampsRenderer
                     }
 
                     let renderer = try await Renderer(
                         layerRenderer,
                         appModel,
-                        tintRenderer)
+                        lampsRenderer)
                     try await renderer.renderLoop()
 
                     Task { @MainActor in
-                        appModel.tintRenderer = nil
+                        appModel.lampsRenderer = nil
                     }
                 }
             }

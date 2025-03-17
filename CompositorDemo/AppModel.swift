@@ -20,6 +20,6 @@ public class AppModel {
     public var upperLimbVisibility: Visibility = .visible
 
     // Content rendering
-    public var tintOpacity: Float = 0.8
-    var tintRenderer: TintRenderer?
+    public var opacity: Float = 0.8
+    var lampsRenderer: LampsRenderer?
 }

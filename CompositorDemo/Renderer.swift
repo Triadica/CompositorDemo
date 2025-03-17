@@ -41,7 +41,7 @@ class Renderer {
     private let appModel: AppModel
 
     // Renderers
-    private let tintRenderer: TintRenderer
+    private let lampsRenderer: LampsRenderer
 
     // Metal
     private let device: MTLDevice
@@ -59,11 +59,11 @@ class Renderer {
     init(
         _ layerRenderer: LayerRenderer,
         _ appModel: AppModel,
-        _ tintRenderer: TintRenderer
+        _ lampsRenderer: LampsRenderer
     ) throws {
         self.appModel = appModel
 
-        self.tintRenderer = tintRenderer
+        self.lampsRenderer = lampsRenderer
 
         self.layerRenderer = layerRenderer
         self.device = layerRenderer.device
@@ -208,8 +208,8 @@ extension Renderer {
         guard let timing = frame.predictTiming() else { return }
 
         // Update scene and generate draw commands.
-        let tintDrawCommand = try await Task { @MainActor in
-            return try tintRenderer.drawCommand(frame: frame)
+        let lampsDrawCommand = try await Task { @MainActor in
+            return try lampsRenderer.drawCommand(frame: frame)
         }.result.get()
 
         // Query the drawable after scene update to avoid blocking on the drawable.
@@ -243,11 +243,11 @@ extension Renderer {
             }
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
-        await tintRenderer.encodeDraw(
-            tintDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
-            tintValue: appModel.tintOpacity,
-            buffer: tintRenderer.lampVerticesBuffer,
-            indexBuffer: tintRenderer.lampIndexBuffer
+        await lampsRenderer.encodeDraw(
+            lampsDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
+            tintValue: appModel.opacity,
+            buffer: lampsRenderer.lampVerticesBuffer,
+            indexBuffer: lampsRenderer.lampIndexBuffer
         )
 
         renderEncoder.popDebugGroup()
@@ -269,7 +269,7 @@ extension Renderer {
         drawable.deviceAnchor = deviceAnchor
 
         // Update the renderer uniforms using the latest device anchor.
-        tintRenderer.updateUniformBuffers(tintDrawCommand, drawable: drawable)
+        lampsRenderer.updateUniformBuffers(lampsDrawCommand, drawable: drawable)
 
         drawable.encodePresent(commandBuffer: commandBuffer)
 

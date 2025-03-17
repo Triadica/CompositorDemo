@@ -35,7 +35,7 @@ typedef struct {
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
-vertex TintInOut tintVertexShader(
+vertex TintInOut lampsVertexShader(
     VertexIn in [[stage_in]], ushort amp_id [[amplification_id]],
     constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
@@ -55,7 +55,7 @@ vertex TintInOut tintVertexShader(
   return out;
 }
 
-fragment float4 tintFragmentShader(TintInOut in [[stage_in]]) {
+fragment float4 lampsFragmentShader(TintInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

@@ -45,20 +45,20 @@ struct InteractionView: View {
     @State private var selectedLVState: VisibilityState = .visibleState
     @State private var selectedIStyle: IStyle = .mixedStyle
 
-    @State private var tintOpacity = 0.8
+    @State private var opacity = 0.8
 
     var body: some View {
         VStack {
             if appModel.showImmersiveSpace {
                 VStack {
-                    Slider(value: $tintOpacity, in: 0...1) {
+                    Slider(value: $opacity, in: 0...1) {
                         Text("Tint Opacity")
                     } minimumValueLabel: {
                         Text("0")
                     } maximumValueLabel: {
                         Text("1")
                     }
-                    Text("Tint Opacity \(tintOpacity)")
+                    Text("Tint Opacity \(opacity)")
                         .fontWeight(.semibold)
                         .padding(20)
 
@@ -99,8 +99,8 @@ struct InteractionView: View {
         .onChange(of: selectedLVState) { _, newState in
             appModel.upperLimbVisibility = newState.state
         }
-        .onChange(of: tintOpacity) { _, newState in
-            appModel.tintOpacity = Float(tintOpacity)
+        .onChange(of: opacity) { _, newState in
+            appModel.opacity = Float(opacity)
         }
         .onChange(of: selectedIStyle) { _, newStyle in
             appModel.immersionStyle = newStyle.style
