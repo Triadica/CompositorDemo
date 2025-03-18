@@ -11,6 +11,41 @@ import MetalKit
 import Spatial
 import simd
 
+@MainActor
+protocol CustomRenderer {
+    func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand
+    func encodeDraw(
+        _ drawCommand: TintDrawCommand, encoder: MTLRenderCommandEncoder,
+        drawable: LayerRenderer.Drawable,
+        device: MTLDevice, tintValue: Float, buffer: MTLBuffer, indexBuffer: MTLBuffer
+    )
+    func updateUniformBuffers(_ drawCommand: TintDrawCommand, drawable: LayerRenderer.Drawable)
+
+    var vertexBuffer: MTLBuffer! { get set }
+    var indexBuffer: MTLBuffer! { get set }
+
+}
+
+@RendererActor
+struct TintDrawCommand {
+    @RendererActor
+    fileprivate struct DrawCommand {
+        let buffer: MTLBuffer
+        let vertexCount: Int
+    }
+
+    fileprivate let drawCommand: DrawCommand
+    let frameIndex: LayerFrameIndex
+    let uniforms: MTLBuffer & Sendable
+
+    @MainActor
+    init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer) {
+        self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: verticesCount)  // not really used
+        self.frameIndex = frameIndex
+        self.uniforms = uniforms
+    }
+}
+
 extension MemoryLayout {
     static var uniformStride: Int {
         // The 256 byte aligned size of the uniform structure.
@@ -41,7 +76,7 @@ class Renderer {
     private let appModel: AppModel
 
     // Renderers
-    private let lampsRenderer: LampsRenderer
+    private let customRenderer: CustomRenderer
 
     // Metal
     private let device: MTLDevice
@@ -59,11 +94,11 @@ class Renderer {
     init(
         _ layerRenderer: LayerRenderer,
         _ appModel: AppModel,
-        _ lampsRenderer: LampsRenderer
+        _ customRenderer: CustomRenderer
     ) throws {
         self.appModel = appModel
 
-        self.lampsRenderer = lampsRenderer
+        self.customRenderer = customRenderer
 
         self.layerRenderer = layerRenderer
         self.device = layerRenderer.device
@@ -209,7 +244,7 @@ extension Renderer {
 
         // Update scene and generate draw commands.
         let lampsDrawCommand = try await Task { @MainActor in
-            return try lampsRenderer.drawCommand(frame: frame)
+            return try await customRenderer.drawCommand(frame: frame)
         }.result.get()
 
         // Query the drawable after scene update to avoid blocking on the drawable.
@@ -243,11 +278,11 @@ extension Renderer {
             }
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
-        await lampsRenderer.encodeDraw(
+        await customRenderer.encodeDraw(
             lampsDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
             tintValue: appModel.opacity,
-            buffer: lampsRenderer.lampVerticesBuffer,
-            indexBuffer: lampsRenderer.lampIndexBuffer
+            buffer: customRenderer.vertexBuffer,
+            indexBuffer: customRenderer.indexBuffer
         )
 
         renderEncoder.popDebugGroup()
@@ -269,7 +304,7 @@ extension Renderer {
         drawable.deviceAnchor = deviceAnchor
 
         // Update the renderer uniforms using the latest device anchor.
-        lampsRenderer.updateUniformBuffers(lampsDrawCommand, drawable: drawable)
+        await customRenderer.updateUniformBuffers(lampsDrawCommand, drawable: drawable)
 
         drawable.encodePresent(commandBuffer: commandBuffer)
 

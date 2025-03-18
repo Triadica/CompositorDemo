@@ -34,14 +34,14 @@ struct Params {
 }
 
 @MainActor
-class LampsRenderer {
+class LampsRenderer: CustomRenderer {
     private let renderPipelineState: MTLRenderPipelineState & Sendable
 
     private var uniformsBuffer: [MTLBuffer]
     /// a buffer to hold the vertices of the lamp
-    var lampVerticesBuffer: MTLBuffer!
+    var vertexBuffer: MTLBuffer!
 
-    var lampIndexBuffer: MTLBuffer!
+    var indexBuffer: MTLBuffer!
 
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -56,10 +56,10 @@ class LampsRenderer {
     /// create and sets the vertices of the lamp
     private func createLampVerticesBuffer(device: MTLDevice) {
         let bufferLength = MemoryLayout<Vertex>.stride * verticesCount
-        lampVerticesBuffer = device.makeBuffer(length: bufferLength)!
-        lampVerticesBuffer.label = "Lamp vertex buffer"
+        vertexBuffer = device.makeBuffer(length: bufferLength)!
+        vertexBuffer.label = "Lamp vertex buffer"
         var lampVertices: UnsafeMutablePointer<Vertex> {
-            lampVerticesBuffer.contents().assumingMemoryBound(to: Vertex.self)
+            vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
         }
 
         for i in 0..<lampCount {
@@ -112,10 +112,10 @@ class LampsRenderer {
 
     private func createLampIndexBuffer(device: MTLDevice) {
         let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
-        lampIndexBuffer = device.makeBuffer(length: bufferLength)!
-        lampIndexBuffer.label = "Lamp index buffer"
+        indexBuffer = device.makeBuffer(length: bufferLength)!
+        indexBuffer.label = "Lamp index buffer"
 
-        let lampIndices = lampIndexBuffer.contents().bindMemory(
+        let lampIndices = indexBuffer.contents().bindMemory(
             to: UInt32.self, capacity: indexesCount)
         for i in 0..<lampCount {
             // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
@@ -214,14 +214,12 @@ class LampsRenderer {
     }
 
     // in seconds
-    @RendererActor
     func getTimeSinceStart() -> Float {
         let time = DispatchTime.now().uptimeNanoseconds
         let timeSinceStart = Float(time) / 1_000_000_000
         return timeSinceStart
     }
 
-    @RendererActor
     func encodeDraw(
         _ drawCommand: TintDrawCommand,
         encoder: MTLRenderCommandEncoder,
@@ -274,32 +272,11 @@ class LampsRenderer {
         )
     }
 
-    @RendererActor
     func updateUniformBuffers(
         _ drawCommand: TintDrawCommand,
         drawable: LayerRenderer.Drawable
     ) {
         drawCommand.uniforms.contents().assumingMemoryBound(to: Uniforms.self).pointee = Uniforms(
             drawable: drawable)
-    }
-}
-
-@RendererActor
-struct TintDrawCommand {
-    @RendererActor
-    fileprivate struct DrawCommand {
-        let buffer: MTLBuffer
-        let vertexCount: Int
-    }
-
-    fileprivate let drawCommand: DrawCommand
-    fileprivate let frameIndex: LayerFrameIndex
-    fileprivate let uniforms: MTLBuffer & Sendable
-
-    @MainActor
-    fileprivate init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer) {
-        self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: verticesCount)  // not really used
-        self.frameIndex = frameIndex
-        self.uniforms = uniforms
     }
 }
