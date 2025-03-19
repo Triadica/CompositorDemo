@@ -33,10 +33,25 @@ typedef struct {
   float time;
 } Params;
 
+struct LampBase {
+  float3 position;
+  float3 color;
+  float seed;
+};
+
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
+kernel void lampsComputeShader(
+    device LampBase *lamps [[buffer(0)]],
+    device LampBase *outputLamps [[buffer(1)]],
+    constant Params &params [[buffer(2)]],
+    uint id [[thread_position_in_grid]]) {
+  // TODO
+}
+
 vertex TintInOut lampsVertexShader(
-    VertexIn in [[stage_in]], ushort amp_id [[amplification_id]],
+    VertexIn in [[stage_in]],
+    ushort amp_id [[amplification_id]],
     constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]]) {

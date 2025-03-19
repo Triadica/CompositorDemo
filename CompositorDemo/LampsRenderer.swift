@@ -29,6 +29,12 @@ let verticalScale: Float = 0.4
 let upperRadius: Float = 0.14
 let lowerRadius: Float = 0.18
 
+struct LampBase {
+    var position: SIMD3<Float>
+    var color: SIMD3<Float>
+    var seed: Float
+}
+
 struct Params {
     var time: Float
 }
@@ -43,14 +49,28 @@ class LampsRenderer: CustomRenderer {
 
     var indexBuffer: MTLBuffer!
 
+    let computeDevice: MTLDevice
+    var computeBuffer: PingPongBuffer?
+    let computePipeLine: MTLComputePipelineState
+    let computeCommandQueue: MTLCommandQueue
+
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
             layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
         }
 
-        renderPipelineState = try Self.makePipelineDescriptor(layerRenderer: layerRenderer)
+        renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
+
+        self.computeDevice = MTLCreateSystemDefaultDevice()!
+        let library = computeDevice.makeDefaultLibrary()!
+        let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
+        computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
+
+        computeCommandQueue = computeDevice.makeCommandQueue()!
+
         self.createLampVerticesBuffer(device: layerRenderer.device)
         self.createLampIndexBuffer(device: layerRenderer.device)
+        self.createLampComputeBuffer(device: layerRenderer.device)
     }
 
     /// create and sets the vertices of the lamp
@@ -153,6 +173,32 @@ class LampsRenderer: CustomRenderer {
 
     }
 
+    private func createLampComputeBuffer(device: MTLDevice) {
+        let bufferLength = MemoryLayout<LampBase>.stride * lampCount
+        computeBuffer = PingPongBuffer(device: device, length: bufferLength)
+        computeBuffer?.addLabel("Lamp compute buffer")
+
+        let contents = computeBuffer?.currentBuffer.contents()
+        let lampBase = contents!.bindMemory(to: LampBase.self, capacity: lampCount)
+
+        for i in 0..<lampCount {
+            // Random position offsets for each lamp
+            let xOffset = Float.random(in: -40...40)
+            let zOffset = Float.random(in: -40...2)
+            let yOffset = Float.random(in: 0...20)
+
+            let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+            // Random color for each lamp
+            let r = Float.random(in: 0.1...1.0)
+            let g = Float.random(in: 0.1...1.0)
+            let b = Float.random(in: 0.1...1.0)
+            let color = SIMD3<Float>(r, g, b)
+            let dimColor = color * 0.5
+
+            lampBase[i] = LampBase(position: lampPosition, color: color, seed: Float(i))
+        }
+    }
+
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
         // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
@@ -187,7 +233,7 @@ class LampsRenderer: CustomRenderer {
         return mtlVertexDescriptor
     }
 
-    private static func makePipelineDescriptor(layerRenderer: LayerRenderer) throws
+    private static func makeRenderPipelineDescriptor(layerRenderer: LayerRenderer) throws
         -> MTLRenderPipelineState
     {
         let pipelineDescriptor = Renderer.defaultRenderPipelineDescriptor(
@@ -211,6 +257,33 @@ class LampsRenderer: CustomRenderer {
         return TintDrawCommand(
             frameIndex: frame.frameIndex,
             uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)])
+    }
+
+    func computeCommandCommit() {
+        guard let computeBuffer: PingPongBuffer = computeBuffer,
+            let commandBuffer = computeCommandQueue.makeCommandBuffer(),
+            let computeEncoder = commandBuffer.makeComputeCommandEncoder()
+        else {
+            print("Failed to create compute command buffer")
+            return
+        }
+
+        computeEncoder.setComputePipelineState(computePipeLine)
+        computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
+
+        var params = Params(time: getTimeSinceStart())
+        computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
+        let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
+        let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
+        let threadGroups = MTLSize(
+            width: (lampCount + threadGroupSize - 1) / threadGroupSize,
+            height: 1,
+            depth: 1
+        )
+        computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadsPerThreadgroup)
+        computeEncoder.endEncoding()
+        commandBuffer.commit()
     }
 
     // in seconds
