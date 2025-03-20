@@ -84,11 +84,11 @@ class LampsRenderer: CustomRenderer {
 
         for i in 0..<lampCount {
             // Random position offsets for each lamp
-            let xOffset = Float.random(in: -40...40)
-            let zOffset = Float.random(in: -40...2)
-            let yOffset = Float.random(in: 0...20)
+            // let xOffset = Float.random(in: -40...40)
+            // let zOffset = Float.random(in: -40...2)
+            // let yOffset = Float.random(in: 0...20)
 
-            let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+            // let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
             // Random color for each lamp
             let r = Float.random(in: 0.1...1.0)
             let g = Float.random(in: 0.1...1.0)
@@ -114,18 +114,18 @@ class LampsRenderer: CustomRenderer {
 
                 // First triangle of rectangle (inner1, outer1, inner2)
                 lampVertices[vertexBase] = Vertex(
-                    position: upperEdge + lampPosition, color: color, seed: Float(i))
+                    position: upperEdge, color: color, seed: Int32(i))
                 lampVertices[vertexBase + patelPerLamp] = Vertex(
-                    position: lowerEdge + lampPosition,
+                    position: lowerEdge,
                     color: dimColor,
-                    seed: Float(i)
+                    seed: Int32(i)
                 )
             }
             // top center of the lamp
             lampVertices[baseIndex + patelPerLamp * 2] = Vertex(
-                position: SIMD3<Float>(0, verticalScale, 0) + lampPosition,
+                position: SIMD3<Float>(0, verticalScale, 0),
                 color: color * 1.2,
-                seed: Float(i)
+                seed: Int32(i)
             )
         }
     }
@@ -175,11 +175,17 @@ class LampsRenderer: CustomRenderer {
 
     private func createLampComputeBuffer(device: MTLDevice) {
         let bufferLength = MemoryLayout<LampBase>.stride * lampCount
-        computeBuffer = PingPongBuffer(device: device, length: bufferLength)
-        computeBuffer?.addLabel("Lamp compute buffer")
 
-        let contents = computeBuffer?.currentBuffer.contents()
-        let lampBase = contents!.bindMemory(to: LampBase.self, capacity: lampCount)
+        computeBuffer = PingPongBuffer(device: device, length: bufferLength)
+
+        guard let computeBuffer = computeBuffer else {
+            print("Failed to create compute buffer")
+            return
+        }
+        computeBuffer.addLabel("Lamp compute buffer")
+
+        let contents = computeBuffer.currentBuffer.contents()
+        let lampBase = contents.bindMemory(to: LampBase.self, capacity: lampCount)
 
         for i in 0..<lampCount {
             // Random position offsets for each lamp
@@ -197,6 +203,8 @@ class LampsRenderer: CustomRenderer {
 
             lampBase[i] = LampBase(position: lampPosition, color: color, seed: Float(i))
         }
+
+        computeBuffer.copy_to_next()
     }
 
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
@@ -225,7 +233,7 @@ class LampsRenderer: CustomRenderer {
         // add params for seed value
         let nextOffset = offset + MemoryLayout<SIMD3<Float>>.stride
         mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format =
-            MTLVertexFormat.float
+            MTLVertexFormat.int
         mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = nextOffset
         mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
             BufferIndex.meshPositions.rawValue
@@ -272,7 +280,11 @@ class LampsRenderer: CustomRenderer {
         computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
         computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
 
-        var params = Params(time: getTimeSinceStart())
+        let delta = -Float(viewStartTime.timeIntervalSinceNow)
+        let dt = delta - frameDelta
+        frameDelta = delta
+
+        var params = Params(time: dt)
         computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
         let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
         let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -281,9 +293,12 @@ class LampsRenderer: CustomRenderer {
             height: 1,
             depth: 1
         )
-        computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadsPerThreadgroup)
+        computeEncoder.dispatchThreadgroups(
+            threadGroups, threadsPerThreadgroup: threadsPerThreadgroup)
         computeEncoder.endEncoding()
         commandBuffer.commit()
+
+        computeBuffer.swap()
     }
 
     // in seconds
@@ -292,6 +307,9 @@ class LampsRenderer: CustomRenderer {
         let timeSinceStart = Float(time) / 1_000_000_000
         return timeSinceStart
     }
+
+    private var viewStartTime: Date = Date()
+    private var frameDelta: Float = 0.0
 
     func encodeDraw(
         _ drawCommand: TintDrawCommand,
@@ -323,7 +341,7 @@ class LampsRenderer: CustomRenderer {
             offset: 0,
             index: BufferIndex.meshPositions.rawValue)
 
-        var params_data = Params(time: getTimeSinceStart())
+        var params_data = Params(time: 0)
 
         let params: any MTLBuffer = device.makeBuffer(
             bytes: &params_data,
@@ -335,6 +353,9 @@ class LampsRenderer: CustomRenderer {
             params,
             offset: 0,
             index: BufferIndex.params.rawValue)
+
+        encoder.setVertexBuffer(
+            computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
 
         encoder.drawIndexedPrimitives(
             type: .triangle,

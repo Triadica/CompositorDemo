@@ -56,6 +56,11 @@ class PingPongBuffer {
         currentBuffer.label = label
         nextBuffer.label = label
     }
+
+    func copy_to_next() {
+        nextBuffer.contents().copyMemory(
+            from: currentBuffer.contents(), byteCount: currentBuffer.length)
+    }
 }
 
 @RendererActor

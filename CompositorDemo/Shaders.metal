@@ -20,7 +20,7 @@ using namespace metal;
 typedef struct {
   float3 position [[attribute(VertexAttributePosition)]];
   float3 color [[attribute(VertexAttributeColor)]];
-  float seed [[attribute(VertexAttributeSeed)]];
+  int seed [[attribute(VertexAttributeSeed)]];
 } VertexIn;
 
 typedef struct {
@@ -46,7 +46,14 @@ kernel void lampsComputeShader(
     device LampBase *outputLamps [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  // TODO
+  LampBase lamp = lamps[id];
+  device LampBase &outputLamp = outputLamps[id];
+  float seed = fract(lamp.seed / 10.) * 10.;
+  float speed = random1D(seed) + 0.1;
+  outputLamp.position =
+      lamp.position + float3(0.0, params.time * 0.1 * speed, 0.0);
+  outputLamp.color = lamp.color;
+  outputLamp.seed = lamp.seed;
 }
 
 vertex TintInOut lampsVertexShader(
@@ -54,14 +61,12 @@ vertex TintInOut lampsVertexShader(
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
-    constant Params &params [[buffer(BufferIndexParams)]]) {
+    constant Params &params [[buffer(BufferIndexParams)]],
+    device LampBase *lampData [[buffer(BufferIndexBase)]]) {
   TintInOut out;
 
   UniformsPerView uniformsPerView = uniformsArray.perView[amp_id];
-  float seed = fract(in.seed / 10.) * 10.;
-  float speed = random1D(seed) + 0.4;
-  float yFloating = sin((speed * params.time) * 0.02) * 10.0;
-  float4 position = float4(in.position, 1.0) + float4(0.0, yFloating, 0.0, 0.0);
+  float4 position = float4(in.position + lampData[in.seed].position, 1.0);
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
