@@ -47,6 +47,8 @@ struct InteractionView: View {
 
     @State private var opacity = 0.8
 
+    @EnvironmentObject var computeStateNotify: ResetComputeState
+
     var body: some View {
         VStack {
             if appModel.showImmersiveSpace {
@@ -76,6 +78,15 @@ struct InteractionView: View {
                             Text("Hidden").tag(VisibilityState.hiddenState)
                             Text("Automatic").tag(VisibilityState.automaticState)
                         }
+                    }
+                    HStack {
+                        Button {
+                            // to reset states in compute shader
+                            computeStateNotify.reset += 1
+                        } label: {
+                            Text("Reset Base")
+                        }
+                        .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
                     }
                 }
             }

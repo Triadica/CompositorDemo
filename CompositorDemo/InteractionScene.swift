@@ -12,6 +12,8 @@ struct ImmersiveInteractionScene: Scene {
 
     @Environment(AppModel.self) var appModel
 
+    @EnvironmentObject var computeStateNotify: ResetComputeState
+
     static let id = "ImmersiveInteractionScene"
 
     var body: some Scene {
@@ -44,5 +46,8 @@ struct ImmersiveInteractionScene: Scene {
         }
         .immersionStyle(selection: .constant(appModel.immersionStyle), in: .mixed, .full)
         .upperLimbVisibility(appModel.upperLimbVisibility)
+        .onChange(of: computeStateNotify.reset) { oldValue, newValue in
+            appModel.lampsRenderer?.resetComputeState()
+        }
     }
 }

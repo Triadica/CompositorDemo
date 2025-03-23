@@ -130,6 +130,10 @@ class LampsRenderer: CustomRenderer {
         }
     }
 
+    func resetComputeState() {
+        self.createLampComputeBuffer(device: computeDevice)
+    }
+
     private func createLampIndexBuffer(device: MTLDevice) {
         let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
         indexBuffer = device.makeBuffer(length: bufferLength)!
@@ -189,9 +193,9 @@ class LampsRenderer: CustomRenderer {
 
         for i in 0..<lampCount {
             // Random position offsets for each lamp
-            let xOffset = Float.random(in: -40...40)
-            let zOffset = Float.random(in: -40...2)
-            let yOffset = Float.random(in: 0...20)
+            let xOffset = Float.random(in: -20...20)
+            let zOffset = Float.random(in: -30...10)
+            let yOffset = Float.random(in: 0...2)
 
             let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
             // Random color for each lamp

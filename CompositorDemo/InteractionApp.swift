@@ -26,10 +26,17 @@ struct ContentStageConfiguration: CompositorLayerConfiguration {
     }
 }
 
+class ResetComputeState: ObservableObject {
+    /// every time this value changes, the compute will be reset
+    @Published var reset = 1
+}
+
 @main
 struct InteractionApp: App {
 
     @State private var appModel = AppModel()
+
+    @StateObject var computeStateNotify = ResetComputeState()
 
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
@@ -38,6 +45,7 @@ struct InteractionApp: App {
         WindowGroup {
             InteractionView()
                 .environment(appModel)
+                .environmentObject(computeStateNotify)
                 .onAppear {
                     if appModel.isFirstLaunch {
                         appModel.isFirstLaunch = false
@@ -65,8 +73,9 @@ struct InteractionApp: App {
                 }
         }
         .windowResizability(.contentSize)
-
         ImmersiveInteractionScene()
+            .environment(appModel)
+            .environmentObject(computeStateNotify)
             .environment(appModel)
     }
 }

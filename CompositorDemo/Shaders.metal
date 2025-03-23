@@ -62,7 +62,7 @@ vertex TintInOut lampsVertexShader(
     constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
-    device LampBase *lampData [[buffer(BufferIndexBase)]]) {
+    const device LampBase *lampData [[buffer(BufferIndexBase)]]) {
   TintInOut out;
 
   UniformsPerView uniformsPerView = uniformsArray.perView[amp_id];

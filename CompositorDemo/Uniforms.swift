@@ -28,7 +28,8 @@ extension Uniforms {
             return UniformsPerView(modelViewProjectionMatrix: projection * viewMatrix)
         }
 
-        let cameraPos = simdDeviceAnchor.columns.3.xyz
+        let cameraPos: SIMD3<Float> = simdDeviceAnchor.columns.3.xyz
+        let cameraDirection = simdDeviceAnchor.columns.2.xyz
 
         let firstView = createUniforms(forViewIndex: 0)
         let views: (UniformsPerView, UniformsPerView)
@@ -40,6 +41,7 @@ extension Uniforms {
 
         self.init(
             perView: views,
-            cameraPos: cameraPos)
+            cameraPos: cameraPos,
+            cameraDirection: cameraDirection)
     }
 }

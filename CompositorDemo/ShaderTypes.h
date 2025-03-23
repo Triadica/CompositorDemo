@@ -43,6 +43,7 @@ typedef struct {
 typedef struct {
   UniformsPerView perView[2];
   simd_float3 cameraPos;
+  simd_float3 cameraDirection;
 } Uniforms;
 
 typedef struct {

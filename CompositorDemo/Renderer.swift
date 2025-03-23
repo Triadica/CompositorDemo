@@ -21,6 +21,9 @@ protocol CustomRenderer {
     )
     func updateUniformBuffers(_ drawCommand: TintDrawCommand, drawable: LayerRenderer.Drawable)
 
+    /// Reset the compute state
+    func resetComputeState()
+
     func computeCommandCommit()
 
     var vertexBuffer: MTLBuffer! { get set }
