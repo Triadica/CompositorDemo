@@ -37,6 +37,7 @@ struct LampBase {
   float3 position;
   float3 color;
   float seed;
+  float3 velocity;
 };
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
@@ -50,8 +51,9 @@ kernel void lampsComputeShader(
   device LampBase &outputLamp = outputLamps[id];
   float seed = fract(lamp.seed / 10.) * 10.;
   float speed = random1D(seed) + 0.1;
+  float dt = params.time * speed * 0.1;
   outputLamp.position =
-      lamp.position + float3(0.0, params.time * 0.1 * speed, 0.0);
+      lamp.position + float3(0.0, dt, 0.0) + lamp.velocity * dt;
   outputLamp.color = lamp.color;
   outputLamp.seed = lamp.seed;
 }

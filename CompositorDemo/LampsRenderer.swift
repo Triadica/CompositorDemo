@@ -33,6 +33,7 @@ struct LampBase {
     var position: SIMD3<Float>
     var color: SIMD3<Float>
     var seed: Float
+    var velocity: SIMD3<Float> = .zero
 }
 
 struct Params {
@@ -205,7 +206,14 @@ class LampsRenderer: CustomRenderer {
             let color = SIMD3<Float>(r, g, b)
             let dimColor = color * 0.5
 
-            lampBase[i] = LampBase(position: lampPosition, color: color, seed: Float(i))
+            let velocity = SIMD3<Float>(
+                Float.random(in: -0.8...0.8),
+                Float.random(in: -0.8...0.8),
+                Float.random(in: -0.8...0.8)
+            )
+
+            lampBase[i] = LampBase(
+                position: lampPosition, color: color, seed: Float(i), velocity: velocity)
         }
 
         computeBuffer.copy_to_next()

@@ -45,25 +45,30 @@ struct InteractionView: View {
     @State private var selectedLVState: VisibilityState = .visibleState
     @State private var selectedIStyle: IStyle = .mixedStyle
 
-    @State private var opacity = 0.8
+    @State private var opacity = 1.0
 
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
     var body: some View {
         VStack {
+            Button {
+                appModel.showImmersiveSpace.toggle()
+            } label: {
+                Text(appModel.showImmersiveSpace ? "Hide Immersive Space" : "Show Immersive Space")
+            }
+            .animation(.none, value: 0)
+            .fontWeight(.semibold)
             if appModel.showImmersiveSpace {
                 VStack {
-                    Slider(value: $opacity, in: 0...1) {
-                        Text("Tint Opacity")
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
+                    HStack {
+                        Button {
+                            // to reset states in compute shader
+                            computeStateNotify.reset += 1
+                        } label: {
+                            Text("Reset Base")
+                        }
+                        .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
                     }
-                    Text("Tint Opacity \(opacity)")
-                        .fontWeight(.semibold)
-                        .padding(20)
-
                     HStack {
                         Text("Immersion Style")
                         Picker("Immersion Style", selection: $selectedIStyle) {
@@ -79,24 +84,19 @@ struct InteractionView: View {
                             Text("Automatic").tag(VisibilityState.automaticState)
                         }
                     }
-                    HStack {
-                        Button {
-                            // to reset states in compute shader
-                            computeStateNotify.reset += 1
-                        } label: {
-                            Text("Reset Base")
-                        }
-                        .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
+                    Text("Tint Opacity \(opacity)")
+                        .fontWeight(.semibold)
+                        .padding(20)
+
+                    Slider(value: $opacity, in: 0...1) {
+                        Text("Tint Opacity")
+                    } minimumValueLabel: {
+                        Text("0")
+                    } maximumValueLabel: {
+                        Text("1")
                     }
                 }
             }
-            Button {
-                appModel.showImmersiveSpace.toggle()
-            } label: {
-                Text(appModel.showImmersiveSpace ? "Hide Immersive Space" : "Show Immersive Space")
-            }
-            .animation(.none, value: 0)
-            .fontWeight(.semibold)
         }
         .padding()
         .frame(width: 400, height: appModel.showImmersiveSpace ? 400 : 100)
