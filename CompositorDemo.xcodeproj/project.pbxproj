@@ -8,10 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A45F3A92D889E1B0042486A /* LampsRenderer.swift */; };
+		9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3762D91D35A0021FFCE /* LampsShaders.metal */; };
 		D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274292BC7318900E194CF /* InteractionApp.swift */; };
 		D112742E2BC7318900E194CF /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742D2BC7318900E194CF /* AppModel.swift */; };
 		D11274302BC7318900E194CF /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742F2BC7318900E194CF /* Renderer.swift */; };
-		D11274322BC7318900E194CF /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = D11274312BC7318900E194CF /* Shaders.metal */; };
 		D11274362BC7318900E194CF /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D11274352BC7318900E194CF /* Preview Assets.xcassets */; };
 		D11274382BC7318A00E194CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D11274372BC7318A00E194CF /* Assets.xcassets */; };
 		D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274402BC734AD00E194CF /* InteractionScene.swift */; };
@@ -24,11 +24,11 @@
 		33D190EEBFF9B25310AB436E /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		3E2802D1CC6386AC2E5A3992 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9A45F3A92D889E1B0042486A /* LampsRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LampsRenderer.swift; sourceTree = "<group>"; };
+		9A92D3762D91D35A0021FFCE /* LampsShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LampsShaders.metal; sourceTree = "<group>"; };
 		D11274222BC7318900E194CF /* CompositorDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D11274292BC7318900E194CF /* InteractionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionApp.swift; sourceTree = "<group>"; };
 		D112742D2BC7318900E194CF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		D112742F2BC7318900E194CF /* Renderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renderer.swift; sourceTree = "<group>"; };
-		D11274312BC7318900E194CF /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
 		D11274332BC7318900E194CF /* ShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ShaderTypes.h; sourceTree = "<group>"; };
 		D11274352BC7318900E194CF /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		D11274372BC7318A00E194CF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -90,6 +90,7 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A92D3762D91D35A0021FFCE /* LampsShaders.metal */,
 				D112743F2BC734AD00E194CF /* Bridging-Header.h */,
 				D112742D2BC7318900E194CF /* AppModel.swift */,
 				D11274292BC7318900E194CF /* InteractionApp.swift */,
@@ -99,7 +100,6 @@
 				D112742F2BC7318900E194CF /* Renderer.swift */,
 				9A45F3A92D889E1B0042486A /* LampsRenderer.swift */,
 				D11274442BC734AD00E194CF /* Uniforms.swift */,
-				D11274312BC7318900E194CF /* Shaders.metal */,
 				D11274332BC7318900E194CF /* ShaderTypes.h */,
 				D11274372BC7318A00E194CF /* Assets.xcassets */,
 				D11274392BC7318A00E194CF /* Info.plist */,
@@ -192,9 +192,9 @@
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */,
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
+				9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				D11274472BC734AD00E194CF /* Uniforms.swift in Sources */,
-				D11274322BC7318900E194CF /* Shaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

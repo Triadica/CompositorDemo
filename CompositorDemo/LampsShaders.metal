@@ -36,7 +36,7 @@ typedef struct {
 struct LampBase {
   float3 position;
   float3 color;
-  float seed;
+  float lampIdf;
   float3 velocity;
 };
 
@@ -49,30 +49,38 @@ kernel void lampsComputeShader(
     uint id [[thread_position_in_grid]]) {
   LampBase lamp = lamps[id];
   device LampBase &outputLamp = outputLamps[id];
-  float seed = fract(lamp.seed / 10.) * 10.;
+  float seed = fract(lamp.lampIdf / 10.) * 10.;
   float speed = random1D(seed) + 0.1;
   float dt = params.time * speed * 0.1;
   outputLamp.position =
       lamp.position + float3(0.0, dt, 0.0) + lamp.velocity * dt;
   outputLamp.color = lamp.color;
-  outputLamp.seed = lamp.seed;
+  outputLamp.lampIdf = lamp.lampIdf;
 }
 
 vertex TintInOut lampsVertexShader(
     VertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
-    constant Uniforms &uniformsArray [[buffer(BufferIndexUniforms)]],
+    constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
     const device LampBase *lampData [[buffer(BufferIndexBase)]]) {
   TintInOut out;
 
-  UniformsPerView uniformsPerView = uniformsArray.perView[amp_id];
+  UniformsPerView uniformsPerView = uniforms.perView[amp_id];
+  float3 cameraAt = uniforms.cameraPos;
+
   float4 position = float4(in.position + lampData[in.seed].position, 1.0);
+
+  float lampDistance = distance(cameraAt, position.xyz);
+  float distanceDim = 1.0 - clamp(lampDistance / 30.0, 0.0, 1.0);
+  float randSeed = random1D(lampData[in.seed].lampIdf);
+  float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
+
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a;
+  out.color.rgb = out.color.rgb * out.color.a * distanceDim * breathDim;
 
   return out;
 }

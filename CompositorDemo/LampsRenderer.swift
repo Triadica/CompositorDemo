@@ -32,7 +32,7 @@ let lowerRadius: Float = 0.18
 struct LampBase {
     var position: SIMD3<Float>
     var color: SIMD3<Float>
-    var seed: Float
+    var lampIdf: Float
     var velocity: SIMD3<Float> = .zero
 }
 
@@ -207,7 +207,7 @@ class LampsRenderer: CustomRenderer {
             )
 
             lampBase[i] = LampBase(
-                position: lampPosition, color: color, seed: Float(i), velocity: velocity)
+                position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
         }
 
         computeBuffer.copy_to_next()
@@ -347,7 +347,7 @@ class LampsRenderer: CustomRenderer {
             offset: 0,
             index: BufferIndex.meshPositions.rawValue)
 
-        var params_data = Params(time: 0)
+        var params_data = Params(time: getTimeSinceStart())
 
         let params: any MTLBuffer = device.makeBuffer(
             bytes: &params_data,
