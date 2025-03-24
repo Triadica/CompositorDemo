@@ -14,7 +14,7 @@ import simd
 let maxFramesInFlight = 3
 
 let lampCount: Int = 2000
-let patelPerLamp: Int = 12
+let patelPerLamp: Int = 24
 let verticesPerLamp = patelPerLamp * 2 + 1
 let verticesCount = verticesPerLamp * lampCount
 
@@ -84,12 +84,6 @@ class LampsRenderer: CustomRenderer {
         }
 
         for i in 0..<lampCount {
-            // Random position offsets for each lamp
-            // let xOffset = Float.random(in: -40...40)
-            // let zOffset = Float.random(in: -40...2)
-            // let yOffset = Float.random(in: 0...20)
-
-            // let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
             // Random color for each lamp
             let r = Float.random(in: 0.1...1.0)
             let g = Float.random(in: 0.1...1.0)
@@ -125,7 +119,7 @@ class LampsRenderer: CustomRenderer {
             // top center of the lamp
             lampVertices[baseIndex + patelPerLamp * 2] = Vertex(
                 position: SIMD3<Float>(0, verticalScale, 0),
-                color: color * 1.2,
+                color: color * 2.0,
                 seed: Int32(i)
             )
         }
@@ -204,7 +198,7 @@ class LampsRenderer: CustomRenderer {
             let g = Float.random(in: 0.1...1.0)
             let b = Float.random(in: 0.1...1.0)
             let color = SIMD3<Float>(r, g, b)
-            let dimColor = color * 0.5
+            // let dimColor = color * 0.5
 
             let velocity = SIMD3<Float>(
                 Float.random(in: -0.8...0.8),

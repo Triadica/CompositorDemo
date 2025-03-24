@@ -43,7 +43,7 @@ struct InteractionView: View {
     @Environment(AppModel.self) var appModel
 
     @State private var selectedLVState: VisibilityState = .visibleState
-    @State private var selectedIStyle: IStyle = .mixedStyle
+    @State private var selectedIStyle: IStyle = .fullStyle
 
     @State private var opacity = 1.0
 
