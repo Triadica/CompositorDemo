@@ -50,11 +50,8 @@ vertex LampInOut polylinesVertexShader(
   LampInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  float3 cameraAt = uniforms.cameraPos;
 
   float4 position = float4(in.position, 1.0);
-
-  float lampDistance = distance(cameraAt, position.xyz);
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);

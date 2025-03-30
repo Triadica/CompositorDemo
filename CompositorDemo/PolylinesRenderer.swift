@@ -19,20 +19,9 @@ private struct Params {
 /// a line during extending tracks last point, new points that are too closer are skipped
 /// if line is stable, then all points are in the list `stablePoints`
 private struct ExtendingLine {
-  var stablePoints: [Point3D] = []
-  var lastPoint: Point3D? = .none
+  private var stablePoints: [Point3D] = []
+  private var lastPoint: Point3D? = .none
   var miniSkip: Double = 0.01
-
-  /// method that combines the stable points and the last point
-  func getPoints() -> [Point3D] {
-    if let lastP = lastPoint {
-      var points = Array(stablePoints)  // Create a copy of stablePoints
-      points.append(lastP)
-      return points
-    } else {
-      return stablePoints
-    }
-  }
 
   var count: Int {
     if lastPoint != nil {
@@ -55,6 +44,20 @@ private struct ExtendingLine {
     }
   }
 
+  func getPointAt(_ index: Int) -> Point3D {
+    if index < stablePoints.count {
+      return stablePoints[index]
+    } else if index == stablePoints.count {
+      if let lastP = lastPoint {
+        return lastP
+      } else {
+        fatalError("No last point")
+      }
+    } else {
+      fatalError("Index out of bounds")
+    }
+  }
+
   mutating func stablize() {
     if let lastP = lastPoint {
       stablePoints.append(lastP)
@@ -63,7 +66,7 @@ private struct ExtendingLine {
   }
 
   mutating func isStable() -> Bool {
-    if let lastP = lastPoint {
+    if let lastP: Point3D = lastPoint {
       return stablePoints.contains { $0.distance(to: lastP) < miniSkip }
     }
     return false
@@ -71,18 +74,15 @@ private struct ExtendingLine {
 }
 
 private struct LinesManager {
-  var lines: [ExtendingLine] = []
+  private var lines: [ExtendingLine] = []
   var maxLines: Int = 100
-  var currentLine: ExtendingLine = ExtendingLine()
+  private var currentLine: ExtendingLine = ExtendingLine()
 
   mutating func addPoint(_ point: Point3D) {
     if lines.count < maxLines {
       currentLine.addPoint(point)
     } else {
-      currentLine.stablize()
-      lines.append(currentLine)
-      currentLine = ExtendingLine()
-      currentLine.addPoint(point)
+      print("Max lines reached")
     }
   }
 
@@ -98,14 +98,28 @@ private struct LinesManager {
       count += line.count - 1
     }
 
+    if currentLine.count > 0 {
+      count += currentLine.count - 1
+    }
+
     if count == 0 {
-      return 6
+      return 1  // at least one vertex
     }
     return count * 6
   }
 
   var count: Int {
-    lines.count
+    lines.count + 1
+  }
+
+  func getLineAt(_ index: Int) -> ExtendingLine {
+    if index < lines.count {
+      return lines[index]
+    } else if index == lines.count {
+      return currentLine
+    } else {
+      fatalError("Index out of bounds")
+    }
   }
 }
 
@@ -127,12 +141,7 @@ class PolylinesRenderer: CustomRenderer {
   var indexBuffer: MTLBuffer!
 
   /// tracks buffer size, increased when points getting enormous, should be larger than 0
-  var currentVertexBufferSize: Int = 6
-
-  // let computeDevice: MTLDevice
-  // var computeBuffer: PingPongBuffer?
-  // let computePipeLine: MTLComputePipelineState
-  // let computeCommandQueue: MTLCommandQueue
+  private var currentVertexBufferSize: Int = 6
 
   private var linesManager = LinesManager()
 
@@ -143,24 +152,24 @@ class PolylinesRenderer: CustomRenderer {
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
 
-    // self.computeDevice = MTLCreateSystemDefaultDevice()!
-    // let library = computeDevice.makeDefaultLibrary()!
-    // let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
-    // computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
-
-    // computeCommandQueue = computeDevice.makeCommandQueue()!
-
-    self.createLampVerticesBuffer(device: layerRenderer.device)
-    self.createLampIndexBuffer(device: layerRenderer.device)
-    self.createLampComputeBuffer(device: layerRenderer.device)
+    self.createPolylinesVerticesBuffer(device: layerRenderer.device, count: currentVertexBufferSize)
+    self.createPolylinesIndexBuffer(device: layerRenderer.device, count: currentVertexBufferSize)
+    // self.createLampComputeBuffer(device: layerRenderer.device)
   }
 
   /// create and sets the vertices of the lamp
-  private func createLampVerticesBuffer(device: MTLDevice) {
-    let verticesCount = currentVertexBufferSize
-    var bufferLength = MemoryLayout<Vertex>.stride * verticesCount
+  private func createPolylinesVerticesBuffer(
+    device: MTLDevice,
+    count: Int = 0
+  ) {
+    let bufferLength: Int = MemoryLayout<Vertex>.stride * count
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Lamp vertex buffer"
+
+    updateVertexBuffer()
+  }
+
+  private func updateVertexBuffer() {
     var lampVertices: UnsafeMutablePointer<Vertex> {
       vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
     }
@@ -168,17 +177,17 @@ class PolylinesRenderer: CustomRenderer {
     var pos = 0
 
     for i in 0..<linesManager.count {
-      let line = linesManager.lines[i]
+      let line = linesManager.getLineAt(i)
       let color = SIMD3<Float>(1.0, 1.0, 1.0)
 
       var prevPoint: Point3D = .zero
       for j in 0..<line.count {
         if j == 0 {
-          prevPoint = line.stablePoints[j]
+          prevPoint = line.getPointAt(0)
           continue
         }
         let ll: Float = 0.01
-        let point = line.stablePoints[j]
+        let point = line.getPointAt(j)
         let pointSimed3 = point.to_simd3
         let prevPointSimed3 = prevPoint.to_simd3
         let pointUpSimed3 = pointSimed3 + SIMD3<Float>(0, ll, 0)
@@ -225,8 +234,8 @@ class PolylinesRenderer: CustomRenderer {
     }
   }
 
-  private func createLampIndexBuffer(device: MTLDevice) {
-    let indexesCount = currentVertexBufferSize
+  private func createPolylinesIndexBuffer(device: MTLDevice, count: Int) {
+    let indexesCount = count
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
     indexBuffer.label = "Lamp index buffer"
@@ -321,9 +330,6 @@ class PolylinesRenderer: CustomRenderer {
     return timeSinceStart
   }
 
-  private var viewStartTime: Date = Date()
-  private var frameDelta: Float = 0.0
-
   func encodeDraw(
     _ drawCommand: TintDrawCommand,
     encoder: MTLRenderCommandEncoder,
@@ -390,6 +396,7 @@ class PolylinesRenderer: CustomRenderer {
   }
 
   func onSpatialEvents(events: SpatialEventCollection) {
+
     // Handle spatial events here
     for event in events {
       // let _chirality = event.chirality
@@ -408,12 +415,14 @@ class PolylinesRenderer: CustomRenderer {
       }
     }
     let verticesCount = linesManager.estimateVerticesCount()
-    if verticesCount + 1000 > currentVertexBufferSize {
-      while verticesCount >= currentVertexBufferSize {
-        currentVertexBufferSize *= 2
+    if verticesCount + 100 > currentVertexBufferSize {
+      while verticesCount + 100 >= currentVertexBufferSize {
+        currentVertexBufferSize = currentVertexBufferSize * 2
       }
-      self.createLampVerticesBuffer(device: vertexBuffer.device)
-      self.createLampIndexBuffer(device: vertexBuffer.device)
+      self.createPolylinesVerticesBuffer(
+        device: vertexBuffer.device, count: currentVertexBufferSize)
+      self.createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
     }
+    updateVertexBuffer()
   }
 }

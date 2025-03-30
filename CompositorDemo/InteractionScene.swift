@@ -11,7 +11,6 @@ import SwiftUI
 struct ImmersiveInteractionScene: Scene {
 
     @Environment(AppModel.self) var appModel
-
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
     static let id = "ImmersiveInteractionScene"
@@ -28,7 +27,9 @@ struct ImmersiveInteractionScene: Scene {
                         lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
                     case .polylines:
                         print("Polylines selected")
-                        lampsRenderer = try PolylinesRenderer(layerRenderer: layerRenderer)
+                        lampsRenderer = try PolylinesRenderer(
+                            layerRenderer: layerRenderer
+                        )
                     }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")
