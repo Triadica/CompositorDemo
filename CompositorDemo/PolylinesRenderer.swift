@@ -12,31 +12,6 @@ import Spatial
 import SwiftUI
 import simd
 
-private let maxFramesInFlight = 3
-
-private let lampCount: Int = 2000
-private let patelPerLamp: Int = 24
-private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * lampCount
-
-private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
-// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
-// prepare the indices for the lamp
-private let indexesCount: Int = lampCount * indexesPerLamp
-
-private let verticalScale: Float = 0.4
-private let upperRadius: Float = 0.14
-private let lowerRadius: Float = 0.18
-
-private struct LampBase {
-  var position: SIMD3<Float>
-  var color: SIMD3<Float>
-  var lampIdf: Float
-  var velocity: SIMD3<Float> = .zero
-}
-
 private struct Params {
   var time: Float
 }
@@ -46,7 +21,7 @@ private struct Params {
 private struct ExtendingLine {
   var stablePoints: [Point3D] = []
   var lastPoint: Point3D? = .none
-  var miniSkip: Double = 0.004
+  var miniSkip: Double = 0.01
 
   /// method that combines the stable points and the last point
   func getPoints() -> [Point3D] {
@@ -97,7 +72,7 @@ private struct ExtendingLine {
 
 private struct LinesManager {
   var lines: [ExtendingLine] = []
-  var maxLines: Int = 10
+  var maxLines: Int = 100
   var currentLine: ExtendingLine = ExtendingLine()
 
   mutating func addPoint(_ point: Point3D) {
@@ -116,6 +91,29 @@ private struct LinesManager {
     lines.append(currentLine)
     currentLine = ExtendingLine()
   }
+
+  func estimateVerticesCount() -> Int {
+    var count = 0
+    for line in lines {
+      count += line.count - 1
+    }
+
+    if count == 0 {
+      return 6
+    }
+    return count * 6
+  }
+
+  var count: Int {
+    lines.count
+  }
+}
+
+extension Point3D {
+  /// turn into SIMD3
+  var to_simd3: SIMD3<Float> {
+    return SIMD3<Float>(Float(x), Float(y), Float(z))
+  }
 }
 
 @MainActor
@@ -128,10 +126,13 @@ class PolylinesRenderer: CustomRenderer {
 
   var indexBuffer: MTLBuffer!
 
-  let computeDevice: MTLDevice
-  var computeBuffer: PingPongBuffer?
-  let computePipeLine: MTLComputePipelineState
-  let computeCommandQueue: MTLCommandQueue
+  /// tracks buffer size, increased when points getting enormous, should be larger than 0
+  var currentVertexBufferSize: Int = 6
+
+  // let computeDevice: MTLDevice
+  // var computeBuffer: PingPongBuffer?
+  // let computePipeLine: MTLComputePipelineState
+  // let computeCommandQueue: MTLCommandQueue
 
   private var linesManager = LinesManager()
 
@@ -142,12 +143,12 @@ class PolylinesRenderer: CustomRenderer {
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
 
-    self.computeDevice = MTLCreateSystemDefaultDevice()!
-    let library = computeDevice.makeDefaultLibrary()!
-    let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
-    computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
+    // self.computeDevice = MTLCreateSystemDefaultDevice()!
+    // let library = computeDevice.makeDefaultLibrary()!
+    // let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
+    // computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
 
-    computeCommandQueue = computeDevice.makeCommandQueue()!
+    // computeCommandQueue = computeDevice.makeCommandQueue()!
 
     self.createLampVerticesBuffer(device: layerRenderer.device)
     self.createLampIndexBuffer(device: layerRenderer.device)
@@ -156,141 +157,86 @@ class PolylinesRenderer: CustomRenderer {
 
   /// create and sets the vertices of the lamp
   private func createLampVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<Vertex>.stride * verticesCount
+    let verticesCount = currentVertexBufferSize
+    var bufferLength = MemoryLayout<Vertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Lamp vertex buffer"
     var lampVertices: UnsafeMutablePointer<Vertex> {
       vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
     }
 
-    for i in 0..<lampCount {
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      let dimColor = color * 0.5
-      let baseIndex = i * verticesPerLamp
+    var pos = 0
 
-      for p in 0..<patelPerLamp {
-        let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+    for i in 0..<linesManager.count {
+      let line = linesManager.lines[i]
+      let color = SIMD3<Float>(1.0, 1.0, 1.0)
 
-        // Calculate the four corners of this rectangular petal
-        // Calculate the upper and lower points of petals on x-z plane
-        // upper ring
-        let upperEdge = SIMD3<Float>(
-          cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
-
-        // lower ring
-        let lowerEdge = SIMD3<Float>(
-          cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
-
-        let vertexBase = baseIndex + p
-
-        // First triangle of rectangle (inner1, outer1, inner2)
-        lampVertices[vertexBase] = Vertex(
-          position: upperEdge, color: color, seed: Int32(i))
-        lampVertices[vertexBase + patelPerLamp] = Vertex(
-          position: lowerEdge,
-          color: dimColor,
+      var prevPoint: Point3D = .zero
+      for j in 0..<line.count {
+        if j == 0 {
+          prevPoint = line.stablePoints[j]
+          continue
+        }
+        let ll: Float = 0.01
+        let point = line.stablePoints[j]
+        let pointSimed3 = point.to_simd3
+        let prevPointSimed3 = prevPoint.to_simd3
+        let pointUpSimed3 = pointSimed3 + SIMD3<Float>(0, ll, 0)
+        let prevPointUpSimed3 = prevPointSimed3 + SIMD3<Float>(0, ll, 0)
+        // 6 vertices per rectangle, use (0,1,0) as brush for now
+        lampVertices[pos] = Vertex(
+          position: pointSimed3,
+          color: color,
           seed: Int32(i)
         )
+        pos += 1
+        lampVertices[pos] = Vertex(
+          position: pointUpSimed3,
+          color: color,
+          seed: Int32(i)
+        )
+        pos += 1
+        lampVertices[pos] = Vertex(
+          position: prevPointSimed3,
+          color: color,
+          seed: Int32(i)
+        )
+        pos += 1
+        lampVertices[pos] = Vertex(
+          position: pointUpSimed3,
+          color: color,
+          seed: Int32(i)
+        )
+        pos += 1
+        lampVertices[pos] = Vertex(
+          position: prevPointUpSimed3,
+          color: color,
+          seed: Int32(i)
+        )
+        pos += 1
+        lampVertices[pos] = Vertex(
+          position: prevPointSimed3,
+          color: color,
+          seed: Int32(i)
+        )
+        pos += 1
+        prevPoint = point
       }
-      // top center of the lamp
-      lampVertices[baseIndex + patelPerLamp * 2] = Vertex(
-        position: SIMD3<Float>(0, verticalScale, 0),
-        color: color * 2.0,
-        seed: Int32(i)
-      )
     }
   }
 
-  func resetComputeState() {
-    self.createLampComputeBuffer(device: computeDevice)
-  }
-
   private func createLampIndexBuffer(device: MTLDevice) {
+    let indexesCount = currentVertexBufferSize
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
     indexBuffer.label = "Lamp index buffer"
 
     let lampIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<lampCount {
-      // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
-      let verticesBase = i * verticesPerLamp
-
-      let indexBase = i * indexesPerLamp
-      // rect angles of patel size
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = indexBase + p * 6
-        // First triangle of rectangle (inner1, outer1, inner2)
-        lampIndices[nextIndexBase] = UInt32(vertexBase)
-        lampIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
-
-        // Second triangle of rectangle (inner2, outer1, outer2)
-        lampIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        lampIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        lampIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
-      }
-      // cover the top of the lamp with triangles
-      let topCenter = verticesBase + patelPerLamp * 2
-      let topCenterIndexBase = indexBase + rectIndexesPerRect
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = topCenterIndexBase + p * 3
-        // First triangle of rectangle (inner1, outer1, inner2)
-        lampIndices[nextIndexBase] = UInt32(vertexBase)
-        lampIndices[nextIndexBase + 1] = UInt32(topCenter)
-        lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
-      }
+    for i in 0..<indexesCount {
+      lampIndices[i] = UInt32(i)
     }
 
-  }
-
-  private func createLampComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampBase>.stride * lampCount
-
-    computeBuffer = PingPongBuffer(device: device, length: bufferLength)
-
-    guard let computeBuffer = computeBuffer else {
-      print("Failed to create compute buffer")
-      return
-    }
-    computeBuffer.addLabel("Lamp compute buffer")
-
-    let contents = computeBuffer.currentBuffer.contents()
-    let lampBase = contents.bindMemory(to: LampBase.self, capacity: lampCount)
-
-    for i in 0..<lampCount {
-      // Random position offsets for each lamp
-      let xOffset = Float.random(in: -20...20)
-      let zOffset = Float.random(in: -30...10)
-      let yOffset = Float.random(in: 0...2)
-
-      let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      // let dimColor = color * 0.5
-
-      let velocity = SIMD3<Float>(
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8)
-      )
-
-      lampBase[i] = LampBase(
-        position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
-    }
-
-    computeBuffer.copy_to_next()
   }
 
   class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
@@ -335,8 +281,8 @@ class PolylinesRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "lampsVertexShader")
-    let fragmentFunction = library.makeFunction(name: "lampsFragmentShader")
+    let vertexFunction = library.makeFunction(name: "polylinesVertexShader")
+    let fragmentFunction = library.makeFunction(name: "polylinesFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
@@ -348,44 +294,24 @@ class PolylinesRenderer: CustomRenderer {
   }
 
   func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand {
+    let verticesCount = currentVertexBufferSize
     return TintDrawCommand(
       frameIndex: frame.frameIndex,
       uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)],
       verticesCount: verticesCount)
   }
 
+  func resetComputeState() {
+    linesManager = LinesManager()
+    currentVertexBufferSize = 6
+  }
+
+  private func createLampComputeBuffer(device: MTLDevice) {
+    // no compute
+  }
+
   func computeCommandCommit() {
-    guard let computeBuffer: PingPongBuffer = computeBuffer,
-      let commandBuffer = computeCommandQueue.makeCommandBuffer(),
-      let computeEncoder = commandBuffer.makeComputeCommandEncoder()
-    else {
-      print("Failed to create compute command buffer")
-      return
-    }
-
-    computeEncoder.setComputePipelineState(computePipeLine)
-    computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
-    computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
-
-    let delta = -Float(viewStartTime.timeIntervalSinceNow)
-    let dt = delta - frameDelta
-    frameDelta = delta
-
-    var params = Params(time: dt)
-    computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
-    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
-    let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
-    let threadGroups = MTLSize(
-      width: (lampCount + threadGroupSize - 1) / threadGroupSize,
-      height: 1,
-      depth: 1
-    )
-    computeEncoder.dispatchThreadgroups(
-      threadGroups, threadsPerThreadgroup: threadsPerThreadgroup)
-    computeEncoder.endEncoding()
-    commandBuffer.commit()
-
-    computeBuffer.swap()
+    // no compute
   }
 
   // in seconds
@@ -441,8 +367,10 @@ class PolylinesRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.params.rawValue)
 
-    encoder.setVertexBuffer(
-      computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
+    // encoder.setVertexBuffer(
+    //   computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
+
+    let indexesCount = currentVertexBufferSize
 
     encoder.drawIndexedPrimitives(
       type: .triangle,
@@ -462,7 +390,6 @@ class PolylinesRenderer: CustomRenderer {
   }
 
   func onSpatialEvents(events: SpatialEventCollection) {
-    print("\n\nevents")
     // Handle spatial events here
     for event in events {
       // let _chirality = event.chirality
@@ -471,14 +398,22 @@ class PolylinesRenderer: CustomRenderer {
         let position = event.inputDevicePose!.pose3D.position
         linesManager.addPoint(position)
       case .ended:
-        print("now there are lines", linesManager.currentLine.count, linesManager.lines.count)
         linesManager.finishCurrent()
-        print("Line finished")
+      case .cancelled:
+        linesManager.finishCurrent()
 
       default:
         print("Other event: \(event)")
         break
       }
+    }
+    let verticesCount = linesManager.estimateVerticesCount()
+    if verticesCount + 1000 > currentVertexBufferSize {
+      while verticesCount >= currentVertexBufferSize {
+        currentVertexBufferSize *= 2
+      }
+      self.createLampVerticesBuffer(device: vertexBuffer.device)
+      self.createLampIndexBuffer(device: vertexBuffer.device)
     }
   }
 }
