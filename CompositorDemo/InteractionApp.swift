@@ -76,6 +76,5 @@ struct InteractionApp: App {
         ImmersiveInteractionScene()
             .environment(appModel)
             .environmentObject(computeStateNotify)
-            .environment(appModel)
     }
 }

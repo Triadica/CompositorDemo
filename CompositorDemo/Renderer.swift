@@ -9,8 +9,10 @@ import CompositorServices
 import Metal
 import MetalKit
 import Spatial
+import SwiftUI
 import simd
 
+/// defines the custom renderer protocol
 @MainActor
 protocol CustomRenderer {
     func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand
@@ -28,6 +30,9 @@ protocol CustomRenderer {
 
     var vertexBuffer: MTLBuffer! { get set }
     var indexBuffer: MTLBuffer! { get set }
+
+    /// handle spatial events
+    func onSpatialEvents(events: SpatialEventCollection)
 }
 
 /// Represents a ping-pong or bilateral oscillation behavior
@@ -79,7 +84,7 @@ struct TintDrawCommand {
     let uniforms: MTLBuffer & Sendable
 
     @MainActor
-    init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer) {
+    init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer, verticesCount: Int) {
         self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: verticesCount)  // not really used
         self.frameIndex = frameIndex
         self.uniforms = uniforms

@@ -9,34 +9,35 @@ import CompositorServices
 import Metal
 import MetalKit
 import Spatial
+import SwiftUI
 import simd
 
-let maxFramesInFlight = 3
+private let maxFramesInFlight = 3
 
-let lampCount: Int = 2000
-let patelPerLamp: Int = 24
-let verticesPerLamp = patelPerLamp * 2 + 1
-let verticesCount = verticesPerLamp * lampCount
+private let lampCount: Int = 2000
+private let patelPerLamp: Int = 24
+private let verticesPerLamp = patelPerLamp * 2 + 1
+private let verticesCount = verticesPerLamp * lampCount
 
-let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
+private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
+private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
 // prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
+private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
 // prepare the indices for the lamp
-let indexesCount: Int = lampCount * indexesPerLamp
+private let indexesCount: Int = lampCount * indexesPerLamp
 
-let verticalScale: Float = 0.4
-let upperRadius: Float = 0.14
-let lowerRadius: Float = 0.18
+private let verticalScale: Float = 0.4
+private let upperRadius: Float = 0.14
+private let lowerRadius: Float = 0.18
 
-struct LampBase {
+private struct LampBase {
     var position: SIMD3<Float>
     var color: SIMD3<Float>
     var lampIdf: Float
     var velocity: SIMD3<Float> = .zero
 }
 
-struct Params {
+private struct Params {
     var time: Float
 }
 
@@ -270,7 +271,8 @@ class LampsRenderer: CustomRenderer {
     func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand {
         return TintDrawCommand(
             frameIndex: frame.frameIndex,
-            uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)])
+            uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)],
+            verticesCount: verticesCount)
     }
 
     func computeCommandCommit() {
@@ -378,5 +380,11 @@ class LampsRenderer: CustomRenderer {
     ) {
         drawCommand.uniforms.contents().assumingMemoryBound(to: Uniforms.self).pointee = Uniforms(
             drawable: drawable)
+    }
+
+    func onSpatialEvents(events: SpatialEventCollection) {
+        // Handle spatial events if needed
+        print("LampsRenderer received spatial event")
+
     }
 }

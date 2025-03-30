@@ -27,7 +27,7 @@ typedef struct {
   float4 position [[position]];
   float4 color;
 
-} TintInOut;
+} LampInOut;
 
 typedef struct {
   float time;
@@ -58,14 +58,14 @@ kernel void lampsComputeShader(
   outputLamp.lampIdf = lamp.lampIdf;
 }
 
-vertex TintInOut lampsVertexShader(
+vertex LampInOut lampsVertexShader(
     VertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
     const device LampBase *lampData [[buffer(BufferIndexBase)]]) {
-  TintInOut out;
+  LampInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
@@ -85,7 +85,7 @@ vertex TintInOut lampsVertexShader(
   return out;
 }
 
-fragment float4 lampsFragmentShader(TintInOut in [[stage_in]]) {
+fragment float4 lampsFragmentShader(LampInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

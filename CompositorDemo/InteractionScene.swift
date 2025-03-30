@@ -20,9 +20,16 @@ struct ImmersiveInteractionScene: Scene {
         ImmersiveSpace(id: Self.id) {
             CompositorLayer(configuration: ContentStageConfiguration()) { layerRenderer in
 
-                let lampsRenderer: LampsRenderer
+                let lampsRenderer: CustomRenderer
                 do {
-                    lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
+                    switch appModel.selectedTab {
+                    case .lamps:
+                        print("Lamps selected")
+                        lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
+                    case .polylines:
+                        print("Polylines selected")
+                        lampsRenderer = try PolylinesRenderer(layerRenderer: layerRenderer)
+                    }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")
                 }
@@ -42,6 +49,10 @@ struct ImmersiveInteractionScene: Scene {
                         appModel.lampsRenderer = nil
                     }
                 }
+                layerRenderer.onSpatialEvent = {
+                    lampsRenderer.onSpatialEvents(events: $0)
+                }
+
             }
         }
         .immersionStyle(selection: .constant(appModel.immersionStyle), in: .mixed, .full)

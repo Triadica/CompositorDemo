@@ -7,6 +7,13 @@ Shared app state and renderers.
 
 import SwiftUI
 
+enum DemoTab: String, CaseIterable, Identifiable {
+    case lamps
+    case polylines
+
+    var id: Self { self }
+}
+
 /// Maintains app-wide state.
 @Observable
 public class AppModel {
@@ -21,5 +28,7 @@ public class AppModel {
 
     // Content rendering
     public var opacity: Float = 0.8
-    var lampsRenderer: LampsRenderer?
+
+    var selectedTab: DemoTab = .polylines
+    var lampsRenderer: CustomRenderer?
 }
