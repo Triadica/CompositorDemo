@@ -41,6 +41,83 @@ private struct Params {
   var time: Float
 }
 
+/// a line during extending tracks last point, new points that are too closer are skipped
+/// if line is stable, then all points are in the list `stablePoints`
+private struct ExtendingLine {
+  var stablePoints: [Point3D] = []
+  var lastPoint: Point3D? = .none
+  var miniSkip: Double = 0.004
+
+  /// method that combines the stable points and the last point
+  func getPoints() -> [Point3D] {
+    if let lastP = lastPoint {
+      var points = Array(stablePoints)  // Create a copy of stablePoints
+      points.append(lastP)
+      return points
+    } else {
+      return stablePoints
+    }
+  }
+
+  var count: Int {
+    if lastPoint != nil {
+      return stablePoints.count + 1
+    } else {
+      return stablePoints.count
+    }
+  }
+
+  /// if point hat
+  mutating func addPoint(_ point: Point3D) {
+    if let lastP = lastPoint {
+      let distance = lastP.distance(to: point)
+      if distance > miniSkip {
+        stablePoints.append(lastP)
+        lastPoint = point
+      }
+    } else {
+      lastPoint = point
+    }
+  }
+
+  mutating func stablize() {
+    if let lastP = lastPoint {
+      stablePoints.append(lastP)
+      lastPoint = nil
+    }
+  }
+
+  mutating func isStable() -> Bool {
+    if let lastP = lastPoint {
+      return stablePoints.contains { $0.distance(to: lastP) < miniSkip }
+    }
+    return false
+  }
+}
+
+private struct LinesManager {
+  var lines: [ExtendingLine] = []
+  var maxLines: Int = 10
+  var currentLine: ExtendingLine = ExtendingLine()
+
+  mutating func addPoint(_ point: Point3D) {
+    if lines.count < maxLines {
+      currentLine.addPoint(point)
+    } else {
+      currentLine.stablize()
+      lines.append(currentLine)
+      currentLine = ExtendingLine()
+      currentLine.addPoint(point)
+    }
+  }
+
+  mutating func finishCurrent() {
+    currentLine.stablize()
+    lines.append(currentLine)
+    currentLine = ExtendingLine()
+  }
+}
+
 @MainActor
 class PolylinesRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
@@ -55,6 +132,8 @@ class PolylinesRenderer: CustomRenderer {
   var computeBuffer: PingPongBuffer?
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
+
+  private var linesManager = LinesManager()
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -386,12 +465,16 @@ class PolylinesRenderer: CustomRenderer {
     print("\n\nevents")
     // Handle spatial events here
     for event in events {
-      let _chirality = event.chirality
+      // let _chirality = event.chirality
       switch event.phase {
       case .active:
-        print(event.inputDevicePose!.pose3D.position)
+        let position = event.inputDevicePose!.pose3D.position
+        linesManager.addPoint(position)
       case .ended:
-        print("ended")
+        print("now there are lines", linesManager.currentLine.count, linesManager.lines.count)
+        linesManager.finishCurrent()
+        print("Line finished")
+
       default:
         print("Other event: \(event)")
         break
