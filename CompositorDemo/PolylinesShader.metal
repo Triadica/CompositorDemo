@@ -19,16 +19,17 @@
 using namespace metal;
 
 typedef struct {
-  float3 position [[attribute(VertexAttributePosition)]];
-  float3 color [[attribute(VertexAttributeColor)]];
-  int seed [[attribute(VertexAttributeSeed)]];
-} VertexIn;
+  float3 position [[attribute(PolylineVertexAttributePosition)]];
+  float3 color [[attribute(PolylineVertexAttributeColor)]];
+  float3 direction [[attribute(PolylineVertexAttributeDirection)]];
+  int seed [[attribute(PolylineVertexAttributeSeed)]];
+} PolylineVertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
 
-} LampInOut;
+} PolylineVertexInInOut;
 
 typedef struct {
   float time;
@@ -41,17 +42,20 @@ struct LampBase {
   float3 velocity;
 };
 
-vertex LampInOut polylinesVertexShader(
-    VertexIn in [[stage_in]],
+vertex PolylineVertexInInOut polylinesVertexShader(
+    PolylineVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]]) {
-  LampInOut out;
+  PolylineVertexInInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
+  simd_float3 cameraDirection = uniforms.cameraDirection;
+  float3 brush = cross(in.direction, cameraDirection);
+  brush = brush * 0.0001 * in.seed;
 
-  float4 position = float4(in.position, 1.0);
+  float4 position = float4(in.position + brush, 1.0);
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
@@ -61,7 +65,7 @@ vertex LampInOut polylinesVertexShader(
   return out;
 }
 
-fragment float4 polylinesFragmentShader(LampInOut in [[stage_in]]) {
+fragment float4 polylinesFragmentShader(PolylineVertexInInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

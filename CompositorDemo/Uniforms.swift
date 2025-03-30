@@ -29,7 +29,9 @@ extension Uniforms {
         }
 
         let cameraPos: SIMD3<Float> = simdDeviceAnchor.columns.3.xyz
-        let cameraDirection = simdDeviceAnchor.columns.2.xyz
+        let cameraDirection = simd_normalize(simdDeviceAnchor.columns.2.xyz)
+
+        // print("cameraDirection: \(cameraDirection)")
 
         let firstView = createUniforms(forViewIndex: 0)
         let views: (UniformsPerView, UniformsPerView)

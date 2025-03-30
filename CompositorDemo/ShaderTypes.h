@@ -36,6 +36,13 @@ typedef NS_ENUM(EnumBackingType, VertexAttribute) {
   VertexAttributeSeed = 2,
 };
 
+typedef NS_ENUM(EnumBackingType, PolylineVertexAttribute) {
+  PolylineVertexAttributePosition = 0,
+  PolylineVertexAttributeColor = 1,
+  PolylineVertexAttributeDirection = 2,
+  PolylineVertexAttributeSeed = 3,
+};
+
 typedef struct {
   matrix_float4x4 modelViewProjectionMatrix;
 } UniformsPerView;
@@ -54,6 +61,13 @@ typedef struct {
   simd_float3 position;
   simd_float3 color;
   int seed;
-} Vertex;
+} LampsVertex;
+
+typedef struct {
+  simd_float3 position;
+  simd_float3 color;
+  simd_float3 direction;
+  int seed;
+} PolylineVertex;
 
 #endif /* ShaderTypes_h */

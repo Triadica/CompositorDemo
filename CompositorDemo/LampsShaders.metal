@@ -21,7 +21,7 @@ typedef struct {
   float3 position [[attribute(VertexAttributePosition)]];
   float3 color [[attribute(VertexAttributeColor)]];
   int seed [[attribute(VertexAttributeSeed)]];
-} VertexIn;
+} LampVertexIn;
 
 typedef struct {
   float4 position [[position]];
@@ -59,7 +59,7 @@ kernel void lampsComputeShader(
 }
 
 vertex LampInOut lampsVertexShader(
-    VertexIn in [[stage_in]],
+    LampVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],

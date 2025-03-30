@@ -23,10 +23,8 @@ struct ImmersiveInteractionScene: Scene {
                 do {
                     switch appModel.selectedTab {
                     case .lamps:
-                        print("Lamps selected")
                         lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
                     case .polylines:
-                        print("Polylines selected")
                         lampsRenderer = try PolylinesRenderer(
                             layerRenderer: layerRenderer
                         )

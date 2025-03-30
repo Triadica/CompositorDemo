@@ -49,57 +49,70 @@ struct InteractionView: View {
 
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
-    var body: some View {
-        VStack {
-            Button {
-                appModel.showImmersiveSpace.toggle()
-            } label: {
-                Text(appModel.showImmersiveSpace ? "Hide Immersive Space" : "Show Immersive Space")
-            }
-            .animation(.none, value: 0)
-            .fontWeight(.semibold)
-            if appModel.showImmersiveSpace {
-                VStack {
-                    HStack {
-                        Button {
-                            // to reset states in compute shader
-                            computeStateNotify.reset += 1
-                        } label: {
-                            Text("Reset Base")
-                        }
-                        .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
-                    }
-                    HStack {
-                        Text("Immersion Style")
-                        Picker("Immersion Style", selection: $selectedIStyle) {
-                            Text("Mixed").tag(IStyle.mixedStyle)
-                            Text("Full").tag(IStyle.fullStyle)
-                        }
-                    }
-                    HStack {
-                        Text("Upper Limbs")
-                        Picker("Upper Limb Visibility", selection: $selectedLVState) {
-                            Text("Visible").tag(VisibilityState.visibleState)
-                            Text("Hidden").tag(VisibilityState.hiddenState)
-                            Text("Automatic").tag(VisibilityState.automaticState)
-                        }
-                    }
-                    Text("Tint Opacity \(opacity)")
-                        .fontWeight(.semibold)
-                        .padding(20)
+    @State private var selectedDemo: DemoTab = .lamps
 
-                    Slider(value: $opacity, in: 0...1) {
-                        Text("Tint Opacity")
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
+    var body: some View {
+        HStack {
+            Picker("Demo", selection: $selectedDemo) {
+                Text("Lamps").tag(DemoTab.lamps)
+                Text("Polylines").tag(DemoTab.polylines)
+            }.pickerStyle(.wheel).padding(.bottom, 32).frame(
+                width: 300,
+                height: 400,
+                alignment: .center)
+            VStack {
+                Button {
+                    appModel.showImmersiveSpace.toggle()
+                } label: {
+                    Text(
+                        appModel.showImmersiveSpace
+                            ? "Hide Immersive Space" : "Show Immersive Space")
+                }
+                .animation(.none, value: 0)
+                .fontWeight(.semibold)
+                if appModel.showImmersiveSpace {
+                    VStack {
+                        HStack {
+                            Button {
+                                // to reset states in compute shader
+                                computeStateNotify.reset += 1
+                            } label: {
+                                Text("Reset Base")
+                            }
+                            .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
+                        }
+                        HStack {
+                            Text("Immersion Style")
+                            Picker("Immersion Style", selection: $selectedIStyle) {
+                                Text("Mixed").tag(IStyle.mixedStyle)
+                                Text("Full").tag(IStyle.fullStyle)
+                            }
+                        }
+                        HStack {
+                            Text("Upper Limbs")
+                            Picker("Upper Limb Visibility", selection: $selectedLVState) {
+                                Text("Visible").tag(VisibilityState.visibleState)
+                                Text("Hidden").tag(VisibilityState.hiddenState)
+                                Text("Automatic").tag(VisibilityState.automaticState)
+                            }
+                        }
+                        Text("Tint Opacity \(opacity)")
+                            .fontWeight(.semibold)
+                            .padding(20)
+
+                        Slider(value: $opacity, in: 0...1) {
+                            Text("Tint Opacity")
+                        } minimumValueLabel: {
+                            Text("0")
+                        } maximumValueLabel: {
+                            Text("1")
+                        }
                     }
                 }
             }
         }
         .padding()
-        .frame(width: 400, height: appModel.showImmersiveSpace ? 400 : 100)
+        .frame(width: 800, height: appModel.showImmersiveSpace ? 400 : 200)
         .onChange(of: scenePhase) { _, newPhase in
             Task { @MainActor in
                 if newPhase == .background {
@@ -115,6 +128,9 @@ struct InteractionView: View {
         }
         .onChange(of: selectedIStyle) { _, newStyle in
             appModel.immersionStyle = newStyle.style
+        }
+        .onChange(of: selectedDemo) { _, newDemo in
+            appModel.selectedTab = newDemo
         }
     }
 }

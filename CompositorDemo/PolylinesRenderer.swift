@@ -135,7 +135,7 @@ class PolylinesRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
-  /// a buffer to hold the vertices of the lamp
+  /// a buffer to hold the vertices of the polyline
   var vertexBuffer: MTLBuffer!
 
   var indexBuffer: MTLBuffer!
@@ -157,12 +157,12 @@ class PolylinesRenderer: CustomRenderer {
     // self.createLampComputeBuffer(device: layerRenderer.device)
   }
 
-  /// create and sets the vertices of the lamp
+  /// create and sets the vertices of the polyline
   private func createPolylinesVerticesBuffer(
     device: MTLDevice,
     count: Int = 0
   ) {
-    let bufferLength: Int = MemoryLayout<Vertex>.stride * count
+    let bufferLength: Int = MemoryLayout<PolylineVertex>.stride * count
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Lamp vertex buffer"
 
@@ -170,8 +170,8 @@ class PolylinesRenderer: CustomRenderer {
   }
 
   private func updateVertexBuffer() {
-    var lampVertices: UnsafeMutablePointer<Vertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
+    var polylineVertices: UnsafeMutablePointer<PolylineVertex> {
+      vertexBuffer.contents().assumingMemoryBound(to: PolylineVertex.self)
     }
 
     var pos = 0
@@ -186,47 +186,54 @@ class PolylinesRenderer: CustomRenderer {
           prevPoint = line.getPointAt(0)
           continue
         }
-        let ll: Float = 0.01
+        let ll: Float = 0.001
         let point = line.getPointAt(j)
         let pointSimed3 = point.to_simd3
         let prevPointSimed3 = prevPoint.to_simd3
         let pointUpSimed3 = pointSimed3 + SIMD3<Float>(0, ll, 0)
         let prevPointUpSimed3 = prevPointSimed3 + SIMD3<Float>(0, ll, 0)
+        let direction = simd_normalize(pointSimed3 - prevPointSimed3)
         // 6 vertices per rectangle, use (0,1,0) as brush for now
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: pointSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(-10)
         )
         pos += 1
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: pointUpSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(10)
         )
         pos += 1
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: prevPointSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(-10)
         )
         pos += 1
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: pointUpSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(10)
         )
         pos += 1
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: prevPointUpSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(10)
         )
         pos += 1
-        lampVertices[pos] = Vertex(
+        polylineVertices[pos] = PolylineVertex(
           position: prevPointSimed3,
           color: color,
-          seed: Int32(i)
+          direction: direction,
+          seed: Int32(-10)
         )
         pos += 1
         prevPoint = point
@@ -252,32 +259,45 @@ class PolylinesRenderer: CustomRenderer {
     // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
+    var offset = 0
 
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format =
+    // position
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.position.rawValue].format =
       MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.position.rawValue].offset = offset
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.position.rawValue].bufferIndex =
       BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<SIMD3<Float>>.stride
 
-    let offset = MemoryLayout<SIMD3<Float>>.stride
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
+    // color
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.color.rawValue].format =
       MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].bufferIndex =
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.color.rawValue].offset = offset
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.color.rawValue].bufferIndex =
       BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<SIMD3<Float>>.stride
+
+    // direction
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.direction.rawValue].format =
+      MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.direction.rawValue].offset = offset
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.direction.rawValue].bufferIndex =
+      BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<SIMD3<Float>>.stride
+
+    // seed
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.seed.rawValue].format =
+      MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.seed.rawValue].offset = offset
+    mtlVertexDescriptor.attributes[PolylineVertexAttribute.seed.rawValue].bufferIndex =
+      BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<Int32>.stride
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<Vertex>.stride
+      MemoryLayout<PolylineVertex>.stride
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
       MTLVertexStepFunction.perVertex
-    // add params for seed value
-    let nextOffset = offset + MemoryLayout<SIMD3<Float>>.stride
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format =
-      MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = nextOffset
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
 
     return mtlVertexDescriptor
   }
@@ -297,7 +317,7 @@ class PolylinesRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = LampsRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = PolylinesRenderer.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
@@ -312,7 +332,7 @@ class PolylinesRenderer: CustomRenderer {
 
   func resetComputeState() {
     linesManager = LinesManager()
-    currentVertexBufferSize = 6
+    currentVertexBufferSize = 1
   }
 
   private func createLampComputeBuffer(device: MTLDevice) {
@@ -353,7 +373,7 @@ class PolylinesRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
 
-    // let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+    // let bufferLength = MemoryLayout<PolylineVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,

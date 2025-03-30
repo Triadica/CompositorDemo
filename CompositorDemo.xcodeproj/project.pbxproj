@@ -29,6 +29,7 @@
 		9A92D3762D91D35A0021FFCE /* LampsShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LampsShaders.metal; sourceTree = "<group>"; };
 		9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylinesRenderer.swift; sourceTree = "<group>"; };
 		9A92D3862D994EBB0021FFCE /* PolylinesShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PolylinesShader.metal; sourceTree = "<group>"; };
+		9A92D3882D99A3E10021FFCE /* PathProperties.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PathProperties.h; sourceTree = "<group>"; };
 		D11274222BC7318900E194CF /* CompositorDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D11274292BC7318900E194CF /* InteractionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionApp.swift; sourceTree = "<group>"; };
 		D112742D2BC7318900E194CF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -40,7 +41,6 @@
 		D112743F2BC734AD00E194CF /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
 		D11274402BC734AD00E194CF /* InteractionScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionScene.swift; sourceTree = "<group>"; };
 		D11274412BC734AD00E194CF /* InteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionView.swift; sourceTree = "<group>"; };
-		D11274432BC734AD00E194CF /* PathProperties.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PathProperties.h; sourceTree = "<group>"; };
 		D11274442BC734AD00E194CF /* Uniforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Uniforms.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -96,13 +96,13 @@
 			children = (
 				9A92D3862D994EBB0021FFCE /* PolylinesShader.metal */,
 				9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */,
+				9A92D3882D99A3E10021FFCE /* PathProperties.h */,
 				9A92D3762D91D35A0021FFCE /* LampsShaders.metal */,
 				D112743F2BC734AD00E194CF /* Bridging-Header.h */,
 				D112742D2BC7318900E194CF /* AppModel.swift */,
 				D11274292BC7318900E194CF /* InteractionApp.swift */,
 				D11274402BC734AD00E194CF /* InteractionScene.swift */,
 				D11274412BC734AD00E194CF /* InteractionView.swift */,
-				D11274432BC734AD00E194CF /* PathProperties.h */,
 				D112742F2BC7318900E194CF /* Renderer.swift */,
 				9A45F3A92D889E1B0042486A /* LampsRenderer.swift */,
 				D11274442BC734AD00E194CF /* Uniforms.swift */,

@@ -27,8 +27,8 @@ public class AppModel {
     public var upperLimbVisibility: Visibility = .visible
 
     // Content rendering
-    public var opacity: Float = 0.8
+    public var opacity: Float = 1.0
 
-    var selectedTab: DemoTab = .polylines
+    var selectedTab: DemoTab = .lamps
     var lampsRenderer: CustomRenderer?
 }

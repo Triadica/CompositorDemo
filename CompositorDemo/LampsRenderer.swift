@@ -77,11 +77,11 @@ class LampsRenderer: CustomRenderer {
 
     /// create and sets the vertices of the lamp
     private func createLampVerticesBuffer(device: MTLDevice) {
-        let bufferLength = MemoryLayout<Vertex>.stride * verticesCount
+        let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
         vertexBuffer = device.makeBuffer(length: bufferLength)!
         vertexBuffer.label = "Lamp vertex buffer"
-        var lampVertices: UnsafeMutablePointer<Vertex> {
-            vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
+        var lampVertices: UnsafeMutablePointer<LampsVertex> {
+            vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
         }
 
         for i in 0..<lampCount {
@@ -109,16 +109,16 @@ class LampsRenderer: CustomRenderer {
                 let vertexBase = baseIndex + p
 
                 // First triangle of rectangle (inner1, outer1, inner2)
-                lampVertices[vertexBase] = Vertex(
+                lampVertices[vertexBase] = LampsVertex(
                     position: upperEdge, color: color, seed: Int32(i))
-                lampVertices[vertexBase + patelPerLamp] = Vertex(
+                lampVertices[vertexBase + patelPerLamp] = LampsVertex(
                     position: lowerEdge,
                     color: dimColor,
                     seed: Int32(i)
                 )
             }
             // top center of the lamp
-            lampVertices[baseIndex + patelPerLamp * 2] = Vertex(
+            lampVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
                 position: SIMD3<Float>(0, verticalScale, 0),
                 color: color * 2.0,
                 seed: Int32(i)
@@ -233,7 +233,7 @@ class LampsRenderer: CustomRenderer {
             BufferIndex.meshPositions.rawValue
 
         mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-            MemoryLayout<Vertex>.stride
+            MemoryLayout<LampsVertex>.stride
         mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
         mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
             MTLVertexStepFunction.perVertex
@@ -342,7 +342,7 @@ class LampsRenderer: CustomRenderer {
             offset: 0,
             index: BufferIndex.uniforms.rawValue)
 
-        // let bufferLength = MemoryLayout<Vertex>.stride * numVertices
+        // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
 
         encoder.setVertexBuffer(
             buffer,
