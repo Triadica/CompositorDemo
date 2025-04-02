@@ -9,7 +9,87 @@ import CompositorServices
 import Metal
 import MetalKit
 import Spatial
+import SwiftUI
 import simd
+
+/// defines the custom renderer protocol
+@MainActor
+protocol CustomRenderer {
+    func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand
+    func encodeDraw(
+        _ drawCommand: TintDrawCommand, encoder: MTLRenderCommandEncoder,
+        drawable: LayerRenderer.Drawable,
+        device: MTLDevice, tintValue: Float, buffer: MTLBuffer, indexBuffer: MTLBuffer
+    )
+    func updateUniformBuffers(_ drawCommand: TintDrawCommand, drawable: LayerRenderer.Drawable)
+
+    /// Reset the compute state
+    func resetComputeState()
+
+    func computeCommandCommit()
+
+    var vertexBuffer: MTLBuffer! { get set }
+    var indexBuffer: MTLBuffer! { get set }
+
+    /// handle spatial events
+    func onSpatialEvents(events: SpatialEventCollection)
+}
+
+/// Represents a ping-pong or bilateral oscillation behavior
+///
+/// The ping-pong pattern describes a value that moves back and forth between two points,
+/// similar to how a ping-pong ball bounces between players.
+class PingPongBuffer {
+    var currentBuffer: MTLBuffer
+    var nextBuffer: MTLBuffer
+
+    /// Creates a new pair of ping-pong buffer.
+    init(device: MTLDevice, length: Int) {
+        guard let safeBuffer = device.makeBuffer(length: length, options: .storageModeShared),
+            let safeBufferB = device.makeBuffer(length: length, options: .storageModeShared)
+        else {
+            fatalError("Failed to create ping-pong buffer")
+        }
+        currentBuffer = safeBuffer
+        nextBuffer = safeBufferB
+    }
+
+    /// Swaps the current and next buffers.
+    func swap() {
+        (currentBuffer, nextBuffer) = (nextBuffer, currentBuffer)
+    }
+
+    /// add label
+    func addLabel(_ label: String) {
+        currentBuffer.label = label
+        nextBuffer.label = label
+    }
+
+    func copy_to_next() {
+        nextBuffer.contents().copyMemory(
+            from: currentBuffer.contents(), byteCount: currentBuffer.length)
+    }
+}
+
+@RendererActor
+struct TintDrawCommand {
+    @RendererActor
+    fileprivate struct DrawCommand {
+        let buffer: MTLBuffer
+        let vertexCount: Int
+    }
+
+    fileprivate let drawCommand: DrawCommand
+    let frameIndex: LayerFrameIndex
+    let uniforms: MTLBuffer & Sendable
+
+    @MainActor
+    init(frameIndex: LayerFrameIndex, uniforms: MTLBuffer, verticesCount: Int) {
+        self.drawCommand = DrawCommand(buffer: uniforms, vertexCount: verticesCount)  // not really used
+        self.frameIndex = frameIndex
+        self.uniforms = uniforms
+    }
+}
 
 extension MemoryLayout {
     static var uniformStride: Int {
@@ -41,7 +121,7 @@ class Renderer {
     private let appModel: AppModel
 
     // Renderers
-    private let tintRenderer: TintRenderer
+    private let customRenderer: CustomRenderer
 
     // Metal
     private let device: MTLDevice
@@ -59,11 +139,11 @@ class Renderer {
     init(
         _ layerRenderer: LayerRenderer,
         _ appModel: AppModel,
-        _ tintRenderer: TintRenderer
+        _ customRenderer: CustomRenderer
     ) throws {
         self.appModel = appModel
 
-        self.tintRenderer = tintRenderer
+        self.customRenderer = customRenderer
 
         self.layerRenderer = layerRenderer
         self.device = layerRenderer.device
@@ -157,6 +237,7 @@ extension Renderer {
                 layerRenderer.waitUntilRunning()
                 continue
             } else {
+                await customRenderer.computeCommandCommit()
                 try await self.renderFrame()
             }
         }
@@ -208,8 +289,8 @@ extension Renderer {
         guard let timing = frame.predictTiming() else { return }
 
         // Update scene and generate draw commands.
-        let tintDrawCommand = try await Task { @MainActor in
-            return try tintRenderer.drawCommand(frame: frame)
+        let lampsDrawCommand = try await Task { @MainActor in
+            return try await customRenderer.drawCommand(frame: frame)
         }.result.get()
 
         // Query the drawable after scene update to avoid blocking on the drawable.
@@ -243,9 +324,12 @@ extension Renderer {
             }
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
-        tintRenderer.encodeDraw(
-            tintDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
-            tintValue: appModel.tintOpacity)
+        await customRenderer.encodeDraw(
+            lampsDrawCommand, encoder: renderEncoder, drawable: drawable, device: device,
+            tintValue: appModel.opacity,
+            buffer: customRenderer.vertexBuffer,
+            indexBuffer: customRenderer.indexBuffer
+        )
 
         renderEncoder.popDebugGroup()
         renderEncoder.endEncoding()
@@ -266,7 +350,7 @@ extension Renderer {
         drawable.deviceAnchor = deviceAnchor
 
         // Update the renderer uniforms using the latest device anchor.
-        tintRenderer.updateUniformBuffers(tintDrawCommand, drawable: drawable)
+        await customRenderer.updateUniformBuffers(lampsDrawCommand, drawable: drawable)
 
         drawable.encodePresent(commandBuffer: commandBuffer)
 

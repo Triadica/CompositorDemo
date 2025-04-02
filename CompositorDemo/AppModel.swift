@@ -7,6 +7,13 @@ Shared app state and renderers.
 
 import SwiftUI
 
+enum DemoTab: String, CaseIterable, Identifiable {
+    case lamps
+    case polylines
+
+    var id: Self { self }
+}
+
 /// Maintains app-wide state.
 @Observable
 public class AppModel {
@@ -14,12 +21,14 @@ public class AppModel {
     public var isFirstLaunch = true
     public var showImmersiveSpace = false
     public var immersiveSpaceIsShown = false
-    public var immersionStyle: ImmersionStyle = .mixed
+    public var immersionStyle: ImmersionStyle = .full
 
     // Limb visibility
     public var upperLimbVisibility: Visibility = .visible
 
     // Content rendering
-    public var tintOpacity: Float = 0
-    var tintRenderer: TintRenderer?
+    public var opacity: Float = 1.0
+
+    var selectedTab: DemoTab = .lamps
+    var lampsRenderer: CustomRenderer?
 }

@@ -11,6 +11,7 @@ import SwiftUI
 struct ImmersiveInteractionScene: Scene {
 
     @Environment(AppModel.self) var appModel
+    @EnvironmentObject var computeStateNotify: ResetComputeState
 
     static let id = "ImmersiveInteractionScene"
 
@@ -18,31 +19,45 @@ struct ImmersiveInteractionScene: Scene {
         ImmersiveSpace(id: Self.id) {
             CompositorLayer(configuration: ContentStageConfiguration()) { layerRenderer in
 
-                let tintRenderer: TintRenderer
+                let lampsRenderer: CustomRenderer
                 do {
-                    tintRenderer = try TintRenderer(layerRenderer: layerRenderer)
+                    switch appModel.selectedTab {
+                    case .lamps:
+                        lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
+                    case .polylines:
+                        lampsRenderer = try PolylinesRenderer(
+                            layerRenderer: layerRenderer
+                        )
+                    }
                 } catch {
-                    fatalError("Failed to create tint renderer \(error)")
+                    fatalError("Failed to create lamps renderer \(error)")
                 }
 
                 Task(priority: .high) { @RendererActor in
                     Task { @MainActor in
-                        appModel.tintRenderer = tintRenderer
+                        appModel.lampsRenderer = lampsRenderer
                     }
 
                     let renderer = try await Renderer(
                         layerRenderer,
                         appModel,
-                        tintRenderer)
+                        lampsRenderer)
                     try await renderer.renderLoop()
 
                     Task { @MainActor in
-                        appModel.tintRenderer = nil
+                        appModel.lampsRenderer = nil
                     }
                 }
+                layerRenderer.onSpatialEvent = {
+                    lampsRenderer.onSpatialEvents(events: $0)
+                }
+
             }
         }
         .immersionStyle(selection: .constant(appModel.immersionStyle), in: .mixed, .full)
         .upperLimbVisibility(appModel.upperLimbVisibility)
+        .onChange(of: computeStateNotify.reset) { oldValue, newValue in
+            appModel.lampsRenderer?.resetComputeState()
+        }
     }
 }

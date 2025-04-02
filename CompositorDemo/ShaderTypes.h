@@ -25,12 +25,22 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
   BufferIndexMeshPositions = 0,
   BufferIndexUniforms = 1,
   BufferIndexTintUniforms = 2,
+  BufferIndexParams = 3,
+  BufferIndexBase = 4,
   BufferIndexCount
 };
 
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
   VertexAttributePosition = 0,
   VertexAttributeColor = 1,
+  VertexAttributeSeed = 2,
+};
+
+typedef NS_ENUM(EnumBackingType, PolylineVertexAttribute) {
+  PolylineVertexAttributePosition = 0,
+  PolylineVertexAttributeColor = 1,
+  PolylineVertexAttributeDirection = 2,
+  PolylineVertexAttributeSeed = 3,
 };
 
 typedef struct {
@@ -40,6 +50,7 @@ typedef struct {
 typedef struct {
   UniformsPerView perView[2];
   simd_float3 cameraPos;
+  simd_float3 cameraDirection;
 } Uniforms;
 
 typedef struct {
@@ -49,6 +60,14 @@ typedef struct {
 typedef struct {
   simd_float3 position;
   simd_float3 color;
-} Vertex;
+  int seed;
+} LampsVertex;
+
+typedef struct {
+  simd_float3 position;
+  simd_float3 color;
+  simd_float3 direction;
+  int seed;
+} PolylineVertex;
 
 #endif /* ShaderTypes_h */
