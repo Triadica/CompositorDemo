@@ -21,7 +21,7 @@ private struct Params {
 private struct ExtendingLine {
   private var stablePoints: [Point3D] = []
   private var lastPoint: Point3D? = .none
-  var miniSkip: Double = 0.01
+  var miniSkip: Double = 0.004
 
   var count: Int {
     if lastPoint != nil {
@@ -121,6 +121,13 @@ private struct LinesManager {
       fatalError("Index out of bounds")
     }
   }
+
+  /// remove the last line
+  mutating func rollbackLast() {
+    if lines.count > 0 {
+      lines.removeLast()
+    }
+  }
 }
 
 extension Point3D {
@@ -193,47 +200,48 @@ class PolylinesRenderer: CustomRenderer {
         let pointUpSimed3 = pointSimed3 + SIMD3<Float>(0, ll, 0)
         let prevPointUpSimed3 = prevPointSimed3 + SIMD3<Float>(0, ll, 0)
         let direction = simd_normalize(pointSimed3 - prevPointSimed3)
+        let width = Float(6)
         // 6 vertices per rectangle, use (0,1,0) as brush for now
         polylineVertices[pos] = PolylineVertex(
           position: pointSimed3,
           color: color,
           direction: direction,
-          seed: Int32(-10)
+          seed: Int32(-width)
         )
         pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: pointUpSimed3,
           color: color,
           direction: direction,
-          seed: Int32(10)
+          seed: Int32(width)
         )
         pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: prevPointSimed3,
           color: color,
           direction: direction,
-          seed: Int32(-10)
+          seed: Int32(-width)
         )
         pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: pointUpSimed3,
           color: color,
           direction: direction,
-          seed: Int32(10)
+          seed: Int32(width)
         )
         pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: prevPointUpSimed3,
           color: color,
           direction: direction,
-          seed: Int32(10)
+          seed: Int32(width)
         )
         pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: prevPointSimed3,
           color: color,
           direction: direction,
-          seed: Int32(-10)
+          seed: Int32(-width)
         )
         pos += 1
         prevPoint = point
@@ -331,8 +339,10 @@ class PolylinesRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    linesManager = LinesManager()
-    currentVertexBufferSize = 1
+    linesManager.rollbackLast()
+
+    createPolylinesVerticesBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
+    createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
   }
 
   private func createLampComputeBuffer(device: MTLDevice) {
@@ -435,8 +445,8 @@ class PolylinesRenderer: CustomRenderer {
       }
     }
     let verticesCount = linesManager.estimateVerticesCount()
-    if verticesCount + 100 > currentVertexBufferSize {
-      while verticesCount + 100 >= currentVertexBufferSize {
+    if verticesCount + 200 > currentVertexBufferSize {
+      while verticesCount + 200 >= currentVertexBufferSize {
         currentVertexBufferSize = currentVertexBufferSize * 2
       }
       self.createPolylinesVerticesBuffer(
