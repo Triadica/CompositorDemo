@@ -22,6 +22,7 @@ private struct ExtendingLine {
   private var stablePoints: [Point3D] = []
   private var lastPoint: Point3D? = .none
   var miniSkip: Double = 0.004
+  var color: SIMD3<Float> = SIMD3<Float>(0.5, 0.5, 0.5)
 
   var count: Int {
     if lastPoint != nil {
@@ -71,6 +72,14 @@ private struct ExtendingLine {
     }
     return false
   }
+
+  mutating func random_color() {
+    color = SIMD3<Float>(
+      Float.random(in: 0.0...1.0),
+      Float.random(in: 0.0...1.0),
+      Float.random(in: 0.0...1.0)
+    )
+  }
 }
 
 private struct LinesManager {
@@ -90,6 +99,7 @@ private struct LinesManager {
     currentLine.stablize()
     lines.append(currentLine)
     currentLine = ExtendingLine()
+    currentLine.random_color()
   }
 
   func estimateVerticesCount() -> Int {
@@ -185,7 +195,8 @@ class PolylinesRenderer: CustomRenderer {
 
     for i in 0..<linesManager.count {
       let line = linesManager.getLineAt(i)
-      let color = SIMD3<Float>(1.0, 1.0, 1.0)
+      // Generate a random color for each line
+      let color = line.color
 
       var prevPoint: Point3D = .zero
       for j in 0..<line.count {

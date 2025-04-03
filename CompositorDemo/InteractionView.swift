@@ -73,15 +73,6 @@ struct InteractionView: View {
                 if appModel.showImmersiveSpace {
                     VStack {
                         HStack {
-                            Button {
-                                // to reset states in compute shader
-                                computeStateNotify.reset += 1
-                            } label: {
-                                Text("Reset Base")
-                            }
-                            .padding(.vertical, 10)  // Adds 10 points of padding on top and bottom
-                        }
-                        HStack {
                             Text("Immersion Style")
                             Picker("Immersion Style", selection: $selectedIStyle) {
                                 Text("Mixed").tag(IStyle.mixedStyle)
@@ -96,16 +87,26 @@ struct InteractionView: View {
                                 Text("Automatic").tag(VisibilityState.automaticState)
                             }
                         }
-                        Text("Tint Opacity \(opacity)")
-                            .fontWeight(.semibold)
-                            .padding(20)
+                        // Text("Tint Opacity \(opacity)")
+                        //     .fontWeight(.semibold)
+                        //     .padding(20)
 
-                        Slider(value: $opacity, in: 0...1) {
-                            Text("Tint Opacity")
-                        } minimumValueLabel: {
-                            Text("0")
-                        } maximumValueLabel: {
-                            Text("1")
+                        // Slider(value: $opacity, in: 0...1) {
+                        //     Text("Tint Opacity")
+                        // } minimumValueLabel: {
+                        //     Text("0")
+                        // } maximumValueLabel: {
+                        //     Text("1")
+                        // }
+
+                        HStack {
+                            Button {
+                                // to reset states in compute shader
+                                computeStateNotify.reset += 1
+                            } label: {
+                                Text("Reset Base")
+                            }
+                            .padding(.vertical, 30)  // Adds 10 points of padding on top and bottom
                         }
                     }
                 }
