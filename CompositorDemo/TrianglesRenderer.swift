@@ -16,68 +16,29 @@ private struct Params {
   var time: Float
 }
 
-private struct LinesManager {
-  private var lines: [ExtendingLine] = []
-  var maxLines: Int = 100
-  private var currentLine: ExtendingLine = ExtendingLine()
-
-  mutating func addPoint(_ point: Point3D) {
-    if lines.count < maxLines {
-      currentLine.addPoint(point)
-    } else {
-      print("Max lines reached")
-    }
+extension Point3D {
+  /// turn into SIMD3
+  fileprivate var to_simd3: SIMD3<Float> {
+    return SIMD3<Float>(Float(x), Float(y), Float(z))
   }
+}
 
-  mutating func finishCurrent() {
-    currentLine.stablize()
-    lines.append(currentLine)
-    currentLine = ExtendingLine()
-    currentLine.random_color()
-  }
+extension LinesManager {
 
-  func estimateVerticesCount() -> Int {
+  fileprivate func estimateVerticesCount() -> Int {
+
     var count = 0
-    for line in lines {
-      count += line.count - 1
-    }
-
-    if currentLine.count > 0 {
-      count += currentLine.count - 1
+    for i in 0..<self.count {
+      let line = self.getLineAt(i)
+      if line.count > 0 {
+        count += line.count - 1
+      }
     }
 
     if count == 0 {
       return 1  // at least one vertex
     }
     return count * 6
-  }
-
-  var count: Int {
-    lines.count + 1
-  }
-
-  func getLineAt(_ index: Int) -> ExtendingLine {
-    if index < lines.count {
-      return lines[index]
-    } else if index == lines.count {
-      return currentLine
-    } else {
-      fatalError("Index out of bounds")
-    }
-  }
-
-  /// remove the last line
-  mutating func rollbackLast() {
-    if lines.count > 0 {
-      lines.removeLast()
-    }
-  }
-}
-
-extension Point3D {
-  /// turn into SIMD3
-  fileprivate var to_simd3: SIMD3<Float> {
-    return SIMD3<Float>(Float(x), Float(y), Float(z))
   }
 }
 

@@ -65,3 +65,45 @@ struct ExtendingLine {
     )
   }
 }
+
+struct LinesManager {
+  private var lines: [ExtendingLine] = []
+  var maxLines: Int = 100
+  private var currentLine: ExtendingLine = ExtendingLine()
+
+  mutating func addPoint(_ point: Point3D) {
+    if lines.count < maxLines {
+      currentLine.addPoint(point)
+    } else {
+      print("Max lines reached")
+    }
+  }
+
+  mutating func finishCurrent() {
+    currentLine.stablize()
+    lines.append(currentLine)
+    currentLine = ExtendingLine()
+    currentLine.random_color()
+  }
+
+  var count: Int {
+    lines.count + 1
+  }
+
+  func getLineAt(_ index: Int) -> ExtendingLine {
+    if index < lines.count {
+      return lines[index]
+    } else if index == lines.count {
+      return currentLine
+    } else {
+      fatalError("Index out of bounds")
+    }
+  }
+
+  /// remove the last line
+  mutating func rollbackLast() {
+    if lines.count > 0 {
+      lines.removeLast()
+    }
+  }
+}
