@@ -56,6 +56,7 @@ struct InteractionView: View {
             Picker("Demo", selection: $selectedDemo) {
                 Text("Lamps").tag(DemoTab.lamps)
                 Text("Polylines").tag(DemoTab.polylines)
+                Text("Triangles").tag(DemoTab.triangles)
             }.pickerStyle(.wheel).padding(.bottom, 32).frame(
                 width: 300,
                 height: 400,

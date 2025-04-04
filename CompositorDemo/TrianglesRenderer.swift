@@ -82,7 +82,7 @@ extension Point3D {
 }
 
 @MainActor
-class PolylinesRenderer: CustomRenderer {
+class TrianglesRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
@@ -263,14 +263,14 @@ class PolylinesRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "polylinesVertexShader")
-    let fragmentFunction = library.makeFunction(name: "polylinesFragmentShader")
+    let vertexFunction = library.makeFunction(name: "trianglesVertexShader")
+    let fragmentFunction = library.makeFunction(name: "trianglesFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = PolylinesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = TrianglesRenderer.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }

@@ -1,0 +1,67 @@
+import SwiftUI
+
+/// a line during extending tracks last point, new points that are too closer are skipped
+/// if line is stable, then all points are in the list `stablePoints`
+struct ExtendingLine {
+  private var stablePoints: [Point3D] = []
+  private var lastPoint: Point3D? = .none
+  var miniSkip: Double = 0.004
+  var color: SIMD3<Float> = SIMD3<Float>(0.5, 0.5, 0.5)
+
+  var count: Int {
+    if lastPoint != nil {
+      return stablePoints.count + 1
+    } else {
+      return stablePoints.count
+    }
+  }
+
+  /// if point hat
+  mutating func addPoint(_ point: Point3D) {
+    if let lastP = lastPoint {
+      let distance = lastP.distance(to: point)
+      if distance > miniSkip {
+        stablePoints.append(lastP)
+        lastPoint = point
+      }
+    } else {
+      lastPoint = point
+    }
+  }
+
+  func getPointAt(_ index: Int) -> Point3D {
+    if index < stablePoints.count {
+      return stablePoints[index]
+    } else if index == stablePoints.count {
+      if let lastP = lastPoint {
+        return lastP
+      } else {
+        fatalError("No last point")
+      }
+    } else {
+      fatalError("Index out of bounds")
+    }
+  }
+
+  mutating func stablize() {
+    if let lastP = lastPoint {
+      stablePoints.append(lastP)
+      lastPoint = nil
+    }
+  }
+
+  mutating func isStable() -> Bool {
+    if let lastP: Point3D = lastPoint {
+      return stablePoints.contains { $0.distance(to: lastP) < miniSkip }
+    }
+    return false
+  }
+
+  mutating func random_color() {
+    color = SIMD3<Float>(
+      Float.random(in: 0.0...1.0),
+      Float.random(in: 0.0...1.0),
+      Float.random(in: 0.0...1.0)
+    )
+  }
+}
