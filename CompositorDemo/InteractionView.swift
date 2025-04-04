@@ -49,7 +49,7 @@ struct InteractionView: View {
 
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
-    @State private var selectedDemo: DemoTab = .lamps
+  @State private var selectedDemo: DemoTab = .triangles
 
     var body: some View {
         HStack {

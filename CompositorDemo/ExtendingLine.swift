@@ -8,6 +8,10 @@ struct ExtendingLine {
   var miniSkip: Double = 0.004
   var color: SIMD3<Float> = SIMD3<Float>(0.5, 0.5, 0.5)
 
+  init(miniSkip: Double = 0.004) {
+    self.miniSkip = miniSkip
+  }
+
   var count: Int {
     if lastPoint != nil {
       return stablePoints.count + 1
@@ -69,7 +73,12 @@ struct ExtendingLine {
 struct LinesManager {
   private var lines: [ExtendingLine] = []
   var maxLines: Int = 100
+  var miniSkip: Double = 0.004
   private var currentLine: ExtendingLine = ExtendingLine()
+
+  init(miniSkip: Double = 0.004) {
+    self.miniSkip = miniSkip
+  }
 
   mutating func addPoint(_ point: Point3D) {
     if lines.count < maxLines {
@@ -82,7 +91,7 @@ struct LinesManager {
   mutating func finishCurrent() {
     currentLine.stablize()
     lines.append(currentLine)
-    currentLine = ExtendingLine()
+    currentLine = ExtendingLine(miniSkip: miniSkip)
     currentLine.random_color()
   }
 

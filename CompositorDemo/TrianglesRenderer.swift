@@ -25,13 +25,14 @@ extension Point3D {
 
 extension LinesManager {
 
+  /// build triangles from lines with each 3 sibsequent points
   fileprivate func estimateVerticesCount() -> Int {
 
     var count = 0
     for i in 0..<self.count {
       let line = self.getLineAt(i)
-      if line.count > 0 {
-        count += line.count - 1
+      if line.count > 2 {
+        count += line.count - 2
       }
     }
 
@@ -55,7 +56,7 @@ class TrianglesRenderer: CustomRenderer {
   /// tracks buffer size, increased when points getting enormous, should be larger than 0
   private var currentVertexBufferSize: Int = 6
 
-  private var linesManager = LinesManager()
+  private var linesManager = LinesManager(miniSkip: 0.02)
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -94,8 +95,13 @@ class TrianglesRenderer: CustomRenderer {
       let color = line.color
 
       var prevPoint: Point3D = .zero
+      var beforePrevPoint: Point3D = .zero
       for j in 0..<line.count {
         if j == 0 {
+          beforePrevPoint = line.getPointAt(0)
+          continue
+        }
+        if j == 1 {
           prevPoint = line.getPointAt(0)
           continue
         }
@@ -103,11 +109,26 @@ class TrianglesRenderer: CustomRenderer {
         let point = line.getPointAt(j)
         let pointSimed3 = point.to_simd3
         let prevPointSimed3 = prevPoint.to_simd3
-        let pointUpSimed3 = pointSimed3 + SIMD3<Float>(0, ll, 0)
-        let prevPointUpSimed3 = prevPointSimed3 + SIMD3<Float>(0, ll, 0)
+        let beforePrevPointSimed3 = beforePrevPoint.to_simd3
+
         let direction = simd_normalize(pointSimed3 - prevPointSimed3)
+
         let width = Float(6)
         // 6 vertices per rectangle, use (0,1,0) as brush for now
+        polylineVertices[pos] = PolylineVertex(
+          position: beforePrevPointSimed3,
+          color: color,
+          direction: direction,
+          seed: Int32(-width)
+        )
+        pos += 1
+        polylineVertices[pos] = PolylineVertex(
+          position: prevPointSimed3,
+          color: color,
+          direction: direction,
+          seed: Int32(width)
+        )
+        pos += 1
         polylineVertices[pos] = PolylineVertex(
           position: pointSimed3,
           color: color,
@@ -115,41 +136,7 @@ class TrianglesRenderer: CustomRenderer {
           seed: Int32(-width)
         )
         pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: pointUpSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: prevPointSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(-width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: pointUpSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: prevPointUpSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: prevPointSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(-width)
-        )
-        pos += 1
+        beforePrevPoint = prevPoint
         prevPoint = point
       }
     }
@@ -333,12 +320,22 @@ class TrianglesRenderer: CustomRenderer {
 
   func onSpatialEvents(events: SpatialEventCollection) {
 
+    print("onSpatialEvents \(events.count)")
+
+    let sortedEvents = events.sorted {
+      guard let chirality1 = $0.chirality, let chirality2 = $1.chirality else {
+        return false
+      }
+      return chirality1.hashValue <= chirality2.hashValue
+    }
+
     // Handle spatial events here
-    for event in events {
+    for event in sortedEvents {
       // let _chirality = event.chirality
       switch event.phase {
       case .active:
         let position = event.inputDevicePose!.pose3D.position
+        print("  chilarity: \(event.chirality!), position: \(position)")
         linesManager.addPoint(position)
       case .ended:
         linesManager.finishCurrent()

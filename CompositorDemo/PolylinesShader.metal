@@ -35,13 +35,6 @@ typedef struct {
   float time;
 } Params;
 
-struct LampBase {
-  float3 position;
-  float3 color;
-  float lampIdf;
-  float3 velocity;
-};
-
 vertex PolylineVertexInInOut polylinesVertexShader(
     PolylineVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],

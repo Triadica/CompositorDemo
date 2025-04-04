@@ -35,13 +35,6 @@ typedef struct {
   float time;
 } Params;
 
-struct LampBase {
-  float3 position;
-  float3 color;
-  float lampIdf;
-  float3 velocity;
-};
-
 vertex TrianglesVertexInInOut trianglesVertexShader(
     PolylineVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
@@ -51,16 +44,17 @@ vertex TrianglesVertexInInOut trianglesVertexShader(
   TrianglesVertexInInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  simd_float3 cameraDirection = uniforms.cameraDirection;
-  float3 brush = cross(in.direction, cameraDirection);
-  brush = brush * 0.0001 * in.seed;
+  // simd_float3 cameraDirection = uniforms.cameraDirection;
+  // float3 brush = cross(in.direction, cameraDirection);
+  // brush = brush * 0.0001 * in.seed;
 
-  float4 position = float4(in.position + brush, 1.0);
+  float4 position = float4(in.position, 1.0);
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
   out.color.rgb = out.color.rgb * out.color.a;
+  out.color.a = 0.9;
 
   return out;
 }
