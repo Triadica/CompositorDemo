@@ -49,7 +49,7 @@ struct InteractionView: View {
 
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
-  @State private var selectedDemo: DemoTab = .triangles
+    @State private var selectedDemo: DemoTab = .jsonGen
 
     var body: some View {
         HStack {
@@ -57,6 +57,7 @@ struct InteractionView: View {
                 Text("Lamps").tag(DemoTab.lamps)
                 Text("Polylines").tag(DemoTab.polylines)
                 Text("Triangles").tag(DemoTab.triangles)
+                Text("JSON Gen").tag(DemoTab.jsonGen)
             }.pickerStyle(.wheel).padding(.bottom, 32).frame(
                 width: 300,
                 height: 400,

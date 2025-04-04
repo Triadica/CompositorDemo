@@ -1,9 +1,9 @@
 /*
-See the LICENSE.txt file for this sample’s licensing information.
+ See the LICENSE.txt file for this sample’s licensing information.
 
-Abstract:
-A renderer that displays a set of color swatches.
-*/
+ Abstract:
+ A renderer that displays a set of color swatches.
+ */
 
 import CompositorServices
 import Metal
@@ -23,28 +23,79 @@ extension Point3D {
   }
 }
 
-extension LinesManager {
+let demoResourceUrl = "http://192.168.31.166:8080/demo.json"
 
-  /// build triangles from lines with each 3 sibsequent points
-  fileprivate func estimateVerticesCount() -> Int {
+/// struct of triangle, with 3 points and a color of agba
+struct Triangle: Decodable {
+  var p1: Point3D
+  var p2: Point3D
+  var p3: Point3D
+  var color: SIMD4<Float>
 
-    var count = 0
-    for i in 0..<self.count {
-      let line = self.getLineAt(i)
-      if line.count > 2 {
-        count += line.count - 2
+  enum CodingKeys: String, CodingKey {
+    case p1, p2, p3, color
+  }
+
+  init(p1: Point3D, p2: Point3D, p3: Point3D, color: SIMD4<Float>) {
+    self.p1 = p1
+    self.p2 = p2
+    self.p3 = p3
+    self.color = color
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+
+    // Decode points from arrays
+    if let p1Array = try? container.decode([Float].self, forKey: .p1) {
+      guard p1Array.count >= 3 else {
+        throw DecodingError.dataCorruptedError(
+          forKey: .p1, in: container,
+          debugDescription: "Point array must have at least 3 elements")
       }
+      p1 = Point3D(x: Double(p1Array[0]), y: Double(p1Array[1]), z: Double(p1Array[2]))
+    } else {
+      p1 = try container.decode(Point3D.self, forKey: .p1)
     }
 
-    if count == 0 {
-      return 1  // at least one vertex
+    if let p2Array = try? container.decode([Float].self, forKey: .p2) {
+      guard p2Array.count >= 3 else {
+        throw DecodingError.dataCorruptedError(
+          forKey: .p2, in: container,
+          debugDescription: "Point array must have at least 3 elements")
+      }
+      p2 = Point3D(x: Double(p2Array[0]), y: Double(p2Array[1]), z: Double(p2Array[2]))
+    } else {
+      p2 = try container.decode(Point3D.self, forKey: .p2)
     }
-    return count * 6
+
+    if let p3Array = try? container.decode([Float].self, forKey: .p3) {
+      guard p3Array.count >= 3 else {
+        throw DecodingError.dataCorruptedError(
+          forKey: .p3, in: container,
+          debugDescription: "Point array must have at least 3 elements")
+      }
+      p3 = Point3D(x: Double(p3Array[0]), y: Double(p3Array[1]), z: Double(p3Array[2]))
+    } else {
+      p3 = try container.decode(Point3D.self, forKey: .p3)
+    }
+
+    // Handle SIMD4 color decoding
+    if let colorArray = try? container.decode([Float].self, forKey: .color) {
+      guard colorArray.count >= 4 else {
+        throw DecodingError.dataCorruptedError(
+          forKey: .color, in: container,
+          debugDescription: "Color array must have at least 4 elements")
+      }
+      color = SIMD4<Float>(colorArray[0], colorArray[1], colorArray[2], colorArray[3])
+    } else {
+      color = SIMD4<Float>(1, 1, 1, 1)  // Default white color
+    }
   }
 }
 
 @MainActor
-class TrianglesRenderer: CustomRenderer {
+class JsonGenRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
@@ -56,7 +107,7 @@ class TrianglesRenderer: CustomRenderer {
   /// tracks buffer size, increased when points getting enormous, should be larger than 0
   private var currentVertexBufferSize: Int = 6
 
-  private var linesManager = LinesManager(miniSkip: 0.02)
+  private var trianglesList: [Triangle] = []
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -89,55 +140,36 @@ class TrianglesRenderer: CustomRenderer {
 
     var pos = 0
 
-    for i in 0..<linesManager.count {
-      let line = linesManager.getLineAt(i)
+    for i in 0..<trianglesList.count {
+      let triangle = trianglesList[i]
       // Generate a random color for each line
-      let color = line.color
+      // Convert SIMD4 color to SIMD3 by taking just the RGB components (ignoring alpha)
+      let color = SIMD3<Float>(triangle.color.x, triangle.color.y, triangle.color.z)
 
-      var prevPoint: Point3D = .zero
-      var beforePrevPoint: Point3D = .zero
-      for j in 0..<line.count {
-        if j == 0 {
-          beforePrevPoint = line.getPointAt(0)
-          continue
-        }
-        if j == 1 {
-          prevPoint = line.getPointAt(0)
-          continue
-        }
-        let point = line.getPointAt(j)
-        let pointSimed3 = point.to_simd3
-        let prevPointSimed3 = prevPoint.to_simd3
-        let beforePrevPointSimed3 = beforePrevPoint.to_simd3
+      polylineVertices[pos] = PolylineVertex(
+        position: triangle.p1.to_simd3,
+        color: color,
+        direction: SIMD3<Float>(0, 0, 0),
+        seed: Int32(0)
+      )
 
-        let direction = simd_normalize(pointSimed3 - prevPointSimed3)
+      pos += 1
 
-        let width = Float(6)
-        // 6 vertices per rectangle, use (0,1,0) as brush for now
-        polylineVertices[pos] = PolylineVertex(
-          position: beforePrevPointSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(-width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: prevPointSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(width)
-        )
-        pos += 1
-        polylineVertices[pos] = PolylineVertex(
-          position: pointSimed3,
-          color: color,
-          direction: direction,
-          seed: Int32(-width)
-        )
-        pos += 1
-        beforePrevPoint = prevPoint
-        prevPoint = point
-      }
+      polylineVertices[pos] = PolylineVertex(
+        position: triangle.p2.to_simd3,
+        color: color,
+        direction: SIMD3<Float>(0, 0, 0),
+        seed: Int32(0)
+      )
+      pos += 1
+
+      polylineVertices[pos] = PolylineVertex(
+        position: triangle.p3.to_simd3,
+        color: color,
+        direction: SIMD3<Float>(0, 0, 0),
+        seed: Int32(0)
+      )
+      pos += 1
     }
   }
 
@@ -210,14 +242,14 @@ class TrianglesRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "trianglesVertexShader")
-    let fragmentFunction = library.makeFunction(name: "trianglesFragmentShader")
+    let vertexFunction = library.makeFunction(name: "jsonGenVertexShader")
+    let fragmentFunction = library.makeFunction(name: "jsonGenFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
 
-    pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = TrianglesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.label = "JsonGenRenderPipeline"
+    pipelineDescriptor.vertexDescriptor = JsonGenRenderer.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
@@ -231,10 +263,65 @@ class TrianglesRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    linesManager.rollbackLast()
+    // Parse the triangles list from JSON
+    let decoder = JSONDecoder()
+    print("Fetching JSON from \(demoResourceUrl)")
+    do {
+      guard let url = URL(string: demoResourceUrl) else {
+        print("Invalid URL")
+        return
+      }
 
-    createPolylinesVerticesBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
-    createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
+      // Create a new URLSession with no caching
+      let config: URLSessionConfiguration = URLSessionConfiguration.default
+      config.requestCachePolicy = .reloadIgnoringLocalCacheData
+      config.urlCache = nil
+
+      // Create and configure a URL session task
+      // Use the custom URLSession with no caching
+      let session = URLSession(configuration: config)
+      let task = session.dataTask(with: url) { [weak self] data, response, error in
+        guard let self = self else { return }
+
+        if let error = error {
+          print("Error fetching JSON: \(error)")
+          return
+        }
+
+        guard let data = data else {
+          print("No data received")
+          return
+        }
+
+        print("Received JSON data. parsing...")
+
+        do {
+          // Parse the JSON data
+          let parsedTriangles = try decoder.decode([Triangle].self, from: data)
+          Task { @MainActor in
+            self.trianglesList = parsedTriangles
+            self.currentVertexBufferSize = self.trianglesList.count * 3
+
+            // Create new buffers with the updated size
+            self.createPolylinesVerticesBuffer(
+              device: self.vertexBuffer.device,
+              count: self.currentVertexBufferSize
+            )
+            self.createPolylinesIndexBuffer(
+              device: self.vertexBuffer.device,
+              count: self.currentVertexBufferSize
+            )
+
+            print("Successfully parsed \(self.trianglesList.count) triangles")
+          }
+        } catch {
+          print("Error parsing triangles from server: \(error)")
+        }
+      }
+
+      // Start the task
+      task.resume()
+    }
   }
 
   private func createLampComputeBuffer(device: MTLDevice) {
@@ -319,42 +406,30 @@ class TrianglesRenderer: CustomRenderer {
 
   func onSpatialEvents(events: SpatialEventCollection) {
 
-    // print("onSpatialEvents \(events.count)")
+    // let sortedEvents = events.sorted {
+    //   guard let chirality1 = $0.chirality, let chirality2 = $1.chirality else {
+    //     return false
+    //   }
+    //   return chirality1.hashValue <= chirality2.hashValue
+    // }
 
-    let sortedEvents = events.sorted {
-      guard let chirality1 = $0.chirality, let chirality2 = $1.chirality else {
-        return false
-      }
-      return chirality1.hashValue <= chirality2.hashValue
-    }
+    // // Handle spatial events here
+    // for event in sortedEvents {
+    //   // let _chirality = event.chirality
+    //   switch event.phase {
+    //   case .active:
+    //     let position = event.inputDevicePose!.pose3D.position
+    //     linesManager.addPoint(position)
+    //   case .ended:
+    //     linesManager.finishCurrent()
+    //   case .cancelled:
+    //     linesManager.finishCurrent()
 
-    // Handle spatial events here
-    for event in sortedEvents {
-      // let _chirality = event.chirality
-      switch event.phase {
-      case .active:
-        let position = event.inputDevicePose!.pose3D.position
-        // print("  chilarity: \(event.chirality!), position: \(position)")
-        linesManager.addPoint(position)
-      case .ended:
-        linesManager.finishCurrent()
-      case .cancelled:
-        linesManager.finishCurrent()
-
-      default:
-        print("Other event: \(event)")
-        break
-      }
-    }
-    let verticesCount = linesManager.estimateVerticesCount()
-    if verticesCount + 200 > currentVertexBufferSize {
-      while verticesCount + 200 >= currentVertexBufferSize {
-        currentVertexBufferSize = currentVertexBufferSize * 2
-      }
-      self.createPolylinesVerticesBuffer(
-        device: vertexBuffer.device, count: currentVertexBufferSize)
-      self.createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
-    }
-    updateVertexBuffer()
+    //   default:
+    //     print("Other event: \(event)")
+    //     break
+    //   }
+    // }
+    // updateVertexBuffer()
   }
 }

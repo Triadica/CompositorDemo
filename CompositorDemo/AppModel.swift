@@ -11,6 +11,7 @@ enum DemoTab: String, CaseIterable, Identifiable {
     case lamps
     case polylines
     case triangles
+    case jsonGen
 
     var id: Self { self }
 }
@@ -30,6 +31,6 @@ public class AppModel {
     // Content rendering
     public var opacity: Float = 1.0
 
-    var selectedTab: DemoTab = .triangles
+    var selectedTab: DemoTab = .jsonGen
     var lampsRenderer: CustomRenderer?
 }
