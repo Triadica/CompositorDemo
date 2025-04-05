@@ -28,6 +28,14 @@ struct ImmersiveInteractionScene: Scene {
                         lampsRenderer = try PolylinesRenderer(
                             layerRenderer: layerRenderer
                         )
+                    case .triangles:
+                        lampsRenderer = try TrianglesRenderer(
+                            layerRenderer: layerRenderer
+                        )
+                    case .jsonGen:
+                        lampsRenderer = try JsonGenRenderer(
+                            layerRenderer: layerRenderer
+                        )
                     }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")
