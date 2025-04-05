@@ -39,7 +39,8 @@ extension LinesManager {
     if count == 0 {
       return 1  // at least one vertex
     }
-    return count * 6
+    let verticesPerTriangle = 6
+    return count * verticesPerTriangle
   }
 }
 
@@ -112,7 +113,7 @@ class TrianglesRenderer: CustomRenderer {
 
         let direction = simd_normalize(pointSimed3 - prevPointSimed3)
 
-        let width = Float(6)
+        let width: Float = 6
         // 6 vertices per rectangle, use (0,1,0) as brush for now
         polylineVertices[pos] = PolylineVertex(
           position: beforePrevPointSimed3,
@@ -231,7 +232,7 @@ class TrianglesRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    linesManager.rollbackLast()
+    linesManager.removeLastLine()
 
     createPolylinesVerticesBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
     createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)

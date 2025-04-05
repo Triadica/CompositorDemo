@@ -47,7 +47,7 @@ struct ExtendingLine {
     }
   }
 
-  mutating func stablize() {
+  mutating func stabilize() {
     if let lastP = lastPoint {
       stablePoints.append(lastP)
       lastPoint = nil
@@ -89,7 +89,7 @@ struct LinesManager {
   }
 
   mutating func finishCurrent() {
-    currentLine.stablize()
+    currentLine.stabilize()
     lines.append(currentLine)
     currentLine = ExtendingLine(miniSkip: miniSkip)
     currentLine.random_color()
@@ -110,7 +110,7 @@ struct LinesManager {
   }
 
   /// remove the last line
-  mutating func rollbackLast() {
+  mutating func removeLastLine() {
     if lines.count > 0 {
       lines.removeLast()
     }

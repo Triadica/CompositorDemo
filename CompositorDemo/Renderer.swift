@@ -22,6 +22,7 @@ protocol CustomRenderer {
         device: MTLDevice, tintValue: Float, buffer: MTLBuffer, indexBuffer: MTLBuffer
     )
     func updateUniformBuffers(_ drawCommand: TintDrawCommand, drawable: LayerRenderer.Drawable)
+        async
 
     /// Reset the compute state
     func resetComputeState()
