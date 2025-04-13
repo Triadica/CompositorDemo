@@ -19,21 +19,25 @@ struct ImmersiveInteractionScene: Scene {
         ImmersiveSpace(id: Self.id) {
             CompositorLayer(configuration: ContentStageConfiguration()) { layerRenderer in
 
-                let lampsRenderer: CustomRenderer
+                let currentRenderer: CustomRenderer
                 do {
                     switch appModel.selectedTab {
                     case .lamps:
-                        lampsRenderer = try LampsRenderer(layerRenderer: layerRenderer)
+                        currentRenderer = try LampsRenderer(layerRenderer: layerRenderer)
                     case .polylines:
-                        lampsRenderer = try PolylinesRenderer(
+                        currentRenderer = try PolylinesRenderer(
                             layerRenderer: layerRenderer
                         )
                     case .triangles:
-                        lampsRenderer = try TrianglesRenderer(
+                        currentRenderer = try TrianglesRenderer(
                             layerRenderer: layerRenderer
                         )
                     case .jsonGen:
-                        lampsRenderer = try JsonGenRenderer(
+                        currentRenderer = try JsonGenRenderer(
+                            layerRenderer: layerRenderer
+                        )
+                    case .attractor:
+                        currentRenderer = try AttractorRenderer(
                             layerRenderer: layerRenderer
                         )
                     }
@@ -43,13 +47,13 @@ struct ImmersiveInteractionScene: Scene {
 
                 Task(priority: .high) { @RendererActor in
                     Task { @MainActor in
-                        appModel.lampsRenderer = lampsRenderer
+                        appModel.lampsRenderer = currentRenderer
                     }
 
                     let renderer = try await Renderer(
                         layerRenderer,
                         appModel,
-                        lampsRenderer)
+                        currentRenderer)
                     try await renderer.renderLoop()
 
                     Task { @MainActor in
@@ -57,7 +61,7 @@ struct ImmersiveInteractionScene: Scene {
                     }
                 }
                 layerRenderer.onSpatialEvent = {
-                    lampsRenderer.onSpatialEvents(events: $0)
+                  currentRenderer.onSpatialEvents(events: $0)
                 }
 
             }

@@ -58,6 +58,7 @@ struct InteractionView: View {
                 Text("Polylines").tag(DemoTab.polylines)
                 Text("Triangles").tag(DemoTab.triangles)
                 Text("JSON Gen").tag(DemoTab.jsonGen)
+                Text("Attractor").tag(DemoTab.attractor)
             }.pickerStyle(.wheel).padding(.bottom, 32).frame(
                 width: 300,
                 height: 400,
