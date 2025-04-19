@@ -42,20 +42,34 @@ struct AttractorBase {
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
+// a Metal function of fourwing
+static float3 fourwingLineIteration(float3 p, float dt) {
+  float a = 0.2;
+  float b = 0.01;
+  float c = -0.4;
+  float x = p.x;
+  float y = p.y;
+  float z = p.z;
+  float dx = a * x + y * z;
+  float dy = b * x + c * y - x * z;
+  float dz = -z - x * y;
+  float3 d = float3(dx, dy, dz) * dt;
+  return p + d;
+}
+
 kernel void attractorComputeShader(
-    device AttractorBase *lamps [[buffer(0)]],
-    device AttractorBase *outputLamps [[buffer(1)]],
+    device AttractorBase *attractor [[buffer(0)]],
+    device AttractorBase *outputAttractor [[buffer(1)]],
     constant AttractorParams &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  AttractorBase lamp = lamps[id];
-  device AttractorBase &outputLamp = outputLamps[id];
+  AttractorBase lamp = attractor[id];
+  device AttractorBase &outputCell = outputAttractor[id];
   float seed = fract(lamp.lampIdf / 10.) * 10.;
   float speed = random1D(seed) + 0.1;
-  float dt = params.time * speed * 0.1;
-  outputLamp.position =
-      lamp.position + float3(0.0, dt, 0.0) + lamp.velocity * dt;
-  outputLamp.color = lamp.color;
-  outputLamp.lampIdf = lamp.lampIdf;
+  float dt = params.time * speed * 0.1; // TODO maybe remove this
+  outputCell.position = fourwingLineIteration(lamp.position, dt);
+  outputCell.color = lamp.color;
+  outputCell.lampIdf = lamp.lampIdf;
 }
 
 vertex AttractorInOut attractorVertexShader(

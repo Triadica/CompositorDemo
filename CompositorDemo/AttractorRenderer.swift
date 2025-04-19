@@ -14,17 +14,29 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let attractorCount: Int = 2000
+/// how many lines for this attractor
+private let linesCount: Int = 200
+/// how many rectangles in a line
+private let lineGroupSize: Int = 100
+/// 1 for leading point, others are following points
+private var controlCountPerLine: Int {
+  lineGroupSize + 1
+}
+/// all control points in the scene
+private var controlCount: Int {
+  linesCount * controlCountPerLine
+}
+
 private let patelPerLamp: Int = 24
 private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * attractorCount
+private let verticesCount = verticesPerLamp * linesCount
 
 private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
 private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
 // prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
 private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
 // prepare the indices for the lamp
-private let indexesCount: Int = attractorCount * indexesPerLamp
+private let indexesCount: Int = linesCount * indexesPerLamp
 
 private let verticalScale: Float = 0.4
 private let upperRadius: Float = 0.14
@@ -84,7 +96,7 @@ class AttractorRenderer: CustomRenderer {
       vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
     }
 
-    for i in 0..<attractorCount {
+    for i in 0..<linesCount {
       // Random color for each lamp
       let r = Float.random(in: 0.1...1.0)
       let g = Float.random(in: 0.1...1.0)
@@ -137,7 +149,7 @@ class AttractorRenderer: CustomRenderer {
 
     let attractorIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<attractorCount {
+    for i in 0..<linesCount {
       // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
       let verticesBase = i * verticesPerLamp
 
@@ -174,7 +186,7 @@ class AttractorRenderer: CustomRenderer {
   }
 
   private func createAttractorComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<AttractorBase>.stride * attractorCount
+    let bufferLength = MemoryLayout<AttractorBase>.stride * controlCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -182,12 +194,12 @@ class AttractorRenderer: CustomRenderer {
       print("Failed to create compute buffer")
       return
     }
-    computeBuffer.addLabel("Lamp compute buffer")
+    computeBuffer.addLabel("Attractor compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let attractorBase = contents.bindMemory(to: AttractorBase.self, capacity: attractorCount)
+    let attractorBase = contents.bindMemory(to: AttractorBase.self, capacity: controlCount)
 
-    for i in 0..<attractorCount {
+    for i in 0..<linesCount {
       // Random position offsets for each lamp
       let xOffset = Float.random(in: -20...20)
       let zOffset = Float.random(in: -30...10)
@@ -201,14 +213,16 @@ class AttractorRenderer: CustomRenderer {
       let color = SIMD3<Float>(r, g, b)
       // let dimColor = color * 0.5
 
+      /// @todo remove this, attractor velocity is not used
       let velocity = SIMD3<Float>(
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8)
+        0, 0, 0
       )
 
-      attractorBase[i] = AttractorBase(
-        position: attractorPosition, color: color, lampIdf: Float(i), velocity: velocity)
+      for j in 0..<controlCountPerLine {
+        let index = i * controlCountPerLine + j
+        attractorBase[index] = AttractorBase(
+          position: attractorPosition, color: color, lampIdf: Float(i), velocity: velocity)
+      }
     }
 
     computeBuffer.copy_to_next()
@@ -225,7 +239,7 @@ class AttractorRenderer: CustomRenderer {
     mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
       BufferIndex.meshPositions.rawValue
 
-    let offset = MemoryLayout<SIMD3<Float>>.stride
+    let offset: Int = MemoryLayout<SIMD3<Float>>.stride
     mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
       MTLVertexFormat.float3
     mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
@@ -297,7 +311,7 @@ class AttractorRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (attractorCount + threadGroupSize - 1) / threadGroupSize,
+      width: (linesCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
