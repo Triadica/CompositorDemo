@@ -70,4 +70,11 @@ typedef struct {
   int seed;
 } PolylineVertex;
 
+typedef struct {
+  simd_float3 position;
+  int lineNumber;
+  int groupNumber;
+  int cellSide;
+} AttractorCellVertex;
+
 #endif /* ShaderTypes_h */

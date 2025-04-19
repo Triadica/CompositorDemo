@@ -18,9 +18,10 @@
 using namespace metal;
 
 typedef struct {
-  float3 position [[attribute(VertexAttributePosition)]];
-  float3 color [[attribute(VertexAttributeColor)]];
-  int seed [[attribute(VertexAttributeSeed)]];
+  float3 position [[attribute(0)]];
+  int lineNumber [[attribute(1)]];
+  int groupNumber [[attribute(2)]];
+  int cellSide [[attribute(3)]];
 } AttractorVertexIn;
 
 typedef struct {
@@ -64,12 +65,24 @@ kernel void attractorComputeShader(
     uint id [[thread_position_in_grid]]) {
   AttractorBase lamp = attractor[id];
   device AttractorBase &outputCell = outputAttractor[id];
-  float seed = fract(lamp.lampIdf / 10.) * 10.;
-  float speed = random1D(seed) + 0.1;
-  float dt = params.time * speed * 0.1; // TODO maybe remove this
-  outputCell.position = fourwingLineIteration(lamp.position, dt);
-  outputCell.color = lamp.color;
-  outputCell.lampIdf = lamp.lampIdf;
+
+  int groupSize = 100;
+  bool leading = (id % (groupSize + 1) == 0);
+
+  if (leading) {
+
+    float seed = fract(lamp.lampIdf / 10.) * 10.;
+    float speed = random1D(seed) + 0.1;
+    float dt = params.time * speed * 0.1; // TODO maybe remove this
+    outputCell.position = fourwingLineIteration(lamp.position, dt);
+    outputCell.color = lamp.color;
+    outputCell.lampIdf = lamp.lampIdf;
+  } else {
+    // copy previous
+    outputCell.position = outputAttractor[id - 1].position;
+    outputCell.color = outputAttractor[id - 1].position;
+    outputCell.lampIdf = outputAttractor[id - 1].lampIdf;
+  }
 }
 
 vertex AttractorInOut attractorVertexShader(
@@ -78,23 +91,36 @@ vertex AttractorInOut attractorVertexShader(
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant AttractorParams &params [[buffer(BufferIndexParams)]],
-    const device AttractorBase *lampData [[buffer(BufferIndexBase)]]) {
+    const device AttractorBase *linesData [[buffer(BufferIndexBase)]]) {
   AttractorInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
 
-  float4 position = float4(in.position + lampData[in.seed].position, 1.0);
+  int lineNumber = in.lineNumber;
+  int groupNumber = in.groupNumber;
+  int cellSide = in.cellSide;
+  int groupSize = 100;
 
-  float lampDistance = distance(cameraAt, position.xyz);
-  float distanceDim = 1.0 - clamp(lampDistance / 30.0, 0.0, 1.0);
-  float randSeed = random1D(lampData[in.seed].lampIdf);
-  float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
+  AttractorBase cell =
+      linesData[lineNumber * (groupSize + 1) + groupNumber + 1];
+  AttractorBase prevCell =
+      linesData[lineNumber * (groupSize + 1) + groupNumber];
 
-  out.position = uniformsPerView.modelViewProjectionMatrix * position;
-  out.color = float4(in.color, tintUniform.tintOpacity);
-  // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a * distanceDim * breathDim;
+  float3 perpWidth = float3(0.0, 1.0, 0.0);
+
+  float4 position = float4(0., 0., 0., 1.0);
+  if (cellSide == 0) {
+    position = float4(prevCell.position + perpWidth * 0.1, 1.0);
+  } else if (cellSide == 1) {
+    position = float4(prevCell.position - perpWidth * 0.1, 1.0);
+  } else if (cellSide == 2) {
+    position = float4(cell.position + perpWidth * 0.1, 1.0);
+  } else if (cellSide == 3) {
+    position = float4(cell.position - perpWidth * 0.1, 1.0);
+  }
+
+  out.color = float4(cell.color, tintUniform.tintOpacity);
 
   return out;
 }

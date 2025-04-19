@@ -27,16 +27,11 @@ private var controlCount: Int {
   linesCount * controlCountPerLine
 }
 
-private let patelPerLamp: Int = 24
-private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * linesCount
+private let verticesCount = controlCount * 6
 
-private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
-// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
-// prepare the indices for the lamp
-private let indexesCount: Int = linesCount * indexesPerLamp
+/// rectangle indexes per rectangle
+private let indexesPerCell = 6
+private let indexesCount: Int = controlCount * indexesPerCell
 
 private let verticalScale: Float = 0.4
 private let upperRadius: Float = 0.14
@@ -89,52 +84,57 @@ class AttractorRenderer: CustomRenderer {
 
   /// create and sets the vertices of the lamp
   private func createAttractorVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
+    let bufferLength = MemoryLayout<AttractorCellVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Lamp vertex buffer"
-    var attractorVertices: UnsafeMutablePointer<LampsVertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
+    vertexBuffer.label = "Attractor vertex buffer"
+    var attractorVertices: UnsafeMutablePointer<AttractorCellVertex> {
+      vertexBuffer.contents().assumingMemoryBound(to: AttractorCellVertex.self)
     }
 
     for i in 0..<linesCount {
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      let dimColor = color * 0.5
-      let baseIndex = i * verticesPerLamp
+      let baseIndex = i * lineGroupSize * 6
 
-      for p in 0..<patelPerLamp {
-        let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
-
-        // Calculate the four corners of this rectangular petal
-        // Calculate the upper and lower points of petals on x-z plane
-        // upper ring
-        let upperEdge = SIMD3<Float>(
-          cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
-
-        // lower ring
-        let lowerEdge = SIMD3<Float>(
-          cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
-
-        let vertexBase = baseIndex + p
-
-        // First triangle of rectangle (inner1, outer1, inner2)
-        attractorVertices[vertexBase] = LampsVertex(
-          position: upperEdge, color: color, seed: Int32(i))
-        attractorVertices[vertexBase + patelPerLamp] = LampsVertex(
-          position: lowerEdge,
-          color: dimColor,
-          seed: Int32(i)
-        )
+      for j in 0..<lineGroupSize {
+        let index = baseIndex + j * 6
+        // set 6 vertices for each cell
+        // 1st vertex
+        attractorVertices[index] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 0)
+        // 2nd vertex
+        attractorVertices[index + 1] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 1)
+        // 3rd vertex
+        attractorVertices[index + 2] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 2)
+        // 4th vertex
+        attractorVertices[index + 3] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 1)
+        // 5th vertex
+        attractorVertices[index + 4] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 2)
+        // 6th vertex
+        attractorVertices[index + 5] = AttractorCellVertex(
+          position: SIMD3<Float>(0, 0, 0),
+          lineNumber: Int32(i),
+          groupNumber: Int32(j),
+          cellSide: 3)
       }
-      // top center of the lamp
-      attractorVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
-        position: SIMD3<Float>(0, verticalScale, 0),
-        color: color * 2.0,
-        seed: Int32(i)
-      )
+
     }
   }
 
@@ -149,38 +149,8 @@ class AttractorRenderer: CustomRenderer {
 
     let attractorIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<linesCount {
-      // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
-      let verticesBase = i * verticesPerLamp
-
-      let indexBase = i * indexesPerLamp
-      // rect angles of patel size
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = indexBase + p * 6
-        // First triangle of rectangle (inner1, outer1, inner2)
-        attractorIndices[nextIndexBase] = UInt32(vertexBase)
-        attractorIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        attractorIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
-
-        // Second triangle of rectangle (inner2, outer1, outer2)
-        attractorIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        attractorIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        attractorIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
-      }
-      // cover the top of the lamp with triangles
-      let topCenter = verticesBase + patelPerLamp * 2
-      let topCenterIndexBase = indexBase + rectIndexesPerRect
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = topCenterIndexBase + p * 3
-        // First triangle of rectangle (inner1, outer1, inner2)
-        attractorIndices[nextIndexBase] = UInt32(vertexBase)
-        attractorIndices[nextIndexBase + 1] = UInt32(topCenter)
-        attractorIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
-      }
+    for i in 0..<indexesCount {
+      attractorIndices[i] = UInt32(i)
     }
 
   }
@@ -232,32 +202,31 @@ class AttractorRenderer: CustomRenderer {
     // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
+    var offset: Int = 0
 
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[0].format = MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[0].offset = 0
+    mtlVertexDescriptor.attributes[0].bufferIndex = 0
+    offset += MemoryLayout<SIMD3<Float>>.stride
 
-    let offset: Int = MemoryLayout<SIMD3<Float>>.stride
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[1].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[1].offset = offset
+    mtlVertexDescriptor.attributes[1].bufferIndex = 0
+    offset += MemoryLayout<Int32>.stride
 
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<LampsVertex>.stride
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
-      MTLVertexStepFunction.perVertex
-    // add params for seed value
-    let nextOffset = offset + MemoryLayout<SIMD3<Float>>.stride
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format =
-      MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = nextOffset
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[2].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[2].offset = offset
+    mtlVertexDescriptor.attributes[2].bufferIndex = 0
+    offset += MemoryLayout<Int32>.stride
+
+    mtlVertexDescriptor.attributes[2].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[2].offset = offset
+    mtlVertexDescriptor.attributes[2].bufferIndex = 0
+
+    // layout is special
+    mtlVertexDescriptor.layouts[0].stride = MemoryLayout<AttractorCellVertex>.stride
+    mtlVertexDescriptor.layouts[0].stepRate = 1
+    mtlVertexDescriptor.layouts[0].stepFunction = MTLVertexStepFunction.perVertex
 
     return mtlVertexDescriptor
   }
