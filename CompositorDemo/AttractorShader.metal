@@ -58,6 +58,8 @@ static float3 fourwingLineIteration(float3 p, float dt) {
   return p + d;
 }
 
+static int getGroupSize() { return 20; }
+
 kernel void attractorComputeShader(
     device AttractorBase *attractor [[buffer(0)]],
     device AttractorBase *outputAttractor [[buffer(1)]],
@@ -66,14 +68,12 @@ kernel void attractorComputeShader(
   AttractorBase lamp = attractor[id];
   device AttractorBase &outputCell = outputAttractor[id];
 
-  int groupSize = 100;
-  bool leading = (id % (groupSize + 1) == 0);
+  bool leading = (id % (getGroupSize() + 1) == 0);
 
   if (leading) {
-
-    float seed = fract(lamp.lampIdf / 10.) * 10.;
-    float speed = random1D(seed) + 0.1;
-    float dt = params.time * speed * 0.1; // TODO maybe remove this
+    // float seed = fract(lamp.lampIdf / 10.) * 10.;
+    // float speed = random1D(seed) + 0.1;
+    float dt = params.time * 0.1; // TODO maybe remove this
     outputCell.position = fourwingLineIteration(lamp.position, dt);
     outputCell.color = lamp.color;
     outputCell.lampIdf = lamp.lampIdf;
@@ -95,17 +95,20 @@ vertex AttractorInOut attractorVertexShader(
   AttractorInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  float3 cameraAt = uniforms.cameraPos;
+  // float3 cameraAt = uniforms.cameraPos;
+  simd_float3 cameraDirection = uniforms.cameraDirection;
 
   int lineNumber = in.lineNumber;
   int groupNumber = in.groupNumber;
   int cellSide = in.cellSide;
-  int groupSize = 100;
 
   AttractorBase cell =
-      linesData[lineNumber * (groupSize + 1) + groupNumber + 1];
+      linesData[lineNumber * (getGroupSize() + 1) + groupNumber + 1];
   AttractorBase prevCell =
-      linesData[lineNumber * (groupSize + 1) + groupNumber];
+      linesData[lineNumber * (getGroupSize() + 1) + groupNumber];
+
+  // float direction = cell.position - prevCell.position;
+  // float3 brush = normalize(cross(direction, cameraDirection)) * 0.0001;
 
   float3 perpWidth = float3(0.0, 1.0, 0.0);
 
@@ -120,6 +123,8 @@ vertex AttractorInOut attractorVertexShader(
     position = float4(cell.position - perpWidth * 0.1, 1.0);
   }
 
+  out.position = uniformsPerView.modelViewProjectionMatrix *
+                 (position * 0.2 + float4(0.0, 0.0, -2.0, 0.));
   out.color = float4(cell.color, tintUniform.tintOpacity);
 
   return out;
@@ -130,5 +135,6 @@ fragment float4 attractorFragmentShader(AttractorInOut in [[stage_in]]) {
     discard_fragment();
   }
 
-  return in.color;
+  // return in.color;
+  return float4(1.0, 1.0, 1.0, 1.0);
 }

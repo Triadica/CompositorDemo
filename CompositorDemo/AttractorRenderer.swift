@@ -15,9 +15,9 @@ import simd
 private let maxFramesInFlight = 3
 
 /// how many lines for this attractor
-private let linesCount: Int = 200
+private let linesCount: Int = 400
 /// how many rectangles in a line
-private let lineGroupSize: Int = 100
+private let lineGroupSize: Int = 20
 /// 1 for leading point, others are following points
 private var controlCountPerLine: Int {
   lineGroupSize + 1
@@ -171,9 +171,9 @@ class AttractorRenderer: CustomRenderer {
 
     for i in 0..<linesCount {
       // Random position offsets for each lamp
-      let xOffset = Float.random(in: -20...20)
-      let zOffset = Float.random(in: -30...10)
-      let yOffset = Float.random(in: 0...2)
+      let xOffset = Float.random(in: -5...5)
+      let zOffset = Float.random(in: -5...5)
+      let yOffset = Float.random(in: -5...5)
 
       let attractorPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
       // Random color for each lamp
@@ -205,7 +205,7 @@ class AttractorRenderer: CustomRenderer {
     var offset: Int = 0
 
     mtlVertexDescriptor.attributes[0].format = MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[0].offset = 0
+    mtlVertexDescriptor.attributes[0].offset = offset
     mtlVertexDescriptor.attributes[0].bufferIndex = 0
     offset += MemoryLayout<SIMD3<Float>>.stride
 
@@ -219,9 +219,10 @@ class AttractorRenderer: CustomRenderer {
     mtlVertexDescriptor.attributes[2].bufferIndex = 0
     offset += MemoryLayout<Int32>.stride
 
-    mtlVertexDescriptor.attributes[2].format = MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[2].offset = offset
-    mtlVertexDescriptor.attributes[2].bufferIndex = 0
+    mtlVertexDescriptor.attributes[3].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[3].offset = offset
+    mtlVertexDescriptor.attributes[3].bufferIndex = 0
+    offset += MemoryLayout<Int32>.stride
 
     // layout is special
     mtlVertexDescriptor.layouts[0].stride = MemoryLayout<AttractorCellVertex>.stride
