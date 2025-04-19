@@ -15,9 +15,9 @@ import simd
 private let maxFramesInFlight = 3
 
 /// how many lines for this attractor
-private let linesCount: Int = 400
+private let linesCount: Int = 1000
 /// how many rectangles in a line
-private let lineGroupSize: Int = 20
+private let lineGroupSize: Int = 200
 /// 1 for leading point, others are following points
 private var controlCountPerLine: Int {
   lineGroupSize + 1
@@ -30,22 +30,16 @@ private var controlCount: Int {
 private let verticesCount = controlCount * 6
 
 /// rectangle indexes per rectangle
-private let indexesPerCell = 6
-private let indexesCount: Int = controlCount * indexesPerCell
-
-private let verticalScale: Float = 0.4
-private let upperRadius: Float = 0.14
-private let lowerRadius: Float = 0.18
+private let indexesCount: Int = controlCount * 6
 
 private struct AttractorBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
-  var lampIdf: Float
-  var velocity: SIMD3<Float> = .zero
 }
 
 private struct Params {
   var time: Float
+  var groupSize: Int32 = Int32(lineGroupSize)
 }
 
 @MainActor
@@ -171,9 +165,9 @@ class AttractorRenderer: CustomRenderer {
 
     for i in 0..<linesCount {
       // Random position offsets for each lamp
-      let xOffset = Float.random(in: -5...5)
-      let zOffset = Float.random(in: -5...5)
-      let yOffset = Float.random(in: -5...5)
+      let xOffset = Float.random(in: -2...2)
+      let zOffset = Float.random(in: -2...2)
+      let yOffset = Float.random(in: -2...2)
 
       let attractorPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
       // Random color for each lamp
@@ -181,17 +175,11 @@ class AttractorRenderer: CustomRenderer {
       let g = Float.random(in: 0.1...1.0)
       let b = Float.random(in: 0.1...1.0)
       let color = SIMD3<Float>(r, g, b)
-      // let dimColor = color * 0.5
-
-      /// @todo remove this, attractor velocity is not used
-      let velocity = SIMD3<Float>(
-        0, 0, 0
-      )
 
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
         attractorBase[index] = AttractorBase(
-          position: attractorPosition, color: color, lampIdf: Float(i), velocity: velocity)
+          position: attractorPosition, color: color)
       }
     }
 
@@ -281,7 +269,7 @@ class AttractorRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (linesCount + threadGroupSize - 1) / threadGroupSize,
+      width: (controlCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )

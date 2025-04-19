@@ -27,18 +27,16 @@ typedef struct {
 typedef struct {
   float4 position [[position]];
   float4 color;
-
 } AttractorInOut;
 
 typedef struct {
   float time;
+  int groupSize;
 } AttractorParams;
 
 struct AttractorBase {
   float3 position;
   float3 color;
-  float lampIdf;
-  float3 velocity;
 };
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
@@ -58,7 +56,18 @@ static float3 fourwingLineIteration(float3 p, float dt) {
   return p + d;
 }
 
-static int getGroupSize() { return 20; }
+// a Metal function of lorenz
+float3 lorenzLineIteration(float3 p, float dt) {
+  float tau = 10.0;
+  float rou = 28.0;
+  float beta = 8.0 / 3.0;
+
+  float dx = tau * (p.y - p.x);
+  float dy = p.x * (rou - p.z) - p.y;
+  float dz = p.x * p.y - beta * p.z;
+  float3 d = float3(dx, dy, dz) * dt;
+  return p + d;
+}
 
 kernel void attractorComputeShader(
     device AttractorBase *attractor [[buffer(0)]],
@@ -68,20 +77,17 @@ kernel void attractorComputeShader(
   AttractorBase lamp = attractor[id];
   device AttractorBase &outputCell = outputAttractor[id];
 
-  bool leading = (id % (getGroupSize() + 1) == 0);
+  bool leading = (id % (params.groupSize + 1) == 0);
 
   if (leading) {
-    // float seed = fract(lamp.lampIdf / 10.) * 10.;
-    // float speed = random1D(seed) + 0.1;
-    float dt = params.time * 0.1; // TODO maybe remove this
+    float dt = params.time * 2;
     outputCell.position = fourwingLineIteration(lamp.position, dt);
+    // outputCell.position = lorenzLineIteration(outputCell.position, dt);
     outputCell.color = lamp.color;
-    outputCell.lampIdf = lamp.lampIdf;
   } else {
     // copy previous
     outputCell.position = outputAttractor[id - 1].position;
-    outputCell.color = outputAttractor[id - 1].position;
-    outputCell.lampIdf = outputAttractor[id - 1].lampIdf;
+    outputCell.color = outputAttractor[id - 1].color;
   }
 }
 
@@ -103,29 +109,29 @@ vertex AttractorInOut attractorVertexShader(
   int cellSide = in.cellSide;
 
   AttractorBase cell =
-      linesData[lineNumber * (getGroupSize() + 1) + groupNumber + 1];
+      linesData[lineNumber * (params.groupSize + 1) + groupNumber + 1];
   AttractorBase prevCell =
-      linesData[lineNumber * (getGroupSize() + 1) + groupNumber];
+      linesData[lineNumber * (params.groupSize + 1) + groupNumber];
 
-  // float direction = cell.position - prevCell.position;
-  // float3 brush = normalize(cross(direction, cameraDirection)) * 0.0001;
-
-  float3 perpWidth = float3(0.0, 1.0, 0.0);
+  float3 direction = cell.position - prevCell.position;
+  float3 brush = normalize(cross(direction, cameraDirection)) * 0.002;
 
   float4 position = float4(0., 0., 0., 1.0);
   if (cellSide == 0) {
-    position = float4(prevCell.position + perpWidth * 0.1, 1.0);
+    position = float4(prevCell.position + brush, 1.0);
   } else if (cellSide == 1) {
-    position = float4(prevCell.position - perpWidth * 0.1, 1.0);
+    position = float4(prevCell.position - brush, 1.0);
   } else if (cellSide == 2) {
-    position = float4(cell.position + perpWidth * 0.1, 1.0);
+    position = float4(cell.position + brush, 1.0);
   } else if (cellSide == 3) {
-    position = float4(cell.position - perpWidth * 0.1, 1.0);
+    position = float4(cell.position - brush, 1.0);
   }
 
-  out.position = uniformsPerView.modelViewProjectionMatrix *
-                 (position * 0.2 + float4(0.0, 0.0, -2.0, 0.));
-  out.color = float4(cell.color, tintUniform.tintOpacity);
+  position = position * 0.2 + float4(0.0, 1.0, -1., 0.);
+  position.w = 1.0; // need to be 1.0 for perspective projection
+
+  out.position = uniformsPerView.modelViewProjectionMatrix * position;
+  out.color = float4(cell.color, 1.0);
 
   return out;
 }
@@ -135,6 +141,5 @@ fragment float4 attractorFragmentShader(AttractorInOut in [[stage_in]]) {
     discard_fragment();
   }
 
-  // return in.color;
-  return float4(1.0, 1.0, 1.0, 1.0);
+  return in.color;
 }
