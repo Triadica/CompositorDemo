@@ -14,23 +14,23 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let lampCount: Int = 2000
+private let attractorCount: Int = 2000
 private let patelPerLamp: Int = 24
 private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * lampCount
+private let verticesCount = verticesPerLamp * attractorCount
 
 private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
 private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
 // prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
 private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
 // prepare the indices for the lamp
-private let indexesCount: Int = lampCount * indexesPerLamp
+private let indexesCount: Int = attractorCount * indexesPerLamp
 
 private let verticalScale: Float = 0.4
 private let upperRadius: Float = 0.14
 private let lowerRadius: Float = 0.18
 
-private struct LampBase {
+private struct AttractorBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
   var lampIdf: Float
@@ -65,26 +65,26 @@ class AttractorRenderer: CustomRenderer {
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
-    let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
-    computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
+    let attractorUpdateBase = library.makeFunction(name: "attractorComputeShader")!
+    computePipeLine = try computeDevice.makeComputePipelineState(function: attractorUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
-    self.createLampVerticesBuffer(device: layerRenderer.device)
-    self.createLampIndexBuffer(device: layerRenderer.device)
-    self.createLampComputeBuffer(device: layerRenderer.device)
+    self.createAttractorVerticesBuffer(device: layerRenderer.device)
+    self.createAttractorIndexBuffer(device: layerRenderer.device)
+    self.createAttractorComputeBuffer(device: layerRenderer.device)
   }
 
   /// create and sets the vertices of the lamp
-  private func createLampVerticesBuffer(device: MTLDevice) {
+  private func createAttractorVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Lamp vertex buffer"
-    var lampVertices: UnsafeMutablePointer<LampsVertex> {
+    var attractorVertices: UnsafeMutablePointer<LampsVertex> {
       vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
     }
 
-    for i in 0..<lampCount {
+    for i in 0..<attractorCount {
       // Random color for each lamp
       let r = Float.random(in: 0.1...1.0)
       let g = Float.random(in: 0.1...1.0)
@@ -109,16 +109,16 @@ class AttractorRenderer: CustomRenderer {
         let vertexBase = baseIndex + p
 
         // First triangle of rectangle (inner1, outer1, inner2)
-        lampVertices[vertexBase] = LampsVertex(
+        attractorVertices[vertexBase] = LampsVertex(
           position: upperEdge, color: color, seed: Int32(i))
-        lampVertices[vertexBase + patelPerLamp] = LampsVertex(
+        attractorVertices[vertexBase + patelPerLamp] = LampsVertex(
           position: lowerEdge,
           color: dimColor,
           seed: Int32(i)
         )
       }
       // top center of the lamp
-      lampVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
+      attractorVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
         position: SIMD3<Float>(0, verticalScale, 0),
         color: color * 2.0,
         seed: Int32(i)
@@ -127,17 +127,17 @@ class AttractorRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    self.createLampComputeBuffer(device: computeDevice)
+    self.createAttractorComputeBuffer(device: computeDevice)
   }
 
-  private func createLampIndexBuffer(device: MTLDevice) {
+  private func createAttractorIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
     indexBuffer.label = "Lamp index buffer"
 
-    let lampIndices = indexBuffer.contents().bindMemory(
+    let attractorIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<lampCount {
+    for i in 0..<attractorCount {
       // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
       let verticesBase = i * verticesPerLamp
 
@@ -148,14 +148,14 @@ class AttractorRenderer: CustomRenderer {
         let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
         let nextIndexBase = indexBase + p * 6
         // First triangle of rectangle (inner1, outer1, inner2)
-        lampIndices[nextIndexBase] = UInt32(vertexBase)
-        lampIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+        attractorIndices[nextIndexBase] = UInt32(vertexBase)
+        attractorIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
+        attractorIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
 
         // Second triangle of rectangle (inner2, outer1, outer2)
-        lampIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        lampIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        lampIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
+        attractorIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
+        attractorIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
+        attractorIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
       }
       // cover the top of the lamp with triangles
       let topCenter = verticesBase + patelPerLamp * 2
@@ -165,16 +165,16 @@ class AttractorRenderer: CustomRenderer {
         let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
         let nextIndexBase = topCenterIndexBase + p * 3
         // First triangle of rectangle (inner1, outer1, inner2)
-        lampIndices[nextIndexBase] = UInt32(vertexBase)
-        lampIndices[nextIndexBase + 1] = UInt32(topCenter)
-        lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+        attractorIndices[nextIndexBase] = UInt32(vertexBase)
+        attractorIndices[nextIndexBase + 1] = UInt32(topCenter)
+        attractorIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
       }
     }
 
   }
 
-  private func createLampComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampBase>.stride * lampCount
+  private func createAttractorComputeBuffer(device: MTLDevice) {
+    let bufferLength = MemoryLayout<AttractorBase>.stride * attractorCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -185,15 +185,15 @@ class AttractorRenderer: CustomRenderer {
     computeBuffer.addLabel("Lamp compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let lampBase = contents.bindMemory(to: LampBase.self, capacity: lampCount)
+    let attractorBase = contents.bindMemory(to: AttractorBase.self, capacity: attractorCount)
 
-    for i in 0..<lampCount {
+    for i in 0..<attractorCount {
       // Random position offsets for each lamp
       let xOffset = Float.random(in: -20...20)
       let zOffset = Float.random(in: -30...10)
       let yOffset = Float.random(in: 0...2)
 
-      let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+      let attractorPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
       // Random color for each lamp
       let r = Float.random(in: 0.1...1.0)
       let g = Float.random(in: 0.1...1.0)
@@ -207,8 +207,8 @@ class AttractorRenderer: CustomRenderer {
         Float.random(in: -0.8...0.8)
       )
 
-      lampBase[i] = LampBase(
-        position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
+      attractorBase[i] = AttractorBase(
+        position: attractorPosition, color: color, lampIdf: Float(i), velocity: velocity)
     }
 
     computeBuffer.copy_to_next()
@@ -297,7 +297,7 @@ class AttractorRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (lampCount + threadGroupSize - 1) / threadGroupSize,
+      width: (attractorCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
