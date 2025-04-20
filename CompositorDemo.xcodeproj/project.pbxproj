@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6A2DB5025D00160CF9 /* Gesture.swift */; };
 		9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A45F3A92D889E1B0042486A /* LampsRenderer.swift */; };
 		9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3762D91D35A0021FFCE /* LampsShaders.metal */; };
 		9A92D3852D994EB00021FFCE /* PolylinesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */; };
@@ -32,6 +33,7 @@
 		0BE4D83FD393EC90F51070F3 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		33D190EEBFF9B25310AB436E /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		3E2802D1CC6386AC2E5A3992 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		9A228C6A2DB5025D00160CF9 /* Gesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gesture.swift; sourceTree = "<group>"; };
 		9A45F3A92D889E1B0042486A /* LampsRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LampsRenderer.swift; sourceTree = "<group>"; };
 		9A92D3762D91D35A0021FFCE /* LampsShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LampsShaders.metal; sourceTree = "<group>"; };
 		9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylinesRenderer.swift; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A228C6A2DB5025D00160CF9 /* Gesture.swift */,
 				9AEFD39C2DAC396400C96226 /* AttractorShader.metal */,
 				9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */,
 				9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */,
@@ -217,6 +220,7 @@
 				9A92D3872D994ECB0021FFCE /* PolylinesShader.metal in Sources */,
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
+				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
 				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
 				9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
