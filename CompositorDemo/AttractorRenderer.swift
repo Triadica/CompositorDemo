@@ -330,7 +330,8 @@ class AttractorRenderer: CustomRenderer {
 
     var params_data = Params(
       time: getTimeSinceStart(),
-      viewerPosition: self.gestureManager.viewerPosition, viewerScale: self.gestureManager.viewerScale)
+      viewerPosition: self.gestureManager.viewerPosition,
+      viewerScale: self.gestureManager.viewerScale)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
@@ -369,12 +370,5 @@ class AttractorRenderer: CustomRenderer {
     for event in events {
       gestureManager.onSpatialEvent(event: event)
     }
-  }
-}
-
-extension Point3D {
-  /// turn into SIMD3
-  fileprivate var to_simd3: SIMD3<Float> {
-    return SIMD3<Float>(Float(x), Float(y), Float(z))
   }
 }

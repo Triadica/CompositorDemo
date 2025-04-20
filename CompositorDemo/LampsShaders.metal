@@ -31,6 +31,8 @@ typedef struct {
 
 typedef struct {
   float time;
+  float3 viewerPosition;
+  float viewerScale;
 } Params;
 
 struct CellBase {
@@ -76,6 +78,8 @@ vertex LampInOut lampsVertexShader(
   float distanceDim = 1.0 - clamp(lampDistance / 30.0, 0.0, 1.0);
   float randSeed = random1D(lampData[in.seed].lampIdf);
   float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
+
+  position = position * params.viewerScale - float4(params.viewerPosition, 0.);
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);

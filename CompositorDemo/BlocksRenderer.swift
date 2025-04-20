@@ -39,6 +39,9 @@ private struct CellBase {
 
 private struct Params {
   var time: Float
+  var viewerPosition: SIMD3<Float>
+  var viewerScale: Float
+  var _padding: SIMD4<Float> = .zero  // required for 48 bytes alignment
 }
 
 @MainActor
@@ -55,6 +58,8 @@ class BlocksRenderer: CustomRenderer {
   var computeBuffer: PingPongBuffer?
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
+
+  var guestureManager: GestureManager = GestureManager()
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -292,7 +297,9 @@ class BlocksRenderer: CustomRenderer {
     let dt = delta - frameDelta
     frameDelta = delta
 
-    var params = Params(time: dt)
+    var params = Params(
+      time: dt, viewerPosition: guestureManager.viewerPosition,
+      viewerScale: guestureManager.viewerScale)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -349,7 +356,10 @@ class BlocksRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
-    var params_data = Params(time: getTimeSinceStart())
+    var params_data = Params(
+      time: getTimeSinceStart(),
+      viewerPosition: guestureManager.viewerPosition,
+      viewerScale: guestureManager.viewerScale)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
@@ -383,8 +393,8 @@ class BlocksRenderer: CustomRenderer {
   }
 
   func onSpatialEvents(events: SpatialEventCollection) {
-    // Handle spatial events if needed
-    print("LampsRenderer received spatial event")
-
+    for event in events {
+      guestureManager.onSpatialEvent(event: event)
+    }
   }
 }
