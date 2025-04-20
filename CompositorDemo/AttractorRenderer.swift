@@ -40,6 +40,9 @@ private struct AttractorBase {
 private struct Params {
   var time: Float
   var groupSize: Int32 = Int32(lineGroupSize)
+  var viewerPosition: SIMD3<Float>
+  var viewerScale: Float
+  var _padding: SIMD3<Float> = SIMD3<Float>(0, 0, 0)  // Pad to 48 bytes, remove if shader expects 36 bytes
 }
 
 @MainActor
@@ -56,6 +59,15 @@ class AttractorRenderer: CustomRenderer {
   var computeBuffer: PingPongBuffer?
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
+
+  /// update this with gesture events
+  var pinchStart: (SIMD3<Float>, Chirality)? = nil
+  var viewerPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+
+  /// initial length when the other chirality pinch started
+  var pinchBaseLength: Float = 0.0
+  var viewerScale: Float = 1.0
+  var scaleStartedBy: Chirality? = nil
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -264,7 +276,8 @@ class AttractorRenderer: CustomRenderer {
     let dt = delta - frameDelta
     frameDelta = delta
 
-    var params = Params(time: dt)
+    var params = Params(
+      time: dt, viewerPosition: self.viewerPosition, viewerScale: self.viewerScale)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -321,7 +334,9 @@ class AttractorRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
-    var params_data = Params(time: getTimeSinceStart())
+    var params_data = Params(
+      time: getTimeSinceStart(),
+      viewerPosition: self.viewerPosition, viewerScale: self.viewerScale)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
@@ -354,9 +369,75 @@ class AttractorRenderer: CustomRenderer {
       drawable: drawable)
   }
 
+  /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
+  /// other other chirality events are used for scaling the entity
   func onSpatialEvents(events: SpatialEventCollection) {
-    // Handle spatial events if needed
-    print("AttractorRenderer received spatial event")
+    if pinchStart == nil {
+      for event in events {
+        if event.phase == .active {
+          if let chirality = event.chirality,
+            event.inputDevicePose?.pose3D != nil,
+            event.inputDevicePose?.pose3D.position != nil,
+            event.inputDevicePose?.pose3D.rotation != nil
+          {
+            if self.scaleStartedBy != nil && self.scaleStartedBy == chirality {
+              // nothing
+            } else {
+              pinchStart = (
+                event.inputDevicePose!.pose3D.position.to_simd3,
+                chirality
+              )
+            }
+          }
+        } else if event.phase == .ended {
+          self.scaleStartedBy = nil
+        }
+      }
+    } else {
+      let pinchStart = self.pinchStart!
+      for event: SpatialEventCollection.Event in events {
+        if event.phase == .ended {
+          if event.chirality == pinchStart.1 {
+            self.pinchStart = nil
+          } else {
+            self.scaleStartedBy = nil
+            self.pinchStart = nil
+          }
+        } else if event.phase == .active {
+          let pinchPosition =
+            event.inputDevicePose?.pose3D.position.to_simd3
+            ?? SIMD3<Float>(
+              0,
+              0,
+              0
+            )
 
+          let startPosition = pinchStart.0
+          let pinchDelta = simd_distance(pinchPosition, startPosition)
+          if event.chirality == pinchStart.1 {
+            if scaleStartedBy == nil {
+              // update the viewer position
+              self.viewerPosition -= (pinchPosition - startPosition) * 0.1
+            }
+          } else {
+            if scaleStartedBy == nil {
+              pinchBaseLength = pinchDelta
+              scaleStartedBy = event.chirality
+            } else {
+              let ratio = pow(pinchDelta / pinchBaseLength, 0.2)
+              self.viewerScale *= ratio
+            }
+          }
+        }
+      }
+    }
+
+  }
+}
+
+extension Point3D {
+  /// turn into SIMD3
+  fileprivate var to_simd3: SIMD3<Float> {
+    return SIMD3<Float>(Float(x), Float(y), Float(z))
   }
 }

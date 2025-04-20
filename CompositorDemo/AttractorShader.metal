@@ -32,6 +32,8 @@ typedef struct {
 typedef struct {
   float time;
   int groupSize;
+  float3 viewerPosition;
+  float viewerScale;
 } AttractorParams;
 
 struct AttractorBase {
@@ -127,7 +129,8 @@ vertex AttractorInOut attractorVertexShader(
     position = float4(cell.position - brush, 1.0);
   }
 
-  position = position * 0.2 + float4(0.0, 1.0, -1., 0.);
+  position = position * 0.5 * params.viewerScale + float4(0.0, 1.0, -1., 0.) -
+             float4(params.viewerPosition, 0.);
   position.w = 1.0; // need to be 1.0 for perspective projection
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
