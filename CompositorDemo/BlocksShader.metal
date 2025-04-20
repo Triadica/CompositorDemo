@@ -42,7 +42,7 @@ struct CellBase {
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
-kernel void lampsComputeShader(
+kernel void blocksComputeShader(
     device CellBase *lamps [[buffer(0)]],
     device CellBase *outputLamps [[buffer(1)]],
     constant Params &params [[buffer(2)]],
@@ -58,7 +58,7 @@ kernel void lampsComputeShader(
   outputLamp.lampIdf = lamp.lampIdf;
 }
 
-vertex LampInOut lampsVertexShader(
+vertex LampInOut blocksVertexShader(
     LampVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
@@ -85,7 +85,7 @@ vertex LampInOut lampsVertexShader(
   return out;
 }
 
-fragment float4 lampsFragmentShader(LampInOut in [[stage_in]]) {
+fragment float4 blocksFragmentShader(LampInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

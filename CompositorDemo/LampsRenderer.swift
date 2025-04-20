@@ -30,7 +30,7 @@ private let verticalScale: Float = 0.4
 private let upperRadius: Float = 0.14
 private let lowerRadius: Float = 0.18
 
-private struct LampBase {
+private struct CellBase {
     var position: SIMD3<Float>
     var color: SIMD3<Float>
     var lampIdf: Float
@@ -65,8 +65,8 @@ class LampsRenderer: CustomRenderer {
 
         self.computeDevice = MTLCreateSystemDefaultDevice()!
         let library = computeDevice.makeDefaultLibrary()!
-        let lampsUpdateBase = library.makeFunction(name: "lampsComputeShader")!
-        computePipeLine = try computeDevice.makeComputePipelineState(function: lampsUpdateBase)
+        let cellUpdateBase = library.makeFunction(name: "lampsComputeShader")!
+        computePipeLine = try computeDevice.makeComputePipelineState(function: cellUpdateBase)
 
         computeCommandQueue = computeDevice.makeCommandQueue()!
 
@@ -80,7 +80,7 @@ class LampsRenderer: CustomRenderer {
         let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
         vertexBuffer = device.makeBuffer(length: bufferLength)!
         vertexBuffer.label = "Lamp vertex buffer"
-        var lampVertices: UnsafeMutablePointer<LampsVertex> {
+        var cellVertices: UnsafeMutablePointer<LampsVertex> {
             vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
         }
 
@@ -109,16 +109,16 @@ class LampsRenderer: CustomRenderer {
                 let vertexBase = baseIndex + p
 
                 // First triangle of rectangle (inner1, outer1, inner2)
-                lampVertices[vertexBase] = LampsVertex(
+                cellVertices[vertexBase] = LampsVertex(
                     position: upperEdge, color: color, seed: Int32(i))
-                lampVertices[vertexBase + patelPerLamp] = LampsVertex(
+                cellVertices[vertexBase + patelPerLamp] = LampsVertex(
                     position: lowerEdge,
                     color: dimColor,
                     seed: Int32(i)
                 )
             }
             // top center of the lamp
-            lampVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
+            cellVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
                 position: SIMD3<Float>(0, verticalScale, 0),
                 color: color * 2.0,
                 seed: Int32(i)
@@ -135,7 +135,7 @@ class LampsRenderer: CustomRenderer {
         indexBuffer = device.makeBuffer(length: bufferLength)!
         indexBuffer.label = "Lamp index buffer"
 
-        let lampIndices = indexBuffer.contents().bindMemory(
+        let cellIndices = indexBuffer.contents().bindMemory(
             to: UInt32.self, capacity: indexesCount)
         for i in 0..<lampCount {
             // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
@@ -148,14 +148,14 @@ class LampsRenderer: CustomRenderer {
                 let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
                 let nextIndexBase = indexBase + p * 6
                 // First triangle of rectangle (inner1, outer1, inner2)
-                lampIndices[nextIndexBase] = UInt32(vertexBase)
-                lampIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-                lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+                cellIndices[nextIndexBase] = UInt32(vertexBase)
+                cellIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
+                cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
 
                 // Second triangle of rectangle (inner2, outer1, outer2)
-                lampIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-                lampIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-                lampIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
+                cellIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
+                cellIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
+                cellIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
             }
             // cover the top of the lamp with triangles
             let topCenter = verticesBase + patelPerLamp * 2
@@ -165,16 +165,16 @@ class LampsRenderer: CustomRenderer {
                 let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
                 let nextIndexBase = topCenterIndexBase + p * 3
                 // First triangle of rectangle (inner1, outer1, inner2)
-                lampIndices[nextIndexBase] = UInt32(vertexBase)
-                lampIndices[nextIndexBase + 1] = UInt32(topCenter)
-                lampIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+                cellIndices[nextIndexBase] = UInt32(vertexBase)
+                cellIndices[nextIndexBase + 1] = UInt32(topCenter)
+                cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
             }
         }
 
     }
 
     private func createLampComputeBuffer(device: MTLDevice) {
-        let bufferLength = MemoryLayout<LampBase>.stride * lampCount
+        let bufferLength = MemoryLayout<CellBase>.stride * lampCount
 
         computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -185,7 +185,7 @@ class LampsRenderer: CustomRenderer {
         computeBuffer.addLabel("Lamp compute buffer")
 
         let contents = computeBuffer.currentBuffer.contents()
-        let lampBase = contents.bindMemory(to: LampBase.self, capacity: lampCount)
+        let lampBase = contents.bindMemory(to: CellBase.self, capacity: lampCount)
 
         for i in 0..<lampCount {
             // Random position offsets for each lamp
@@ -207,7 +207,7 @@ class LampsRenderer: CustomRenderer {
                 Float.random(in: -0.8...0.8)
             )
 
-            lampBase[i] = LampBase(
+            lampBase[i] = CellBase(
                 position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
         }
 

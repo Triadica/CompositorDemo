@@ -40,6 +40,10 @@ struct ImmersiveInteractionScene: Scene {
                         currentRenderer = try AttractorRenderer(
                             layerRenderer: layerRenderer
                         )
+                    case .blocks:
+                        currentRenderer = try BlocksRenderer(
+                            layerRenderer: layerRenderer
+                        )
                     }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")
@@ -61,7 +65,7 @@ struct ImmersiveInteractionScene: Scene {
                     }
                 }
                 layerRenderer.onSpatialEvent = {
-                  currentRenderer.onSpatialEvents(events: $0)
+                    currentRenderer.onSpatialEvents(events: $0)
                 }
 
             }
