@@ -26,8 +26,8 @@ typedef struct {
 typedef struct {
   float4 position [[position]];
   float4 color;
-
-} LampInOut;
+  float y;
+} BlockInOut;
 
 typedef struct {
   float time;
@@ -45,54 +45,61 @@ struct CellBase {
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
 kernel void blocksComputeShader(
-    device CellBase *lamps [[buffer(0)]],
+    device CellBase *blocks [[buffer(0)]],
     device CellBase *outputLamps [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  CellBase lamp = lamps[id];
-  device CellBase &outputLamp = outputLamps[id];
-  float seed = fract(lamp.lampIdf / 10.) * 10.;
-  float speed = random1D(seed) + 0.1;
-  float dt = params.time * speed * 0.1;
-  outputLamp.position =
-      lamp.position + float3(0.0, dt, 0.0) + lamp.velocity * dt;
-  outputLamp.color = lamp.color;
-  outputLamp.lampIdf = lamp.lampIdf;
+  // CellBase block = blocks[id];
+  // device CellBase &outputBlock = outputLamps[id];
+  // float seed = fract(block.lampIdf / 10.) * 10.;
+  // float speed = random1D(seed) + 0.1;
+  // float dt = params.time * speed * 0.1;
+  // outputBlock.position =
+  //     block.position + float3(0.0, dt, 0.0) + block.velocity * dt;
+  // outputBlock.color = block.color;
+  // outputBlock.lampIdf = block.lampIdf;
 }
 
-vertex LampInOut blocksVertexShader(
+vertex BlockInOut blocksVertexShader(
     LampVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
-    const device CellBase *lampData [[buffer(BufferIndexBase)]]) {
-  LampInOut out;
+    const device CellBase *blocksData [[buffer(BufferIndexBase)]]) {
+  BlockInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
 
-  float4 position = float4(in.position + lampData[in.seed].position, 1.0);
+  float4 position = float4(in.position + blocksData[in.seed].position, 1.0);
+  float y = position.y;
 
-  float lampDistance = distance(cameraAt, position.xyz);
-  float distanceDim = 1.0 - clamp(lampDistance / 30.0, 0.0, 1.0);
-  float randSeed = random1D(lampData[in.seed].lampIdf);
-  float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
+  float blockDistance = distance(cameraAt, position.xyz);
+  float distanceDim = 1.0 - clamp(blockDistance / 150.0, 0.0, 0.9);
+  float randSeed = random1D(blocksData[in.seed].lampIdf);
 
   position = position * params.viewerScale - float4(params.viewerPosition, 0.);
+  position.w = 1.0; // reset w to 1.0 for the projection matrix
 
+  out.y = y;
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a * distanceDim * breathDim;
+  out.color.rgb = out.color.rgb * out.color.a * distanceDim;
 
   return out;
 }
 
-fragment float4 blocksFragmentShader(LampInOut in [[stage_in]]) {
+fragment float4 blocksFragmentShader(BlockInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
 
-  return in.color;
+  float4 color = in.color;
+  if (abs(fract(in.y / 2.0)) < 0.08) {
+    color -= float4(0.1, 0.1, 0.1, 0.0);
+  }
+
+  return color;
 }

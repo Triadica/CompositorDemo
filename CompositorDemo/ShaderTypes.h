@@ -77,4 +77,10 @@ typedef struct {
   int cellSide;
 } AttractorCellVertex;
 
+typedef struct {
+  simd_float3 position;
+  simd_float3 color;
+  int seed;
+} BlockVertex;
+
 #endif /* ShaderTypes_h */
