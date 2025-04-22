@@ -38,7 +38,8 @@ private struct Params {
   var time: Float
   var viewerPosition: SIMD3<Float>
   var viewerScale: Float
-  var _padding: SIMD4<Float> = .zero  // required for 48 bytes alignment
+  var viewerRotation: Float = 0.0
+  var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
 }
 
 @MainActor
@@ -56,7 +57,7 @@ class BlocksRenderer: CustomRenderer {
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
-  var guestureManager: GestureManager = GestureManager()
+  var guestureManager: GestureManager = GestureManager(onScene: true)
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -312,7 +313,8 @@ class BlocksRenderer: CustomRenderer {
 
     var params = Params(
       time: dt, viewerPosition: guestureManager.viewerPosition,
-      viewerScale: guestureManager.viewerScale)
+      viewerScale: guestureManager.viewerScale,
+      viewerRotation: guestureManager.viewerRotation)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -372,7 +374,8 @@ class BlocksRenderer: CustomRenderer {
     var params_data = Params(
       time: getTimeSinceStart(),
       viewerPosition: guestureManager.viewerPosition,
-      viewerScale: guestureManager.viewerScale)
+      viewerScale: guestureManager.viewerScale,
+      viewerRotation: guestureManager.viewerRotation)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,

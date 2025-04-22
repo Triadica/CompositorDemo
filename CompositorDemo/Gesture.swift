@@ -13,8 +13,25 @@ class GestureManager {
 
   /// initial length when the other chirality pinch started
   var pinchBaseLength: Float = 0.0
+  /// initial angle when the other chirality pinch started
+  var pinchBaseRadian: Float = 0.0
   var viewerScale: Float = 1.0
+  /// rotation of the viewer, in radians
+  var viewerRotation: Float = 0.0
+
   var scaleStartedBy: Chirality? = nil
+
+  var gestureDirection: Float = 1.0
+
+  var secondaryStartPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+
+  init(onScene: Bool = false) {
+    if onScene {
+      self.gestureDirection = -1.0
+    } else {
+      self.gestureDirection = 1.0
+    }
+  }
 
   /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
   /// other other chirality events are used for scaling the entity
@@ -68,21 +85,59 @@ class GestureManager {
         return
       }
 
-      let startPosition = pinchStart.0
-      let pinchDelta = simd_distance(pinchPosition, startPosition)
+      let startPosition: SIMD3<Float> = pinchStart.0
       if event.chirality == pinchStart.1 {
         if scaleStartedBy == nil {
           // update the viewer position
-          self.viewerPosition -= (pinchPosition - startPosition) * 0.1
+          var delta = pinchPosition - startPosition
+          // rotate the delta vector
+          let rotation = -viewerRotation
+          let cosRadian = cos(rotation)
+          let sinRadian = sin(rotation)
+          /// make new delta since we rotate the world viewer
+          delta = SIMD3<Float>(
+            delta.x * cosRadian - delta.z * sinRadian,
+            delta.y,
+            delta.x * sinRadian + delta.z * cosRadian
+          )
+          self.viewerPosition -= delta * 0.1 * gestureDirection
         }
       } else {
+        let pinchDelta = simd_distance(pinchPosition, startPosition)
+        let pinchRadian = atan2(
+          pinchPosition.z - startPosition.z, pinchPosition.x - startPosition.x)
         if scaleStartedBy == nil {
           pinchBaseLength = pinchDelta
+          pinchBaseRadian = pinchRadian
           scaleStartedBy = event.chirality
+          secondaryStartPosition = pinchPosition
+
         } else {
-          let ratio = pow(pinchDelta / pinchBaseLength, 0.2)
-          self.viewerScale *= ratio
+
+          let pinchAt2 = SIMD2(pinchPosition.x, pinchPosition.z)
+          let startAt2 = SIMD2(startPosition.x, startPosition.z)
+          let secondaryStart2 = SIMD2(secondaryStartPosition.x, secondaryStartPosition.z)
+
+          let secondaryDirection = simd_normalize(pinchAt2 - secondaryStart2)
+          let secondaryArmDirection = simd_normalize(startAt2 - secondaryStart2)
+          let guessScaleOrRotate = abs(simd_dot(secondaryDirection, secondaryArmDirection))
+
+          if guessScaleOrRotate > 0.8 {
+
+            let ratio: Float = pow(pinchDelta / pinchBaseLength, 0.2)
+            self.viewerScale *= ratio
+          } else if guessScaleOrRotate < 0.7 {
+
+            var deltaRadian = pinchRadian - pinchBaseRadian
+            if deltaRadian > .pi {
+              deltaRadian -= 2 * .pi
+            } else if deltaRadian < -.pi {
+              deltaRadian += 2 * .pi
+            }
+            self.viewerRotation += deltaRadian * 0.02 * gestureDirection
+          }
         }
+
       }
     }
   }
