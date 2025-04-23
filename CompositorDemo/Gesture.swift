@@ -6,31 +6,38 @@ import Spatial
 import SwiftUI
 import simd
 
+private struct PinchHappen {
+  var position: SIMD3<Float>
+  var chirality: Chirality
+}
+
 class GestureManager {
   /// update this with gesture events
-  var pinchStart: (SIMD3<Float>, Chirality)? = nil
+  private var primaryStarted: PinchHappen? = nil
+  var secondaryStarted: Chirality? = nil
+  var secondaryStartPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+
   var viewerPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+  var viewerScale: Float = 1.0
+  /// rotation of the viewer, in radians
+  var viewerRotation: Float = 0.0
 
   /// initial length when the other chirality pinch started
   var pinchBaseLength: Float = 0.0
   /// initial angle when the other chirality pinch started
   var pinchBaseRadian: Float = 0.0
-  var viewerScale: Float = 1.0
-  /// rotation of the viewer, in radians
-  var viewerRotation: Float = 0.0
 
-  var scaleStartedBy: Chirality? = nil
-
-  var gestureDirection: Float = 1.0
-
-  var secondaryStartPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+  var onScene: Bool = false
+  var gestureDirection: Float {
+    if onScene {
+      return -1.0
+    } else {
+      return 1.0
+    }
+  }
 
   init(onScene: Bool = false) {
-    if onScene {
-      self.gestureDirection = -1.0
-    } else {
-      self.gestureDirection = 1.0
-    }
+    self.onScene = onScene
   }
 
   /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
@@ -44,50 +51,50 @@ class GestureManager {
       return
     }
 
-    if pinchStart == nil {
+    if primaryStarted == nil {
       handlePinchStart(event: event, chirality: chirality)
     } else {
       handlePinchActive(event: event, chirality: chirality)
     }
 
     if event.phase == .ended {
-      self.scaleStartedBy = nil
+      self.secondaryStarted = nil
     }
   }
 
   private func handlePinchStart(event: SpatialEventCollection.Event, chirality: Chirality) {
     if event.phase == .active {
-      if self.scaleStartedBy != nil && self.scaleStartedBy == chirality {
+      if self.secondaryStarted != nil && self.secondaryStarted == chirality {
         // nothing
       } else {
-        pinchStart = (
-          event.inputDevicePose!.pose3D.position.to_simd3,
-          chirality
+        primaryStarted = PinchHappen(
+          position: event.inputDevicePose!.pose3D.position.to_simd3,
+          chirality: chirality
         )
       }
     }
   }
 
   private func handlePinchActive(event: SpatialEventCollection.Event, chirality: Chirality) {
-    guard let pinchStart = self.pinchStart else {
+    guard let pinchStart = self.primaryStarted else {
       return
     }
 
     if event.phase == .ended {
-      if event.chirality == pinchStart.1 {
-        self.pinchStart = nil
+      if event.chirality == pinchStart.chirality {
+        self.primaryStarted = nil
       } else {
-        self.scaleStartedBy = nil
-        self.pinchStart = nil
+        self.secondaryStarted = nil
+        self.primaryStarted = nil
       }
     } else if event.phase == .active {
       guard let pinchPosition = event.inputDevicePose?.pose3D.position.to_simd3 else {
         return
       }
 
-      let startPosition: SIMD3<Float> = pinchStart.0
-      if event.chirality == pinchStart.1 {
-        if scaleStartedBy == nil {
+      let startPosition: SIMD3<Float> = pinchStart.position
+      if event.chirality == pinchStart.chirality {
+        if secondaryStarted == nil {
           // update the viewer position
           var delta = pinchPosition - startPosition
 
@@ -109,10 +116,10 @@ class GestureManager {
         let pinchDelta = simd_distance(pinchPosition, startPosition)
         let pinchRadian = atan2(
           pinchPosition.z - startPosition.z, pinchPosition.x - startPosition.x)
-        if scaleStartedBy == nil {
+        if secondaryStarted == nil {
           pinchBaseLength = pinchDelta
           pinchBaseRadian = pinchRadian
-          scaleStartedBy = event.chirality
+          secondaryStarted = event.chirality
           secondaryStartPosition = pinchPosition
 
         } else {
