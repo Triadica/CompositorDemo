@@ -26,6 +26,9 @@ class GestureManager {
   /// initial angle when the other chirality pinch started
   var pinchBaseRadian: Float = 0.0
 
+  /// compare with latest primary pinch position to be smoother
+  var primaryPinchRealtimePosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+
   var onScene: Bool = false
   var gestureDirection: Float {
     if onScene {
@@ -103,11 +106,10 @@ class GestureManager {
         return
       }
 
-      let startPosition: SIMD3<Float> = primaryPinch.position
       if event.chirality == primaryPinch.chirality {
         if secondaryStarted == nil {
           // update the viewer position
-          var delta = pinchPosition - startPosition
+          var delta = pinchPosition - primaryPinch.position
 
           if self.gestureDirection < 0 {
             // on scene, we need rotate the delta vector
@@ -123,14 +125,16 @@ class GestureManager {
           }
           self.viewerPosition -= delta * 0.1 * gestureDirection
         }
+        primaryPinchRealtimePosition = pinchPosition
       } else {
-        let pinchDelta = simd_distance(pinchPosition, startPosition)
+        let realtimeP1 = primaryPinchRealtimePosition
+        let pinchDelta = simd_distance(pinchPosition, realtimeP1)
         let pinchRadian = atan2(
-          pinchPosition.z - startPosition.z, pinchPosition.x - startPosition.x)
+          pinchPosition.z - realtimeP1.z, pinchPosition.x - realtimeP1.x)
         if let secondaryStarted = secondaryStarted {
 
           let pinchAt2 = SIMD2(pinchPosition.x, pinchPosition.z)
-          let startAt2 = SIMD2(startPosition.x, startPosition.z)
+          let startAt2 = SIMD2(realtimeP1.x, realtimeP1.z)
           let secondaryStart2 = SIMD2(secondaryStarted.position.x, secondaryStarted.position.z)
 
           let secondaryDirection = simd_normalize(pinchAt2 - secondaryStart2)
