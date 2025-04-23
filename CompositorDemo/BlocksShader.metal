@@ -45,7 +45,7 @@ struct CellBase {
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
-static float4 applyGuestureViewer(
+static float4 applyGestureViewerOnScene(
     float4 p0,
     float3 viewerPosition,
     float viewerScale,
@@ -108,9 +108,9 @@ vertex BlockInOut blocksVertexShader(
 
   float blockDistance = distance(cameraAt, position.xyz);
   float distanceDim = 1.0 - clamp(blockDistance / 150.0, 0.0, 0.9);
-  float randSeed = random1D(blocksData[in.seed].lampIdf);
+  // float randSeed = random1D(blocksData[in.seed].lampIdf);
 
-  position = applyGuestureViewer(
+  position = applyGestureViewerOnScene(
       position,
       params.viewerPosition,
       params.viewerScale,

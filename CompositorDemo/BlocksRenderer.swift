@@ -57,7 +57,7 @@ class BlocksRenderer: CustomRenderer {
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
-  var guestureManager: GestureManager = GestureManager(onScene: true)
+  var gestureManager: GestureManager = GestureManager(onScene: true)
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -312,9 +312,9 @@ class BlocksRenderer: CustomRenderer {
     frameDelta = delta
 
     var params = Params(
-      time: dt, viewerPosition: guestureManager.viewerPosition,
-      viewerScale: guestureManager.viewerScale,
-      viewerRotation: guestureManager.viewerRotation)
+      time: dt, viewerPosition: gestureManager.viewerPosition,
+      viewerScale: gestureManager.viewerScale,
+      viewerRotation: gestureManager.viewerRotation)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -373,9 +373,9 @@ class BlocksRenderer: CustomRenderer {
 
     var params_data = Params(
       time: getTimeSinceStart(),
-      viewerPosition: guestureManager.viewerPosition,
-      viewerScale: guestureManager.viewerScale,
-      viewerRotation: guestureManager.viewerRotation)
+      viewerPosition: gestureManager.viewerPosition,
+      viewerScale: gestureManager.viewerScale,
+      viewerRotation: gestureManager.viewerRotation)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
@@ -410,7 +410,7 @@ class BlocksRenderer: CustomRenderer {
 
   func onSpatialEvents(events: SpatialEventCollection) {
     for event in events {
-      guestureManager.onSpatialEvent(event: event)
+      gestureManager.onSpatialEvent(event: event)
     }
   }
 }

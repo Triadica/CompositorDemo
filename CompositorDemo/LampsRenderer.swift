@@ -38,10 +38,11 @@ private struct CellBase {
 }
 
 private struct Params {
-    var time: Float
     var viewerPosition: SIMD3<Float>
+    var time: Float
     var viewerScale: Float
-    var _padding: SIMD4<Float> = .zero  // required for 48 bytes alignment
+    var viewerRotation: Float = .zero
+    var _padding: SIMD2<Float> = .zero  // required for 48 bytes alignment
 }
 
 @MainActor
@@ -59,7 +60,7 @@ class LampsRenderer: CustomRenderer {
     let computePipeLine: MTLComputePipelineState
     let computeCommandQueue: MTLCommandQueue
 
-    var guestureManager: GestureManager = GestureManager()
+    var gestureManager: GestureManager = GestureManager(onScene: true)
 
     init(layerRenderer: LayerRenderer) throws {
         uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -298,9 +299,10 @@ class LampsRenderer: CustomRenderer {
         frameDelta = delta
 
         var params = Params(
+            viewerPosition: gestureManager.viewerPosition,
             time: dt,
-            viewerPosition: guestureManager.viewerPosition,
-            viewerScale: guestureManager.viewerScale
+            viewerScale: gestureManager.viewerScale,
+            viewerRotation: gestureManager.viewerRotation
         )
         computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
         let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
@@ -359,8 +361,11 @@ class LampsRenderer: CustomRenderer {
             index: BufferIndex.meshPositions.rawValue)
 
         var params_data = Params(
-            time: getTimeSinceStart(), viewerPosition: guestureManager.viewerPosition,
-            viewerScale: guestureManager.viewerScale)
+            viewerPosition: gestureManager.viewerPosition,
+            time: getTimeSinceStart(),
+            viewerScale: gestureManager.viewerScale,
+            viewerRotation: gestureManager.viewerRotation
+        )
 
         let params: any MTLBuffer = device.makeBuffer(
             bytes: &params_data,
@@ -395,7 +400,7 @@ class LampsRenderer: CustomRenderer {
 
     func onSpatialEvents(events: SpatialEventCollection) {
         for event in events {
-            guestureManager.onSpatialEvent(event: event)
+            gestureManager.onSpatialEvent(event: event)
         }
     }
 }

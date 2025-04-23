@@ -90,16 +90,19 @@ class GestureManager {
         if scaleStartedBy == nil {
           // update the viewer position
           var delta = pinchPosition - startPosition
-          // rotate the delta vector
-          let rotation = -viewerRotation
-          let cosRadian = cos(rotation)
-          let sinRadian = sin(rotation)
-          /// make new delta since we rotate the world viewer
-          delta = SIMD3<Float>(
-            delta.x * cosRadian - delta.z * sinRadian,
-            delta.y,
-            delta.x * sinRadian + delta.z * cosRadian
-          )
+
+          if self.gestureDirection < 0 {
+            // on scene, we need rotate the delta vector
+            let rotation: Float = -viewerRotation
+            let cosRadian = cos(rotation)
+            let sinRadian = sin(rotation)
+            /// make new delta since we rotate the world viewer
+            delta = SIMD3<Float>(
+              delta.x * cosRadian - delta.z * sinRadian,
+              delta.y,
+              delta.x * sinRadian + delta.z * cosRadian
+            )
+          }
           self.viewerPosition -= delta * 0.1 * gestureDirection
         }
       } else {

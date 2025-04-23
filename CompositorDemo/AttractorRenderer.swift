@@ -42,7 +42,8 @@ private struct Params {
   var groupSize: Int32 = Int32(lineGroupSize)
   var viewerPosition: SIMD3<Float>
   var viewerScale: Float
-  var _padding: SIMD3<Float> = SIMD3<Float>(0, 0, 0)  // Pad to 48 bytes, remove if shader expects 36 bytes
+  var viewerRotation: Float = 0.0
+  var _padding: SIMD2<Float> = SIMD2<Float>(0, 0)  // Pad to 48 bytes, remove if shader expects 36 bytes
 }
 
 @MainActor
@@ -271,7 +272,8 @@ class AttractorRenderer: CustomRenderer {
 
     var params = Params(
       time: dt, viewerPosition: self.gestureManager.viewerPosition,
-      viewerScale: self.gestureManager.viewerScale)
+      viewerScale: self.gestureManager.viewerScale,
+      viewerRotation: self.gestureManager.viewerRotation)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -331,7 +333,8 @@ class AttractorRenderer: CustomRenderer {
     var params_data = Params(
       time: getTimeSinceStart(),
       viewerPosition: self.gestureManager.viewerPosition,
-      viewerScale: self.gestureManager.viewerScale)
+      viewerScale: self.gestureManager.viewerScale,
+      viewerRotation: self.gestureManager.viewerRotation)
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,

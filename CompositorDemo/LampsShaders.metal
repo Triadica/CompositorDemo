@@ -30,9 +30,10 @@ typedef struct {
 } LampInOut;
 
 typedef struct {
-  float time;
   float3 viewerPosition;
+  float time;
   float viewerScale;
+  float viewerRotation;
 } Params;
 
 struct CellBase {
@@ -43,6 +44,36 @@ struct CellBase {
 };
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
+
+static float4 applyGestureViewerOnScene(
+    float4 p0,
+    float3 viewerPosition,
+    float viewerScale,
+    float viewerRotation,
+    float3 cameraAt) {
+
+  float4 position = p0;
+
+  // position -= cameraAt4;
+
+  // translate
+  position = position - float4(viewerPosition, 0.0);
+
+  // rotate xz by viewerRotation
+  float cosTheta = cos(viewerRotation);
+  float sinTheta = sin(viewerRotation);
+  float x = position.x * cosTheta - position.z * sinTheta;
+  float z = position.x * sinTheta + position.z * cosTheta;
+  position.x = x;
+  position.z = z;
+
+  // scale
+  position *= viewerScale;
+
+  // position += cameraAt4;
+
+  return position;
+}
 
 kernel void lampsComputeShader(
     device CellBase *lamps [[buffer(0)]],
@@ -79,7 +110,14 @@ vertex LampInOut lampsVertexShader(
   float randSeed = random1D(lampData[in.seed].lampIdf);
   float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
 
-  position = position * params.viewerScale - float4(params.viewerPosition, 0.);
+  position = applyGestureViewerOnScene(
+      position,
+      params.viewerPosition,
+      params.viewerScale,
+      params.viewerRotation,
+      uniforms.cameraPos);
+
+  position.w = 1;
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
