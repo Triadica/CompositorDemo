@@ -14,8 +14,7 @@ private struct PinchHappen {
 class GestureManager {
   /// update this with gesture events
   private var primaryStarted: PinchHappen? = nil
-  var secondaryStarted: Chirality? = nil
-  var secondaryStartPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+  private var secondaryStarted: PinchHappen? = nil
 
   var viewerPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
   var viewerScale: Float = 1.0
@@ -51,10 +50,14 @@ class GestureManager {
       return
     }
 
-    if primaryStarted == nil {
-      handlePinchStart(event: event, chirality: chirality)
+    if let primaryStarted = self.primaryStarted {
+      handlePinchPinchActive(
+        event: event,
+        chirality: chirality,
+        primaryPinch: primaryStarted
+      )
     } else {
-      handlePinchActive(event: event, chirality: chirality)
+      handlePrimaryPinchStart(event: event, chirality: chirality)
     }
 
     if event.phase == .ended {
@@ -62,10 +65,17 @@ class GestureManager {
     }
   }
 
-  private func handlePinchStart(event: SpatialEventCollection.Event, chirality: Chirality) {
+  private func handlePrimaryPinchStart(event: SpatialEventCollection.Event, chirality: Chirality) {
     if event.phase == .active {
-      if self.secondaryStarted != nil && self.secondaryStarted == chirality {
-        // nothing
+      if let secondaryStarted = self.secondaryStarted {
+        if secondaryStarted.chirality == chirality {
+          // nothing
+        } else {
+          primaryStarted = PinchHappen(
+            position: event.inputDevicePose!.pose3D.position.to_simd3,
+            chirality: chirality
+          )
+        }
       } else {
         primaryStarted = PinchHappen(
           position: event.inputDevicePose!.pose3D.position.to_simd3,
@@ -75,13 +85,14 @@ class GestureManager {
     }
   }
 
-  private func handlePinchActive(event: SpatialEventCollection.Event, chirality: Chirality) {
-    guard let pinchStart = self.primaryStarted else {
-      return
-    }
+  private func handlePinchPinchActive(
+    event: SpatialEventCollection.Event,
+    chirality: Chirality,
+    primaryPinch: PinchHappen
+  ) {
 
     if event.phase == .ended {
-      if event.chirality == pinchStart.chirality {
+      if event.chirality == primaryPinch.chirality {
         self.primaryStarted = nil
       } else {
         self.secondaryStarted = nil
@@ -92,8 +103,8 @@ class GestureManager {
         return
       }
 
-      let startPosition: SIMD3<Float> = pinchStart.position
-      if event.chirality == pinchStart.chirality {
+      let startPosition: SIMD3<Float> = primaryPinch.position
+      if event.chirality == primaryPinch.chirality {
         if secondaryStarted == nil {
           // update the viewer position
           var delta = pinchPosition - startPosition
@@ -116,17 +127,11 @@ class GestureManager {
         let pinchDelta = simd_distance(pinchPosition, startPosition)
         let pinchRadian = atan2(
           pinchPosition.z - startPosition.z, pinchPosition.x - startPosition.x)
-        if secondaryStarted == nil {
-          pinchBaseLength = pinchDelta
-          pinchBaseRadian = pinchRadian
-          secondaryStarted = event.chirality
-          secondaryStartPosition = pinchPosition
-
-        } else {
+        if let secondaryStarted = secondaryStarted {
 
           let pinchAt2 = SIMD2(pinchPosition.x, pinchPosition.z)
           let startAt2 = SIMD2(startPosition.x, startPosition.z)
-          let secondaryStart2 = SIMD2(secondaryStartPosition.x, secondaryStartPosition.z)
+          let secondaryStart2 = SIMD2(secondaryStarted.position.x, secondaryStarted.position.z)
 
           let secondaryDirection = simd_normalize(pinchAt2 - secondaryStart2)
           let secondaryArmDirection = simd_normalize(startAt2 - secondaryStart2)
@@ -146,6 +151,14 @@ class GestureManager {
             }
             self.viewerRotation += deltaRadian * 0.02 * gestureDirection
           }
+        } else {
+          pinchBaseLength = pinchDelta
+          pinchBaseRadian = pinchRadian
+          secondaryStarted = PinchHappen(
+            position: pinchPosition,
+            chirality: event.chirality!
+          )
+
         }
 
       }
