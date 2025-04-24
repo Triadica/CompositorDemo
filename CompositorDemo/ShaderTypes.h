@@ -81,6 +81,7 @@ typedef struct {
   simd_float3 position;
   simd_float3 color;
   int seed;
+  float height;
 } BlockVertex;
 
 #endif /* ShaderTypes_h */

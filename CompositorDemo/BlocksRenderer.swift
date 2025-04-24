@@ -93,9 +93,9 @@ class BlocksRenderer: CustomRenderer {
       for j in 0..<gridSize {
         let idx = i * gridSize + j
         // Random color for each lamp
-        let red = Float.random(in: 0.4...0.7)
-        let g = Float.random(in: 0.4...0.7)
-        let b = Float.random(in: 0.4...0.7)
+        let red = Float.random(in: 0.2...0.99)
+        let g = Float.random(in: 0.2...0.99)
+        let b = Float.random(in: 0.2...0.99)
         var color = SIMD3<Float>(red, g, b)
 
         let baseIndex = idx * verticesPerBlock
@@ -105,7 +105,7 @@ class BlocksRenderer: CustomRenderer {
           color = SIMD3<Float>(0.1, 0.1, 0.1)
         }
 
-        let r: Float = blockRadius * 0.8
+        let r: Float = blockRadius * Float.random(in: 0.5...1.0)
 
         let p1: SIMD3<Float> = SIMD3<Float>(-r, 0, -r)
         let p2: SIMD3<Float> = SIMD3<Float>(r, 0, -r)
@@ -117,21 +117,21 @@ class BlocksRenderer: CustomRenderer {
         let p8: SIMD3<Float> = SIMD3<Float>(-r, randHeight, r)
 
         cellVertices[baseIndex] = BlockVertex(
-          position: p1, color: color, seed: Int32(idx))
+          position: p1, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 1] = BlockVertex(
-          position: p2, color: color, seed: Int32(idx))
+          position: p2, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 2] = BlockVertex(
-          position: p3, color: color, seed: Int32(idx))
+          position: p3, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 3] = BlockVertex(
-          position: p4, color: color, seed: Int32(idx))
+          position: p4, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 4] = BlockVertex(
-          position: p5, color: color, seed: Int32(idx))
+          position: p5, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 5] = BlockVertex(
-          position: p6, color: color, seed: Int32(idx))
+          position: p6, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 6] = BlockVertex(
-          position: p7, color: color, seed: Int32(idx))
+          position: p7, color: color, seed: Int32(idx), height: randHeight)
         cellVertices[baseIndex + 7] = BlockVertex(
-          position: p8, color: color, seed: Int32(idx))
+          position: p8, color: color, seed: Int32(idx), height: randHeight)
       }
     }
 
@@ -237,32 +237,38 @@ class BlocksRenderer: CustomRenderer {
     // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
+    var offset = 0
 
     mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format =
       MTLVertexFormat.float3
     mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
     mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
       BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<SIMD3<Float>>.stride
 
-    let offset = MemoryLayout<SIMD3<Float>>.stride
     mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
       MTLVertexFormat.float3
     mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
     mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].bufferIndex =
       BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<SIMD3<Float>>.stride
+
+    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = offset
+    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
+      BufferIndex.meshPositions.rawValue
+    offset += MemoryLayout<Int32>.stride
+
+    mtlVertexDescriptor.attributes[3].format = MTLVertexFormat.float
+    mtlVertexDescriptor.attributes[3].offset = offset
+    mtlVertexDescriptor.attributes[3].bufferIndex = 0
+    offset += MemoryLayout<Float>.stride
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
       MemoryLayout<BlockVertex>.stride
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
       MTLVertexStepFunction.perVertex
-    // add params for seed value
-    let nextOffset = offset + MemoryLayout<SIMD3<Float>>.stride
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format =
-      MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = nextOffset
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
 
     return mtlVertexDescriptor
   }

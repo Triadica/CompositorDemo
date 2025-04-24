@@ -97,9 +97,10 @@ class GestureManager {
     if event.phase == .ended {
       if event.chirality == primaryPinch.chirality {
         self.primaryStarted = nil
-      } else {
         self.secondaryStarted = nil
+      } else {
         self.primaryStarted = nil
+        self.secondaryStarted = nil
       }
     } else if event.phase == .active {
       guard let pinchPosition = event.inputDevicePose?.pose3D.position.to_simd3 else {
