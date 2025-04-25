@@ -22,12 +22,13 @@ typedef struct {
   float3 color [[attribute(VertexAttributeColor)]];
   int seed [[attribute(VertexAttributeSeed)]];
   float height [[attribute(3)]];
-} LampVertexIn;
+  float2 uv [[attribute(4)]];
+} BlockVertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
-  float4 originalPosition;
+  float3 originalPosition;
   float height;
   float2 uv;
 } BlockInOut;
@@ -103,7 +104,7 @@ kernel void blocksComputeShader(
 }
 
 vertex BlockInOut blocksVertexShader(
-    LampVertexIn in [[stage_in]],
+    BlockVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
@@ -114,14 +115,13 @@ vertex BlockInOut blocksVertexShader(
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
 
-  float4 position = float4(in.position + blocksData[in.seed].position, 1.0);
-  float y = position.y;
+  float3 basePosition = blocksData[in.seed].position;
+  float4 position = float4(in.position + basePosition, 1.0);
 
-  float blockDistance = distance(cameraAt, position.xyz);
-  float distanceDim = 1.0 - clamp(blockDistance / 150.0, 0.0, 0.9);
   // float randSeed = random1D(blocksData[in.seed].lampIdf);
 
-  out.originalPosition = position;
+  out.originalPosition = basePosition.xyz;
+  out.uv = in.uv;
 
   position = applyGestureViewerOnScene(
       position,
@@ -129,6 +129,9 @@ vertex BlockInOut blocksVertexShader(
       params.viewerScale,
       params.viewerRotation,
       cameraAt);
+
+  float blockDistance = distance(cameraAt, position.xyz);
+  float distanceDim = 1.0 - clamp(blockDistance / 150.0, 0.0, 0.9);
 
   position.w = 1.0; // reset w to 1.0 for the projection matrix
 
@@ -149,28 +152,24 @@ fragment float4 blocksFragmentShader(BlockInOut in [[stage_in]]) {
   float4 color = in.color;
   float4 dark = float4(0.01, 0.01, 0.01, 1.0);
 
-  if (in.originalPosition.y >= (in.height - 0.01)) {
+  if (in.uv.y >= (in.height - 0.01)) {
     return dark;
   }
 
   float3 aaa = float3(
-      floor(in.originalPosition.x / 0.3),
-      floor(in.originalPosition.y / 0.34),
-      floor(in.originalPosition.z / 0.3));
+      floor((in.uv.x + in.originalPosition.x) / 0.3),
+      floor((in.uv.y + in.originalPosition.y) / 0.34),
+      1.);
   float r = randomFrom3D(aaa);
   if (r < 0.6 && r > 0.2) {
     return dark;
   }
 
-  float xRatio = abs(fract(in.originalPosition.x / 0.3));
+  float xRatio = abs(fract(in.uv.x / 0.3));
   if (xRatio > 0.9 || xRatio < 0.1) {
     return dark;
   }
-  float zRatio = abs(fract(in.originalPosition.z / 0.3));
-  if (zRatio > 0.9 || zRatio < 0.1) {
-    return dark;
-  }
-  float yRatio = abs(fract(in.originalPosition.y / 0.34));
+  float yRatio = abs(fract(in.uv.y / 0.34));
   if (yRatio > 0.6 || yRatio < 0.0) {
     return dark;
   }

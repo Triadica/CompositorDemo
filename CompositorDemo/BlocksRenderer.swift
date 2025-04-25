@@ -123,11 +123,11 @@ class BlocksRenderer: CustomRenderer {
         )
         cellVertices[baseIndex + 1] = BlockVertex(
           position: p2, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, 0)
+          uv: SIMD2<Float>(2 * r, 0)
         )
         cellVertices[baseIndex + 2] = BlockVertex(
           position: p6, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight)
+          uv: SIMD2<Float>(2 * r, randHeight)
         )
         cellVertices[baseIndex + 3] = BlockVertex(
           position: p1, color: color, seed: Int32(idx), height: randHeight,
@@ -135,7 +135,7 @@ class BlocksRenderer: CustomRenderer {
         )
         cellVertices[baseIndex + 4] = BlockVertex(
           position: p6, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight)
+          uv: SIMD2<Float>(2 * r, randHeight)
         )
         cellVertices[baseIndex + 5] = BlockVertex(
           position: p5, color: color, seed: Int32(idx), height: randHeight,
@@ -145,15 +145,16 @@ class BlocksRenderer: CustomRenderer {
         cellVertices[baseIndex + 6] = BlockVertex(
           position: p2, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 7] = BlockVertex(
-          position: p3, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(r, 0))
+          position: p3, color: color, seed: Int32(idx), height: randHeight,
+          uv: SIMD2<Float>(2 * r, 0))
         cellVertices[baseIndex + 8] = BlockVertex(
           position: p7, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 9] = BlockVertex(
           position: p2, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 10] = BlockVertex(
           position: p7, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 11] = BlockVertex(
           position: p6, color: color, seed: Int32(idx), height: randHeight,
           uv: SIMD2<Float>(0, randHeight))
@@ -161,15 +162,16 @@ class BlocksRenderer: CustomRenderer {
         cellVertices[baseIndex + 12] = BlockVertex(
           position: p3, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 13] = BlockVertex(
-          position: p4, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(r, 0))
+          position: p4, color: color, seed: Int32(idx), height: randHeight,
+          uv: SIMD2<Float>(2 * r, 0))
         cellVertices[baseIndex + 14] = BlockVertex(
           position: p8, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 15] = BlockVertex(
           position: p3, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 16] = BlockVertex(
           position: p8, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 17] = BlockVertex(
           position: p7, color: color, seed: Int32(idx), height: randHeight,
           uv: SIMD2<Float>(0, randHeight))
@@ -177,15 +179,16 @@ class BlocksRenderer: CustomRenderer {
         cellVertices[baseIndex + 18] = BlockVertex(
           position: p4, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 19] = BlockVertex(
-          position: p1, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(r, 0))
+          position: p1, color: color, seed: Int32(idx), height: randHeight,
+          uv: SIMD2<Float>(2 * r, 0))
         cellVertices[baseIndex + 20] = BlockVertex(
           position: p5, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 21] = BlockVertex(
           position: p4, color: color, seed: Int32(idx), height: randHeight, uv: SIMD2<Float>(0, 0))
         cellVertices[baseIndex + 22] = BlockVertex(
           position: p5, color: color, seed: Int32(idx), height: randHeight,
-          uv: SIMD2<Float>(r, randHeight))
+          uv: SIMD2<Float>(2 * r, randHeight))
         cellVertices[baseIndex + 23] = BlockVertex(
           position: p8, color: color, seed: Int32(idx), height: randHeight,
           uv: SIMD2<Float>(0, randHeight))
