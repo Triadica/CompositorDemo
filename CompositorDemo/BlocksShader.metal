@@ -29,6 +29,7 @@ typedef struct {
   float4 color;
   float4 originalPosition;
   float height;
+  float2 uv;
 } BlockInOut;
 
 typedef struct {
