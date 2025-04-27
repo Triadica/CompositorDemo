@@ -1,5 +1,5 @@
 /*
- See the LICENSE.txt file for this sample’s licensing information.
+ See the LICENSE.txt file for this sample's licensing information.
 
  Abstract:
  Contains the vertex and fragment shaders for the path and tint renderers.
@@ -32,6 +32,22 @@ typedef struct {
   float height;
   float2 uv;
 } BlockInOut;
+
+// 添加图片顶点输入结构体
+typedef struct {
+  float3 position [[attribute(VertexAttributePosition)]];
+  float3 color [[attribute(VertexAttributeColor)]];
+  float2 texCoord [[attribute(4)]];
+  int imageIndex [[attribute(VertexAttributeSeed)]];
+} ImageVertexIn;
+
+// 添加图片顶点输出结构体
+typedef struct {
+  float4 position [[position]];
+  float4 color;
+  float2 texCoord;
+  int imageIndex;
+} ImageInOut;
 
 typedef struct {
   float time;
@@ -175,4 +191,58 @@ fragment float4 imagesFragmentShader(BlockInOut in [[stage_in]]) {
   }
 
   return color;
+}
+
+// 添加图片顶点着色器
+vertex ImageInOut imageDisplayVertexShader(
+    ImageVertexIn in [[stage_in]],
+    ushort amp_id [[amplification_id]],
+    constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
+    constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
+    constant Params &params [[buffer(BufferIndexParams)]]) {
+
+  ImageInOut out;
+
+  UniformsPerView uniformsPerView = uniforms.perView[amp_id];
+  float3 cameraAt = uniforms.cameraPos;
+
+  float4 position = float4(in.position, 1.0);
+
+  // 应用相机位置、旋转和缩放变换
+  position = applyGestureViewerOnScene(
+      position,
+      params.viewerPosition,
+      params.viewerScale,
+      params.viewerRotation,
+      cameraAt);
+
+  position.w = 1.0; // 重置w为1.0，用于投影矩阵
+
+  out.position = uniformsPerView.modelViewProjectionMatrix * position;
+  out.color = float4(in.color, tintUniform.tintOpacity);
+  out.texCoord = in.texCoord;
+  out.imageIndex = in.imageIndex;
+
+  return out;
+}
+
+// 添加图片片元着色器
+fragment float4 imageDisplayFragmentShader(
+    ImageInOut in [[stage_in]],
+    array<texture2d<float>, 10> textures [[texture(0)]],
+    sampler samplr [[sampler(0)]]) {
+
+  // 检查图片索引是否有效
+  if (in.imageIndex < 0 || in.imageIndex >= 10) {
+    return float4(1.0, 0.0, 0.0, 1.0); // 红色表示错误
+  }
+
+  // 获取对应的纹理
+  texture2d<float> tex = textures[in.imageIndex];
+
+  // 纹理采样
+  float4 sampledColor = tex.sample(samplr, in.texCoord);
+
+  // 与顶点颜色混合
+  return sampledColor * in.color;
 }

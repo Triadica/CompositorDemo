@@ -26,6 +26,39 @@ private let indexesCount: Int = blocksCount * indexesPerBlock
 private let blockRadius: Float = 2  // half width
 private let blockHeight: Float = 20
 
+// 定义图片文件数组
+private let imageFiles = [
+  "image1.jpg",
+  "image2.jpg",
+  "image3.jpg",
+  "image4.jpg",
+  "image5.jpg",
+  "image6.jpg",
+  "image7.jpg",
+  "image8.jpg",
+  "image9.jpg",
+  "image10.jpg",
+]
+
+// 定义图片板的数量和顶点
+private let imageRectCount = 10
+private let verticesPerImageRect = 6  // 一个矩形由两个三角形组成，共6个顶点
+private let imageVerticesCount = verticesPerImageRect * imageRectCount
+
+// 图片显示的位置配置（相对于摄像机的位置）
+private let imageDisplayDistance: Float = 200.0
+private let imageSpacing: Float = 50.0
+private let imageDefaultWidth: Float = 100.0
+private let imageDefaultHeight: Float = 100.0
+
+private struct ImageInfo {
+  var width: Float
+  var height: Float
+  var aspectRatio: Float
+  var position: SIMD3<Float>
+  var rotation: Float
+}
+
 private struct CellBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
@@ -59,12 +92,31 @@ class ImagesRenderer: CustomRenderer {
 
   var gestureManager: GestureManager = GestureManager(onScene: true)
 
+  // 图片纹理数组
+  private var imageTextures: [MTLTexture?] = Array(repeating: nil, count: imageFiles.count)
+  private var imageInfos: [ImageInfo] = []
+  private var imageVertexBuffer: MTLBuffer!
+  private var imageRenderPipelineState: MTLRenderPipelineState & Sendable
+
+  // 图片采样器状态
+  private var imageSamplerState: MTLSamplerState!
+
+  // 定义图片顶点结构
+  private struct ImageVertex {
+    var position: SIMD3<Float>
+    var color: SIMD3<Float>
+    var texCoord: SIMD2<Float>
+    var imageIndex: Int32
+  }
+
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
       layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
     }
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
+    imageRenderPipelineState = try ImagesRenderer.makeImageRenderPipelineState(
+      layerRenderer: layerRenderer)
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
@@ -73,9 +125,62 @@ class ImagesRenderer: CustomRenderer {
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
+    // 加载图片纹理
+    loadImageTextures(device: layerRenderer.device)
+    // 创建图片顶点缓冲区
+    createImageVertexBuffer(device: layerRenderer.device)
+
     self.createImagesVerticesBuffer(device: layerRenderer.device)
     self.createImagesIndexBuffer(device: layerRenderer.device)
     self.createImagesComputeBuffer(device: layerRenderer.device)
+  }
+
+  private static func makeImageRenderPipelineState(layerRenderer: LayerRenderer) throws
+    -> MTLRenderPipelineState
+  {
+    let pipelineDescriptor = Renderer.defaultRenderPipelineDescriptor(
+      layerRenderer: layerRenderer)
+
+    let library = layerRenderer.device.makeDefaultLibrary()!
+
+    // Check if functions exist before trying to use them
+    let vertexFunction = library.makeFunction(name: "imageVertexShader")
+    let fragmentFunction = library.makeFunction(name: "imageFragmentShader")
+
+    pipelineDescriptor.vertexFunction = vertexFunction
+    pipelineDescriptor.fragmentFunction = fragmentFunction
+
+    pipelineDescriptor.label = "ImageRenderPipeline"
+    pipelineDescriptor.vertexDescriptor = ImagesRenderer.buildMetalImageVertexDescriptor()
+
+    pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+    return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+  }
+
+  class func buildMetalImageVertexDescriptor() -> MTLVertexDescriptor {
+    let vertexDescriptor = MTLVertexDescriptor()
+
+    vertexDescriptor.attributes[0].format = .float3
+    vertexDescriptor.attributes[0].offset = 0
+    vertexDescriptor.attributes[0].bufferIndex = 0
+
+    vertexDescriptor.attributes[1].format = .float3
+    vertexDescriptor.attributes[1].offset = MemoryLayout<SIMD3<Float>>.stride
+    vertexDescriptor.attributes[1].bufferIndex = 0
+
+    vertexDescriptor.attributes[2].format = .float2
+    vertexDescriptor.attributes[2].offset = MemoryLayout<SIMD3<Float>>.stride * 2
+    vertexDescriptor.attributes[2].bufferIndex = 0
+
+    vertexDescriptor.attributes[3].format = .int
+    vertexDescriptor.attributes[3].offset =
+      MemoryLayout<SIMD3<Float>>.stride * 2
+      + MemoryLayout<SIMD2<Float>>.stride
+    vertexDescriptor.attributes[3].bufferIndex = 0
+
+    vertexDescriptor.layouts[0].stride = MemoryLayout<ImageVertex>.stride
+
+    return vertexDescriptor
   }
 
   /// create and sets the vertices of the lamp
@@ -266,6 +371,218 @@ class ImagesRenderer: CustomRenderer {
     computeBuffer.copy_to_next()
   }
 
+  private func loadImageTextures(device: MTLDevice) {
+    let textureLoader = MTKTextureLoader(device: device)
+
+    // 创建采样器状态
+    let samplerDescriptor = MTLSamplerDescriptor()
+    samplerDescriptor.minFilter = .linear
+    samplerDescriptor.magFilter = .linear
+    samplerDescriptor.mipFilter = .linear
+    samplerDescriptor.normalizedCoordinates = true
+    samplerDescriptor.supportArgumentBuffers = true
+    imageSamplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
+
+    // 重置图片信息数组
+    imageInfos.removeAll()
+
+    // 围绕摄像机在四周布置图片
+    let positions: [SIMD3<Float>] = [
+      SIMD3<Float>(0, 0, imageDisplayDistance),  // 前方
+      SIMD3<Float>(imageDisplayDistance, 0, imageDisplayDistance),  // 右前方
+      SIMD3<Float>(imageDisplayDistance, 0, 0),  // 右方
+      SIMD3<Float>(imageDisplayDistance, 0, -imageDisplayDistance),  // 右后方
+      SIMD3<Float>(0, 0, -imageDisplayDistance),  // 后方
+      SIMD3<Float>(-imageDisplayDistance, 0, -imageDisplayDistance),  // 左后方
+      SIMD3<Float>(-imageDisplayDistance, 0, 0),  // 左方
+      SIMD3<Float>(-imageDisplayDistance, 0, imageDisplayDistance),  // 左前方
+      SIMD3<Float>(0, imageDisplayDistance, 0),  // 上方
+      SIMD3<Float>(0, -imageDisplayDistance, 0),  // 下方
+    ]
+
+    let rotations: [Float] = [
+      0.0,  // 前方
+      Float.pi / 4,  // 右前方
+      Float.pi / 2,  // 右方
+      3 * Float.pi / 4,  // 右后方
+      Float.pi,  // 后方
+      5 * Float.pi / 4,  // 左后方
+      3 * Float.pi / 2,  // 左方
+      7 * Float.pi / 4,  // 左前方
+      -Float.pi / 2,  // 上方
+      Float.pi / 2,  // 下方
+    ]
+
+    // 加载每个图片并创建纹理
+    for i in 0..<min(imageFiles.count, imageRectCount) {
+      if let image = UIImage(named: imageFiles[i]) {
+        do {
+          // 加载图片纹理
+          let options: [MTKTextureLoader.Option: Any] = [
+            .SRGB: false,
+            .generateMipmaps: true,
+          ]
+          imageTextures[i] = try textureLoader.newTexture(cgImage: image.cgImage!, options: options)
+
+          // 根据图片纹理的尺寸计算宽高比
+          let width = Float(imageTextures[i]!.width)
+          let height = Float(imageTextures[i]!.height)
+          let aspectRatio = width / height
+
+          // 保持宽高比，调整显示尺寸
+          var displayWidth = imageDefaultWidth
+          var displayHeight = imageDefaultHeight
+
+          if aspectRatio > 1.0 {
+            // 宽图
+            displayHeight = displayWidth / aspectRatio
+          } else {
+            // 高图
+            displayWidth = displayHeight * aspectRatio
+          }
+
+          // 创建图片信息
+          let imageInfo = ImageInfo(
+            width: displayWidth,
+            height: displayHeight,
+            aspectRatio: aspectRatio,
+            position: positions[i],
+            rotation: rotations[i]
+          )
+          imageInfos.append(imageInfo)
+
+        } catch {
+          print("Failed to load texture for image \(imageFiles[i]): \(error)")
+          // 使用默认尺寸
+          let imageInfo = ImageInfo(
+            width: imageDefaultWidth,
+            height: imageDefaultHeight,
+            aspectRatio: 1.0,
+            position: positions[i],
+            rotation: rotations[i]
+          )
+          imageInfos.append(imageInfo)
+        }
+      } else {
+        print("Image not found: \(imageFiles[i])")
+        // 使用默认尺寸
+        let imageInfo = ImageInfo(
+          width: imageDefaultWidth,
+          height: imageDefaultHeight,
+          aspectRatio: 1.0,
+          position: positions[i],
+          rotation: rotations[i]
+        )
+        imageInfos.append(imageInfo)
+      }
+    }
+  }
+
+  private func createImageVertexBuffer(device: MTLDevice) {
+    // 创建图片矩形顶点缓冲区
+    let bufferLength = MemoryLayout<ImageVertex>.stride * imageVerticesCount
+    imageVertexBuffer = device.makeBuffer(length: bufferLength)!
+    imageVertexBuffer.label = "Image rectangle vertex buffer"
+
+    // 确保已加载图片纹理和信息
+    if imageInfos.isEmpty {
+      loadImageTextures(device: device)
+    }
+
+    // 获取顶点缓冲区内存指针
+    let imageVertices = imageVertexBuffer.contents().assumingMemoryBound(to: ImageVertex.self)
+
+    // 为每个图片创建一个矩形（由两个三角形组成）
+    for i in 0..<imageInfos.count {
+      let info = imageInfos[i]
+      let baseIndex = i * verticesPerImageRect
+
+      // 计算矩形的四个顶点
+      // 考虑到旋转，我们需要绕y轴旋转
+      let halfWidth = info.width / 2.0
+      let halfHeight = info.height / 2.0
+
+      let cosR = cos(info.rotation)
+      let sinR = sin(info.rotation)
+
+      // 变换坐标以应用旋转
+      // 左下角
+      let p1 = SIMD3<Float>(
+        -halfWidth * cosR - 0 * sinR + info.position.x,
+        -halfHeight + info.position.y,
+        -halfWidth * sinR + 0 * cosR + info.position.z
+      )
+
+      // 右下角
+      let p2 = SIMD3<Float>(
+        halfWidth * cosR - 0 * sinR + info.position.x,
+        -halfHeight + info.position.y,
+        halfWidth * sinR + 0 * cosR + info.position.z
+      )
+
+      // 右上角
+      let p3 = SIMD3<Float>(
+        halfWidth * cosR - (2 * halfHeight) * sinR + info.position.x,
+        halfHeight + info.position.y,
+        halfWidth * sinR + (2 * halfHeight) * cosR + info.position.z
+      )
+
+      // 左上角
+      let p4 = SIMD3<Float>(
+        -halfWidth * cosR - (2 * halfHeight) * sinR + info.position.x,
+        halfHeight + info.position.y,
+        -halfWidth * sinR + (2 * halfHeight) * cosR + info.position.z
+      )
+
+      // 通用颜色（全白，让纹理颜色显示）
+      let color = SIMD3<Float>(1.0, 1.0, 1.0)
+
+      // 第一个三角形 (p1, p2, p3)
+      imageVertices[baseIndex] = ImageVertex(
+        position: p1,
+        color: color,
+        texCoord: SIMD2<Float>(0.0, 1.0),
+        imageIndex: Int32(i)
+      )
+
+      imageVertices[baseIndex + 1] = ImageVertex(
+        position: p2,
+        color: color,
+        texCoord: SIMD2<Float>(1.0, 1.0),
+        imageIndex: Int32(i)
+      )
+
+      imageVertices[baseIndex + 2] = ImageVertex(
+        position: p3,
+        color: color,
+        texCoord: SIMD2<Float>(1.0, 0.0),
+        imageIndex: Int32(i)
+      )
+
+      // 第二个三角形 (p1, p3, p4)
+      imageVertices[baseIndex + 3] = ImageVertex(
+        position: p1,
+        color: color,
+        texCoord: SIMD2<Float>(0.0, 1.0),
+        imageIndex: Int32(i)
+      )
+
+      imageVertices[baseIndex + 4] = ImageVertex(
+        position: p3,
+        color: color,
+        texCoord: SIMD2<Float>(1.0, 0.0),
+        imageIndex: Int32(i)
+      )
+
+      imageVertices[baseIndex + 5] = ImageVertex(
+        position: p4,
+        color: color,
+        texCoord: SIMD2<Float>(0.0, 0.0),
+        imageIndex: Int32(i)
+      )
+    }
+  }
+
   class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
     // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
@@ -393,8 +710,8 @@ class ImagesRenderer: CustomRenderer {
     buffer: MTLBuffer,
     indexBuffer: MTLBuffer
   ) {
+    // 渲染方块
     encoder.setCullMode(.none)
-
     encoder.setRenderPipelineState(renderPipelineState)
 
     var demoUniform: TintUniforms = TintUniforms(tintOpacity: tintValue)
@@ -407,8 +724,6 @@ class ImagesRenderer: CustomRenderer {
       drawCommand.uniforms,
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
-
-    // let bufferLength = MemoryLayout<BlockVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,
@@ -442,6 +757,60 @@ class ImagesRenderer: CustomRenderer {
       indexBuffer: indexBuffer,
       indexBufferOffset: 0
     )
+
+    // 渲染图片
+    renderImages(
+      encoder: encoder, drawable: drawable, device: device, tintValue: tintValue, params: params)
+  }
+
+  private func renderImages(
+    encoder: MTLRenderCommandEncoder,
+    drawable: LayerRenderer.Drawable,
+    device: MTLDevice,
+    tintValue: Float,
+    params: MTLBuffer
+  ) {
+    // 设置渲染管道状态
+    encoder.setRenderPipelineState(imageRenderPipelineState)
+
+    // 设置Uniform数据
+    var demoUniform = TintUniforms(tintOpacity: tintValue)
+    encoder.setVertexBytes(
+      &demoUniform,
+      length: MemoryLayout<TintUniforms>.size,
+      index: BufferIndex.tintUniforms.rawValue)
+
+    // 设置顶点缓冲区
+    encoder.setVertexBuffer(
+      imageVertexBuffer,
+      offset: 0,
+      index: BufferIndex.meshPositions.rawValue)
+
+    // 设置参数缓冲区
+    encoder.setVertexBuffer(
+      params,
+      offset: 0,
+      index: BufferIndex.params.rawValue)
+
+    // 设置纹理采样器
+    encoder.setFragmentSamplerState(imageSamplerState, index: 0)
+
+    // 设置纹理
+    for i in 0..<min(imageTextures.count, imageRectCount) {
+      if let texture = imageTextures[i] {
+        encoder.setFragmentTexture(texture, index: i)
+      }
+    }
+
+    // 绘制图片矩形
+    let imageVerticesCount = min(imageInfos.count, imageRectCount) * verticesPerImageRect
+    if imageVerticesCount > 0 {
+      encoder.drawPrimitives(
+        type: .triangle,
+        vertexStart: 0,
+        vertexCount: imageVerticesCount
+      )
+    }
   }
 
   func updateUniformBuffers(
