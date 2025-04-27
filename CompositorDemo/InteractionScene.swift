@@ -44,6 +44,10 @@ struct ImmersiveInteractionScene: Scene {
                         currentRenderer = try BlocksRenderer(
                             layerRenderer: layerRenderer
                         )
+                    case .images:
+                        currentRenderer = try ImagesRenderer(
+                            layerRenderer: layerRenderer
+                        )
                     }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")
