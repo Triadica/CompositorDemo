@@ -51,6 +51,22 @@ class ImagesRenderer: CustomRenderer {
 
   var indexBuffer: MTLBuffer!
 
+  let imagesNames: [String] = [
+    "image1",
+    "image2",
+    "image3",
+    "image4",
+    "image5",
+    "image6",
+    "image7",
+    "image8",
+    "image9",
+    "image10",
+  ]
+
+  // Texture array to hold all loaded images
+  private var imageTextures: [MTLTexture] = []
+
   let computeDevice: MTLDevice
   var computeBuffer: PingPongBuffer?
   let computePipeLine: MTLComputePipelineState
@@ -75,6 +91,110 @@ class ImagesRenderer: CustomRenderer {
     self.createBlocksVerticesBuffer(device: layerRenderer.device)
     self.createBlocksIndexBuffer(device: layerRenderer.device)
     self.createBlocksComputeBuffer(device: layerRenderer.device)
+
+    // Load the image textures
+    self.loadImageTextures(device: layerRenderer.device)
+  }
+
+  /// Load images from the file system directly instead of using Asset catalog
+  private func loadImageTextures(device: MTLDevice) {
+    let textureLoader = MTKTextureLoader(device: device)
+
+    print("🔍 Starting to load \(imagesNames.count) textures from Asset Catalog")
+
+    // Try to load each image from the asset catalog
+    for imageName in imagesNames {
+      print("🔍 Trying to load image: \(imageName)")
+
+      // First try to load directly from asset catalog using UIImage
+      if let image = UIImage(named: imageName, in: Bundle.main, compatibleWith: nil) {
+        print("✅ Found image using direct name: \(imageName)")
+        loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+      }
+      // Then try from myImage collection
+      else if let image = UIImage(named: "myImage", in: Bundle.main, compatibleWith: nil) {
+        print("✅ Found image using myImage asset: \(imageName)")
+        loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+      }
+      // As a fallback, look for images in the bundle as files
+      else if let path = Bundle.main.path(forResource: imageName, ofType: "jpg") {
+        print("✅ Found image path: \(path)")
+        if let image = UIImage(contentsOfFile: path) {
+          print("✅ Loaded image from path: \(path)")
+          loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+        }
+      } else {
+        print("❌ Image \(imageName) not found in Asset Catalog")
+      }
+    }
+
+    print("📊 Loaded \(imageTextures.count)/\(imagesNames.count) textures")
+
+    // If no images were loaded, create a test checkerboard texture
+    if imageTextures.isEmpty {
+      print("⚠️ No textures loaded, creating a test checkerboard texture")
+      createCheckerboardTexture(device: device)
+    }
+  }
+
+  /// Create a simple checkerboard texture for testing when no images can be loaded
+  private func createCheckerboardTexture(device: MTLDevice) {
+    let width = 256
+    let height = 256
+    let bytesPerPixel = 4
+    let bytesPerRow = bytesPerPixel * width
+    let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+      pixelFormat: .rgba8Unorm,
+      width: width,
+      height: height,
+      mipmapped: true
+    )
+    textureDescriptor.usage = [.shaderRead]
+
+    guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
+      print("❌ Failed to create test texture")
+      return
+    }
+
+    var textureData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+    for y in 0..<height {
+      for x in 0..<width {
+        let isCheckerboard = (x / 32 + y / 32) % 2 == 0
+        let i = (y * width + x) * bytesPerPixel
+        textureData[i] = isCheckerboard ? 255 : 0  // R
+        textureData[i + 1] = isCheckerboard ? 0 : 255  // G
+        textureData[i + 2] = 0  // B
+        textureData[i + 3] = 255  // A (fully opaque)
+      }
+    }
+
+    let region = MTLRegion(
+      origin: MTLOrigin(x: 0, y: 0, z: 0),
+      size: MTLSize(width: width, height: height, depth: 1)
+    )
+
+    texture.replace(
+      region: region,
+      mipmapLevel: 0,
+      withBytes: textureData,
+      bytesPerRow: bytesPerRow
+    )
+
+    imageTextures.append(texture)
+    print("✅ Created checkerboard test texture: \(texture.width)x\(texture.height)")
+  }
+
+  private func loadTextureFromImage(_ image: UIImage, name: String, textureLoader: MTKTextureLoader)
+  {
+    print("🖼️ Processing image: \(name) with size: \(image.size)")
+    do {
+      let texture = try textureLoader.newTexture(cgImage: image.cgImage!, options: nil)
+      imageTextures.append(texture)
+      print(
+        "✅ Successfully loaded texture for \(name) with size: \(texture.width)x\(texture.height)")
+    } catch {
+      print("❌ Failed to convert image to texture for \(name): \(error)")
+    }
   }
 
   /// create and sets the vertices of the lamp
@@ -98,30 +218,30 @@ class ImagesRenderer: CustomRenderer {
       let p3: SIMD3<Float> = SIMD3<Float>(r, r, 0)
       let p4: SIMD3<Float> = SIMD3<Float>(-r, r, 0)
 
-      // front face, 126,165
+      // Assign proper UV coordinates for texture mapping
       cellVertices[baseIndex] = BlockVertex(
         position: p1, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(0, 0)
+        uv: SIMD2<Float>(0, 1)
       )
       cellVertices[baseIndex + 1] = BlockVertex(
         position: p2, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(2 * r, 0)
+        uv: SIMD2<Float>(1, 1)
       )
       cellVertices[baseIndex + 2] = BlockVertex(
         position: p3, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(2 * r, randHeight)
+        uv: SIMD2<Float>(1, 0)
       )
       cellVertices[baseIndex + 3] = BlockVertex(
         position: p1, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(0, 0)
+        uv: SIMD2<Float>(0, 1)
       )
       cellVertices[baseIndex + 4] = BlockVertex(
         position: p3, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(2 * r, randHeight)
+        uv: SIMD2<Float>(1, 0)
       )
       cellVertices[baseIndex + 5] = BlockVertex(
         position: p4, color: color, seed: Int32(i), height: randHeight,
-        uv: SIMD2<Float>(0, randHeight)
+        uv: SIMD2<Float>(0, 0)
       )
     }
 
@@ -323,8 +443,6 @@ class ImagesRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
 
-    // let bufferLength = MemoryLayout<BlockVertex>.stride * numVertices
-
     encoder.setVertexBuffer(
       buffer,
       offset: 0,
@@ -349,6 +467,23 @@ class ImagesRenderer: CustomRenderer {
 
     encoder.setVertexBuffer(
       computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
+
+    // Debug: Check if we have any loaded textures
+    print("🎨 Rendering with \(imageTextures.count) loaded textures")
+
+    // Set texture for the fragment shader
+    if !imageTextures.isEmpty {
+      if imageTextures.count > 0 {
+        // Use the first texture for simplicity during debugging
+        let texture = imageTextures[0]
+        print("🖼️ Using texture with dimensions: \(texture.width)x\(texture.height)")
+        encoder.setFragmentTexture(texture, index: 0)
+      } else {
+        print("❌ No textures available for fragment shader")
+      }
+    } else {
+      print("❌ No textures loaded at all")
+    }
 
     encoder.drawIndexedPrimitives(
       type: .triangle,

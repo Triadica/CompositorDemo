@@ -1,5 +1,5 @@
 /*
-See the LICENSE.txt file for this sample’s licensing information.
+See the LICENSE.txt file for this sample's licensing information.
 
 Abstract:
 Contains the vertex and fragment shaders for the path and tint renderers.
@@ -101,10 +101,22 @@ vertex BlockInOut imagesVertexShader(
   return out;
 }
 
-fragment float4 imagesFragmentShader(BlockInOut in [[stage_in]]) {
+fragment float4 imagesFragmentShader(
+    BlockInOut in [[stage_in]], texture2d<float> imageTexture [[texture(0)]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
 
-  return float4(in.color.rgb, in.color.a);
+  // Check if texture is valid - will appear as solid red if texture is missing
+  if (!is_null_texture(imageTexture)) {
+    constexpr sampler textureSampler(mag_filter::linear, min_filter::linear);
+    float4 textureColor = imageTexture.sample(textureSampler, in.uv);
+
+    // Ensure all color channels are preserved correctly
+    // Don't multiply colors - this was losing the blue channel
+    return float4(textureColor.rgb, textureColor.a * in.color.a);
+  } else {
+    // Return red to indicate missing texture
+    return float4(1.0, 0.0, 0.0, in.color.a);
+  }
 }
