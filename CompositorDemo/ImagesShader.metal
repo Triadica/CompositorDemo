@@ -1,9 +1,9 @@
 /*
- See the LICENSE.txt file for this sample's licensing information.
+See the LICENSE.txt file for this sample’s licensing information.
 
- Abstract:
- Contains the vertex and fragment shaders for the path and tint renderers.
- */
+Abstract:
+Contains the vertex and fragment shaders for the path and tint renderers.
+*/
 
 #include <metal_stdlib>
 #include <simd/simd.h>
@@ -33,22 +33,6 @@ typedef struct {
   float2 uv;
 } BlockInOut;
 
-// 添加图片顶点输入结构体
-typedef struct {
-  float3 position [[attribute(VertexAttributePosition)]];
-  float3 color [[attribute(VertexAttributeColor)]];
-  float2 texCoord [[attribute(4)]];
-  int imageIndex [[attribute(VertexAttributeSeed)]];
-} ImageVertexIn;
-
-// 添加图片顶点输出结构体
-typedef struct {
-  float4 position [[position]];
-  float4 color;
-  float2 texCoord;
-  int imageIndex;
-} ImageInOut;
-
 typedef struct {
   float time;
   float3 viewerPosition;
@@ -62,46 +46,6 @@ struct CellBase {
   float lampIdf;
   float3 velocity;
 };
-
-// static float random1D(float seed) { return fract(sin(seed) * 43758.5453123);
-// }
-
-static float randomFrom3D(float3 seed) {
-  float seed1 = fract(sin(seed.x) * 43758.5453123);
-  float seed2 = fract(sin(seed.y) * 43758.5453123);
-  float seed3 = fract(sin(seed.z) * 43758.5453123);
-  return fract(seed1 + seed2 + seed3);
-}
-
-static float4 applyGestureViewerOnScene(
-    float4 p0,
-    float3 viewerPosition,
-    float viewerScale,
-    float viewerRotation,
-    float3 cameraAt) {
-
-  float4 position = p0;
-
-  // position -= cameraAt4;
-
-  // translate
-  position = position - float4(viewerPosition, 0.0);
-
-  // rotate xz by viewerRotation
-  float cosTheta = cos(viewerRotation);
-  float sinTheta = sin(viewerRotation);
-  float x = position.x * cosTheta - position.z * sinTheta;
-  float z = position.x * sinTheta + position.z * cosTheta;
-  position.x = x;
-  position.z = z;
-
-  // scale
-  position *= viewerScale;
-
-  // position += cameraAt4;
-
-  return position;
-}
 
 kernel void imagesComputeShader(
     device CellBase *blocks [[buffer(0)]],
@@ -134,27 +78,15 @@ vertex BlockInOut imagesVertexShader(
   float3 basePosition = blocksData[in.seed].position;
   float4 position = float4(in.position + basePosition, 1.0);
 
-  // float randSeed = random1D(blocksData[in.seed].lampIdf);
-
   out.originalPosition = basePosition.xyz;
   out.uv = in.uv;
-
-  position = applyGestureViewerOnScene(
-      position,
-      params.viewerPosition,
-      params.viewerScale,
-      params.viewerRotation,
-      cameraAt);
-
-  float blockDistance = distance(cameraAt, position.xyz);
-  float distanceDim = 1.0 - clamp(blockDistance / 150.0, 0.0, 0.9);
 
   position.w = 1.0; // reset w to 1.0 for the projection matrix
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a * distanceDim;
+  out.color.rgb = out.color.rgb * out.color.a;
   out.height = in.height;
 
   return out;
@@ -165,84 +97,5 @@ fragment float4 imagesFragmentShader(BlockInOut in [[stage_in]]) {
     discard_fragment();
   }
 
-  float4 color = in.color;
-  float4 dark = float4(0.01, 0.01, 0.01, 1.0);
-
-  if (in.uv.y >= (in.height - 0.01)) {
-    return dark;
-  }
-
-  float3 aaa = float3(
-      floor((in.uv.x + in.originalPosition.x) / 0.3),
-      floor((in.uv.y + in.originalPosition.y) / 0.34),
-      1.);
-  float r = randomFrom3D(aaa);
-  if (r < 0.6 && r > 0.2) {
-    return dark;
-  }
-
-  float xRatio = abs(fract(in.uv.x / 0.3));
-  if (xRatio > 0.9 || xRatio < 0.1) {
-    return dark;
-  }
-  float yRatio = abs(fract(in.uv.y / 0.34));
-  if (yRatio > 0.6 || yRatio < 0.0) {
-    return dark;
-  }
-
-  return color;
-}
-
-// 添加图片顶点着色器
-vertex ImageInOut imageDisplayVertexShader(
-    ImageVertexIn in [[stage_in]],
-    ushort amp_id [[amplification_id]],
-    constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
-    constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
-    constant Params &params [[buffer(BufferIndexParams)]]) {
-
-  ImageInOut out;
-
-  UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  float3 cameraAt = uniforms.cameraPos;
-
-  float4 position = float4(in.position, 1.0);
-
-  // 应用相机位置、旋转和缩放变换
-  position = applyGestureViewerOnScene(
-      position,
-      params.viewerPosition,
-      params.viewerScale,
-      params.viewerRotation,
-      cameraAt);
-
-  position.w = 1.0; // 重置w为1.0，用于投影矩阵
-
-  out.position = uniformsPerView.modelViewProjectionMatrix * position;
-  out.color = float4(in.color, tintUniform.tintOpacity);
-  out.texCoord = in.texCoord;
-  out.imageIndex = in.imageIndex;
-
-  return out;
-}
-
-// 添加图片片元着色器
-fragment float4 imageDisplayFragmentShader(
-    ImageInOut in [[stage_in]],
-    array<texture2d<float>, 10> textures [[texture(0)]],
-    sampler samplr [[sampler(0)]]) {
-
-  // 检查图片索引是否有效
-  if (in.imageIndex < 0 || in.imageIndex >= 10) {
-    return float4(1.0, 0.0, 0.0, 1.0); // 红色表示错误
-  }
-
-  // 获取对应的纹理
-  texture2d<float> tex = textures[in.imageIndex];
-
-  // 纹理采样
-  float4 sampledColor = tex.sample(samplr, in.texCoord);
-
-  // 与顶点颜色混合
-  return sampledColor * in.color;
+  return float4(in.color.rgb, in.color.a);
 }
