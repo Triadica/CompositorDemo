@@ -51,6 +51,21 @@ class ImagesRenderer: CustomRenderer {
 
   var indexBuffer: MTLBuffer!
 
+  // Define a struct to store image information including dimensions
+  private struct ImageInfo {
+    var texture: MTLTexture
+    var width: Float
+    var height: Float
+    var aspectRatio: Float
+
+    init(texture: MTLTexture) {
+      self.texture = texture
+      self.width = Float(texture.width)
+      self.height = Float(texture.height)
+      self.aspectRatio = self.width / self.height
+    }
+  }
+
   let imagesNames: [String] = [
     "image1",
     "image2",
@@ -64,8 +79,8 @@ class ImagesRenderer: CustomRenderer {
     "image10",
   ]
 
-  // Texture array to hold all loaded images
-  private var imageTextures: [MTLTexture] = []
+  // Change to store ImageInfo instead of just textures
+  private var imageInfos: [ImageInfo] = []
 
   let computeDevice: MTLDevice
   var computeBuffer: PingPongBuffer?
@@ -88,12 +103,12 @@ class ImagesRenderer: CustomRenderer {
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
+    // Load the image textures
+    self.loadImageTextures(device: layerRenderer.device)
+
     self.createBlocksVerticesBuffer(device: layerRenderer.device)
     self.createBlocksIndexBuffer(device: layerRenderer.device)
     self.createBlocksComputeBuffer(device: layerRenderer.device)
-
-    // Load the image textures
-    self.loadImageTextures(device: layerRenderer.device)
   }
 
   /// Load images from the file system directly instead of using Asset catalog
@@ -128,10 +143,10 @@ class ImagesRenderer: CustomRenderer {
       }
     }
 
-    print("📊 Loaded \(imageTextures.count)/\(imagesNames.count) textures")
+    print("📊 Loaded \(imageInfos.count)/\(imagesNames.count) textures")
 
     // If no images were loaded, create a test checkerboard texture
-    if imageTextures.isEmpty {
+    if imageInfos.isEmpty {
       print("⚠️ No textures loaded, creating a test checkerboard texture")
       createCheckerboardTexture(device: device)
     }
@@ -180,7 +195,7 @@ class ImagesRenderer: CustomRenderer {
       bytesPerRow: bytesPerRow
     )
 
-    imageTextures.append(texture)
+    imageInfos.append(ImageInfo(texture: texture))
     print("✅ Created checkerboard test texture: \(texture.width)x\(texture.height)")
   }
 
@@ -189,7 +204,7 @@ class ImagesRenderer: CustomRenderer {
     print("🖼️ Processing image: \(name) with size: \(image.size)")
     do {
       let texture = try textureLoader.newTexture(cgImage: image.cgImage!, options: nil)
-      imageTextures.append(texture)
+      imageInfos.append(ImageInfo(texture: texture))
       print(
         "✅ Successfully loaded texture for \(name) with size: \(texture.width)x\(texture.height)")
     } catch {
@@ -201,46 +216,73 @@ class ImagesRenderer: CustomRenderer {
   private func createBlocksVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<BlockVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Lamp vertex buffer"
+    vertexBuffer.label = "Images vertex buffer"
     var cellVertices: UnsafeMutablePointer<BlockVertex> {
       vertexBuffer.contents().assumingMemoryBound(to: BlockVertex.self)
     }
 
     for i in 0..<blocksCount {
-      let color = SIMD3<Float>(1, 1, 0)
+      let color = SIMD3<Float>(1, 1, 1)  // White to preserve image colors
 
       let baseIndex = i * 6
-      let r: Float = 0.2
-      let randHeight: Float = 0.1
 
-      let p1: SIMD3<Float> = SIMD3<Float>(-r, -r, 0)
-      let p2: SIMD3<Float> = SIMD3<Float>(r, -r, 0)
-      let p3: SIMD3<Float> = SIMD3<Float>(r, r, 0)
-      let p4: SIMD3<Float> = SIMD3<Float>(-r, r, 0)
+      // Default dimensions if no image is available
+      var width: Float = 0.4
+      var height: Float = 0.4
 
-      // Assign proper UV coordinates for texture mapping
+      // Use actual image dimensions if available
+      if i < imageInfos.count {
+        // Scale dimensions to a reasonable size while maintaining aspect ratio
+        let maxDimension: Float = 0.5
+        let imageInfo = imageInfos[i]
+
+        if imageInfo.aspectRatio >= 1.0 {
+          // Wider image
+          width = maxDimension
+          height = width / imageInfo.aspectRatio
+        } else {
+          // Taller image
+          height = maxDimension
+          width = height * imageInfo.aspectRatio
+        }
+
+        print(
+          "Image \(i): Using dimensions \(width) x \(height) with aspect ratio \(imageInfo.aspectRatio)"
+        )
+      }
+
+      // Create vertices for a rectangle with proper dimensions
+      let halfWidth = width / 2
+      let halfHeight = height / 2
+
+      let p1: SIMD3<Float> = SIMD3<Float>(-halfWidth, -halfHeight, 0)
+      let p2: SIMD3<Float> = SIMD3<Float>(halfWidth, -halfHeight, 0)
+      let p3: SIMD3<Float> = SIMD3<Float>(halfWidth, halfHeight, 0)
+      let p4: SIMD3<Float> = SIMD3<Float>(-halfWidth, halfHeight, 0)
+
+      // Assign proper UV coordinates for texture mapping (flipped vertically for Metal's coordinate system)
       cellVertices[baseIndex] = BlockVertex(
-        position: p1, color: color, seed: Int32(i), height: randHeight,
+        position: p1, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 1)
       )
       cellVertices[baseIndex + 1] = BlockVertex(
-        position: p2, color: color, seed: Int32(i), height: randHeight,
+        position: p2, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 1)
       )
       cellVertices[baseIndex + 2] = BlockVertex(
-        position: p3, color: color, seed: Int32(i), height: randHeight,
+        position: p3, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 0)
       )
       cellVertices[baseIndex + 3] = BlockVertex(
-        position: p1, color: color, seed: Int32(i), height: randHeight,
+        position: p1, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 1)
       )
       cellVertices[baseIndex + 4] = BlockVertex(
-        position: p3, color: color, seed: Int32(i), height: randHeight,
+        position: p3, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 0)
       )
       cellVertices[baseIndex + 5] = BlockVertex(
-        position: p4, color: color, seed: Int32(i), height: randHeight,
+        position: p4, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 0)
       )
     }
@@ -468,30 +510,56 @@ class ImagesRenderer: CustomRenderer {
     encoder.setVertexBuffer(
       computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
 
-    // Debug: Check if we have any loaded textures
-    print("🎨 Rendering with \(imageTextures.count) loaded textures")
-
     // Set texture for the fragment shader
-    if !imageTextures.isEmpty {
-      if imageTextures.count > 0 {
-        // Use the first texture for simplicity during debugging
-        let texture = imageTextures[0]
-        print("🖼️ Using texture with dimensions: \(texture.width)x\(texture.height)")
+    if !imageInfos.isEmpty {
+      // Divide the vertices into blocks and draw each block with its corresponding texture
+      for i in 0..<min(blocksCount, imageInfos.count) {
+        let texture = imageInfos[i].texture
         encoder.setFragmentTexture(texture, index: 0)
-      } else {
-        print("❌ No textures available for fragment shader")
+
+        // Calculate the index range for this block
+        let startIndex = i * indexesPerBlock
+        let indexCount = indexesPerBlock
+
+        encoder.drawIndexedPrimitives(
+          type: .triangle,
+          indexCount: indexCount,
+          indexType: .uint32,
+          indexBuffer: indexBuffer,
+          indexBufferOffset: startIndex * MemoryLayout<UInt32>.size
+        )
+      }
+
+      // If we have more blocks than textures, use the last texture for remaining blocks
+      if blocksCount > imageInfos.count {
+        let lastTexture = imageInfos.last!.texture
+        encoder.setFragmentTexture(lastTexture, index: 0)
+
+        // Calculate the index range for remaining blocks
+        let startIndex = imageInfos.count * indexesPerBlock
+        let indexCount = (blocksCount - imageInfos.count) * indexesPerBlock
+
+        if indexCount > 0 {
+          encoder.drawIndexedPrimitives(
+            type: .triangle,
+            indexCount: indexCount,
+            indexType: .uint32,
+            indexBuffer: indexBuffer,
+            indexBufferOffset: startIndex * MemoryLayout<UInt32>.size
+          )
+        }
       }
     } else {
       print("❌ No textures loaded at all")
+      // Draw without textures as fallback
+      encoder.drawIndexedPrimitives(
+        type: .triangle,
+        indexCount: indexesCount,
+        indexType: .uint32,
+        indexBuffer: indexBuffer,
+        indexBufferOffset: 0
+      )
     }
-
-    encoder.drawIndexedPrimitives(
-      type: .triangle,
-      indexCount: indexesCount,
-      indexType: .uint32,
-      indexBuffer: indexBuffer,
-      indexBufferOffset: 0
-    )
   }
 
   func updateUniformBuffers(
