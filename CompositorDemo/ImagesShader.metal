@@ -54,13 +54,13 @@ kernel void imagesComputeShader(
     uint id [[thread_position_in_grid]]) {
 
   // check out of bounds
-  if (id >= params.itemsCount) {
+  if (int(id) >= params.itemsCount) {
     return;
   }
 
   CellBase block = blocks[id];
   device CellBase &outputBlock = outputLamps[id];
-  float seed = fract(block.lampIdf / 10.) * 10.;
+
   outputBlock.position = block.position;
   outputBlock.color = block.color;
   outputBlock.lampIdf = block.lampIdf;
@@ -77,9 +77,15 @@ vertex BlockInOut imagesVertexShader(
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
-
   float3 basePosition = blocksData[in.seed].position;
-  float4 position = float4(in.position + basePosition, 1.0);
+
+  float3 cameraDirection = basePosition - cameraAt;
+  float3 upDirection = float3(0.0, 1.0, 0.0);
+  float3 rightDirection = normalize(cross(cameraDirection, upDirection));
+
+  float3 boxX = rightDirection * in.position.x;
+  float3 boxY = upDirection * in.position.y;
+  float4 position = float4(basePosition + boxX + boxY, 1.0);
 
   out.originalPosition = basePosition.xyz;
   out.uv = in.uv;
