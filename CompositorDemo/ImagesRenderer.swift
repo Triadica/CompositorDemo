@@ -38,7 +38,7 @@ private struct Params {
   var time: Float
   var viewerPosition: SIMD3<Float>
   var viewerScale: Float
-  var viewerRotation: Float = 0.0
+  var blocksCount: Int32 = 0
   var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
 }
 
@@ -358,7 +358,7 @@ class ImagesRenderer: CustomRenderer {
     var params = Params(
       time: dt, viewerPosition: gestureManager.viewerPosition,
       viewerScale: gestureManager.viewerScale,
-      viewerRotation: gestureManager.viewerRotation)
+      blocksCount: Int32(blocksCount))
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
@@ -419,7 +419,7 @@ class ImagesRenderer: CustomRenderer {
       time: getTimeSinceStart(),
       viewerPosition: gestureManager.viewerPosition,
       viewerScale: gestureManager.viewerScale,
-      viewerRotation: gestureManager.viewerRotation)
+      blocksCount: Int32(blocksCount))
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,

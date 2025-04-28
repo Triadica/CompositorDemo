@@ -37,7 +37,7 @@ typedef struct {
   float time;
   float3 viewerPosition;
   float viewerScale;
-  float viewerRotation;
+  int itemsCount;
 } Params;
 
 struct CellBase {
@@ -52,15 +52,18 @@ kernel void imagesComputeShader(
     device CellBase *outputLamps [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  // CellBase block = blocks[id];
-  // device CellBase &outputBlock = outputLamps[id];
-  // float seed = fract(block.lampIdf / 10.) * 10.;
-  // float speed = random1D(seed) + 0.1;
-  // float dt = params.time * speed * 0.1;
-  // outputBlock.position =
-  //     block.position + float3(0.0, dt, 0.0) + block.velocity * dt;
-  // outputBlock.color = block.color;
-  // outputBlock.lampIdf = block.lampIdf;
+
+  // check out of bounds
+  if (id >= params.itemsCount) {
+    return;
+  }
+
+  CellBase block = blocks[id];
+  device CellBase &outputBlock = outputLamps[id];
+  float seed = fract(block.lampIdf / 10.) * 10.;
+  outputBlock.position = block.position;
+  outputBlock.color = block.color;
+  outputBlock.lampIdf = block.lampIdf;
 }
 
 vertex BlockInOut imagesVertexShader(
