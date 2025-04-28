@@ -104,7 +104,13 @@ class ImagesRenderer: CustomRenderer {
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
     // Load the image textures
-    self.loadImageTextures(device: layerRenderer.device)
+    Task {
+      await self.loadImageTextures(device: layerRenderer.device)
+      // Recreate vertices after images are loaded
+      DispatchQueue.main.async {
+        self.createBlocksVerticesBuffer(device: layerRenderer.device)
+      }
+    }
 
     self.createBlocksVerticesBuffer(device: layerRenderer.device)
     self.createBlocksIndexBuffer(device: layerRenderer.device)
@@ -112,7 +118,7 @@ class ImagesRenderer: CustomRenderer {
   }
 
   /// Load images from the file system directly instead of using Asset catalog
-  private func loadImageTextures(device: MTLDevice) {
+  private func loadImageTextures(device: MTLDevice) async {
     let textureLoader = MTKTextureLoader(device: device)
 
     print("🔍 Starting to load \(imagesNames.count) textures from Asset Catalog")
@@ -120,26 +126,31 @@ class ImagesRenderer: CustomRenderer {
     // Try to load each image from the asset catalog
     for imageName in imagesNames {
       print("🔍 Trying to load image: \(imageName)")
+      let url = "https://repo.webgpu.art/image-assets/\(imageName).jpg"
+      do {
+        // Asynchronously load the image from URL
+        let imageURL = URL(string: url)!
+        let (data, _) = try await URLSession.shared.data(from: imageURL)
 
-      // First try to load directly from asset catalog using UIImage
-      if let image = UIImage(named: imageName, in: Bundle.main, compatibleWith: nil) {
-        print("✅ Found image using direct name: \(imageName)")
-        loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
-      }
-      // Then try from myImage collection
-      else if let image = UIImage(named: "myImage", in: Bundle.main, compatibleWith: nil) {
-        print("✅ Found image using myImage asset: \(imageName)")
-        loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
-      }
-      // As a fallback, look for images in the bundle as files
-      else if let path = Bundle.main.path(forResource: imageName, ofType: "jpg") {
-        print("✅ Found image path: \(path)")
-        if let image = UIImage(contentsOfFile: path) {
-          print("✅ Loaded image from path: \(path)")
+        if let image = UIImage(data: data) {
+          print("✅ Successfully downloaded image from: \(url)")
           loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+        } else {
+          print("❌ Failed to create UIImage from data for: \(url)")
         }
-      } else {
-        print("❌ Image \(imageName) not found in Asset Catalog")
+      } catch {
+        print("❌ Failed to load image from URL: \(url) - Error: \(error.localizedDescription)")
+
+        // Fallback to local assets if URL fails
+        if let image = UIImage(named: imageName, in: Bundle.main, compatibleWith: nil) {
+          print("✅ Fallback: Found image in asset catalog: \(imageName)")
+          loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+        } else if let path = Bundle.main.path(forResource: imageName, ofType: "jpg") {
+          if let image = UIImage(contentsOfFile: path) {
+            print("✅ Fallback: Loaded image from file path: \(path)")
+            loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
+          }
+        }
       }
     }
 
@@ -233,22 +244,10 @@ class ImagesRenderer: CustomRenderer {
       // Use actual image dimensions if available
       if i < imageInfos.count {
         // Scale dimensions to a reasonable size while maintaining aspect ratio
-        let maxDimension: Float = 0.5
         let imageInfo = imageInfos[i]
 
-        if imageInfo.aspectRatio >= 1.0 {
-          // Wider image
-          width = maxDimension
-          height = width / imageInfo.aspectRatio
-        } else {
-          // Taller image
-          height = maxDimension
-          width = height * imageInfo.aspectRatio
-        }
-
-        print(
-          "Image \(i): Using dimensions \(width) x \(height) with aspect ratio \(imageInfo.aspectRatio)"
-        )
+        width = imageInfo.width / 1000.0
+        height = imageInfo.height / 1000.0
       }
 
       // Create vertices for a rectangle with proper dimensions
