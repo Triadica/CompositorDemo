@@ -14,13 +14,13 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let blocksCount: Int = 8
+private let imagesCount: Int = 8
 
 private let verticesPerBlock = 6
-private let verticesCount = verticesPerBlock * blocksCount
+private let verticesCount = verticesPerBlock * imagesCount
 
 private let indexesPerBlock = 6
-private let indexesCount: Int = blocksCount * indexesPerBlock
+private let indexesCount: Int = imagesCount * indexesPerBlock
 
 private let blockRadius: Float = 2  // half width
 private let blockHeight: Float = 20
@@ -37,7 +37,7 @@ private struct Params {
   var time: Float
   var viewerPosition: SIMD3<Float>
   var viewerScale: Float
-  var blocksCount: Int32 = 0
+  var imagesCount: Int32 = 0
   var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
 }
 
@@ -88,6 +88,7 @@ class ImagesRenderer: CustomRenderer {
   let computeCommandQueue: MTLCommandQueue
 
   var gestureManager: GestureManager = GestureManager(onScene: true)
+  var selectedImage: (Int, SIMD3<Float>)?
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -232,7 +233,7 @@ class ImagesRenderer: CustomRenderer {
       vertexBuffer.contents().assumingMemoryBound(to: BlockVertex.self)
     }
 
-    for i in 0..<blocksCount {
+    for i in 0..<imagesCount {
       let color = SIMD3<Float>(1, 1, 1)  // White to preserve image colors
 
       let baseIndex = i * 6
@@ -299,7 +300,7 @@ class ImagesRenderer: CustomRenderer {
 
     let cellIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    let total = blocksCount * 6
+    let total = imagesCount * 6
     for i in 0..<total {
       cellIndices[i] = UInt32(i)
     }
@@ -307,7 +308,7 @@ class ImagesRenderer: CustomRenderer {
   }
 
   private func createBlocksComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<CellBase>.stride * blocksCount
+    let bufferLength = MemoryLayout<CellBase>.stride * imagesCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -318,11 +319,11 @@ class ImagesRenderer: CustomRenderer {
     computeBuffer.addLabel("Lamp compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let blocksBase = contents.bindMemory(to: CellBase.self, capacity: blocksCount)
+    let blocksBase = contents.bindMemory(to: CellBase.self, capacity: imagesCount)
 
-    for i in 0..<blocksCount {
+    for i in 0..<imagesCount {
 
-      let angle = Float(i) * (2.0 * .pi / Float(blocksCount))
+      let angle = Float(i) * (2.0 * .pi / Float(imagesCount))
       let x = cos(angle) * 2
       let z = sin(angle) * 2
       let y: Float = 1.2
@@ -434,12 +435,12 @@ class ImagesRenderer: CustomRenderer {
     var params = Params(
       time: dt, viewerPosition: gestureManager.viewerPosition,
       viewerScale: gestureManager.viewerScale,
-      blocksCount: Int32(blocksCount))
+      imagesCount: Int32(imagesCount))
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (blocksCount + threadGroupSize - 1) / threadGroupSize,
+      width: (imagesCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
@@ -493,7 +494,7 @@ class ImagesRenderer: CustomRenderer {
       time: getTimeSinceStart(),
       viewerPosition: gestureManager.viewerPosition,
       viewerScale: gestureManager.viewerScale,
-      blocksCount: Int32(blocksCount))
+      imagesCount: Int32(imagesCount))
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
@@ -512,7 +513,7 @@ class ImagesRenderer: CustomRenderer {
     // Set texture for the fragment shader
     if !imageInfos.isEmpty {
       // Divide the vertices into blocks and draw each block with its corresponding texture
-      for i in 0..<min(blocksCount, imageInfos.count) {
+      for i in 0..<min(imagesCount, imageInfos.count) {
         let texture = imageInfos[i].texture
         encoder.setFragmentTexture(texture, index: 0)
 
@@ -530,13 +531,13 @@ class ImagesRenderer: CustomRenderer {
       }
 
       // If we have more blocks than textures, use the last texture for remaining blocks
-      if blocksCount > imageInfos.count {
+      if imagesCount > imageInfos.count {
         let lastTexture = imageInfos.last!.texture
         encoder.setFragmentTexture(lastTexture, index: 0)
 
         // Calculate the index range for remaining blocks
         let startIndex = imageInfos.count * indexesPerBlock
-        let indexCount = (blocksCount - imageInfos.count) * indexesPerBlock
+        let indexCount = (imagesCount - imageInfos.count) * indexesPerBlock
 
         if indexCount > 0 {
           encoder.drawIndexedPrimitives(
@@ -570,8 +571,100 @@ class ImagesRenderer: CustomRenderer {
   }
 
   func onSpatialEvents(events: SpatialEventCollection) {
+    // read array of Cell s from computeBuffer
+
+    let cells = computeBuffer!.currentBuffer.contents().bindMemory(
+      to: CellBase.self, capacity: imagesCount)
+
     for event in events {
-      gestureManager.onSpatialEvent(event: event)
+      if event.phase == .ended {
+        self.selectedImage = nil
+      } else {
+        if let (idx, prevPosition) = self.selectedImage {
+          let position = event.inputDevicePose!.pose3D.position.to_simd3
+          let delta = position - prevPosition
+          let cell = cells[idx]
+          let newPosition = cell.position + delta * 5
+          cells[idx].position = newPosition
+          self.selectedImage = (idx, position)
+        } else {
+          self.selectedImage = nil
+
+          if let ray = event.selectionRay {
+
+            let origin = ray.origin.to_simd3
+            let direction = ray.direction.to_simd3
+
+            // Calculate which image is being hit by the ray
+            var closestHitDistance: Float = Float.greatestFiniteMagnitude
+            var hitImageIndex: Int = -1
+
+            // Iterate through all images to find the closest hit
+            for i in 0..<imagesCount {
+              let cell = cells[i]
+              let imagePosition = cell.position
+
+              // Assuming images are facing the camera (plane perpendicular to camera direction)
+              // Calculate the plane the image lies on
+              let planeNormal = normalize(
+                imagePosition - origin
+              )  // Simplified - assumes image faces viewer
+
+              // Get image dimensions if available
+              let halfWidth: Float = i < imageInfos.count ? (imageInfos[i].width / 2000.0) : 0.2
+              let halfHeight: Float = i < imageInfos.count ? (imageInfos[i].height / 2000.0) : 0.2
+
+              // Ray-plane intersection formula: t = dot(planePos - rayOrigin, planeNormal) / dot(rayDirection, planeNormal)
+              let denominator = dot(direction, planeNormal)
+
+              // Skip if ray is parallel to the plane
+              if abs(denominator) > 0.0001 {
+                let t = dot(imagePosition - origin, planeNormal) / denominator
+
+                // Only consider hits in front of the viewer
+                if t > 0 {
+                  // Calculate intersection point
+                  let hitPoint = origin + t * direction
+
+                  // Calculate local coordinates on the image plane
+                  let localUp = SIMD3<Float>(0, 1, 0)
+                  let localRight = normalize(cross(localUp, planeNormal))
+                  let localUp2 = cross(planeNormal, localRight)
+
+                  let localX = dot(hitPoint - imagePosition, localRight)
+                  let localY = dot(hitPoint - imagePosition, localUp2)
+
+                  // Check if hit point is within the image bounds
+                  if abs(localX) <= halfWidth && abs(localY) <= halfHeight {
+                    if t < closestHitDistance {
+                      closestHitDistance = t
+                      hitImageIndex = i
+                    }
+                  }
+                }
+              }
+            }
+
+            if hitImageIndex >= 0 {
+              self.selectedImage = (hitImageIndex, event.inputDevicePose!.pose3D.position.to_simd3)
+            }
+          }
+        }
+      }
     }
+
+  }
+}
+
+extension Point3D {
+  /// turn into SIMD3
+  fileprivate var to_simd3: SIMD3<Float> {
+    return SIMD3<Float>(Float(x), Float(y), Float(z))
+  }
+}
+
+extension Vector3D {
+  fileprivate var to_simd3: SIMD3<Float> {
+    return SIMD3<Float>(Float(x), Float(y), Float(z))
   }
 }
