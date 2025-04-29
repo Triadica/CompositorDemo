@@ -44,11 +44,11 @@ struct CellBase {
   float3 position;
   float3 color;
   float lampIdf;
-  float3 velocity;
+  bool dragging;
 };
 
 kernel void imagesComputeShader(
-    device CellBase *blocks [[buffer(0)]],
+    device CellBase *cells [[buffer(0)]],
     device CellBase *outputLamps [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
@@ -58,12 +58,39 @@ kernel void imagesComputeShader(
     return;
   }
 
-  CellBase block = blocks[id];
-  device CellBase &outputBlock = outputLamps[id];
+  CellBase cell = cells[id];
+  device CellBase &outputCell = outputLamps[id];
 
-  outputBlock.position = block.position;
-  outputBlock.color = block.color;
-  outputBlock.lampIdf = block.lampIdf;
+  float3 moved = float3(0.0, 0.0, 0.0);
+  float y = cell.position.y;
+  if ((y < 0.5 || y > 2.5) && !cell.dragging) {
+    // Slow clockwise rotation around camera position
+    float3 cameraPos = params.viewerPosition;
+    float3 vectorToCell = cell.position - cameraPos;
+
+    // Project to horizontal plane for rotation
+    float3 horizontalVector = float3(vectorToCell.x, 0.0, vectorToCell.z);
+    float distance = length(horizontalVector);
+
+    // Apply slow rotation (adjust rotationSpeed for desired speed)
+    float angle = -params.time * 0.1 * pow(distance, 0.5);
+
+    // Rotate the position (clockwise around y-axis)
+    float cosAngle = cos(angle);
+    float sinAngle = sin(angle);
+    float3 rotated = float3(
+        cosAngle * horizontalVector.x + sinAngle * horizontalVector.z,
+        0.0,
+        -sinAngle * horizontalVector.x + cosAngle * horizontalVector.z);
+
+    // Maintain original height and normalize to original distance
+    rotated = normalize(rotated) * distance;
+    cell.position = cameraPos + float3(rotated.x, vectorToCell.y, rotated.z);
+  }
+
+  outputCell.position = cell.position;
+  outputCell.color = cell.color;
+  outputCell.lampIdf = cell.lampIdf;
 }
 
 vertex BlockInOut imagesVertexShader(

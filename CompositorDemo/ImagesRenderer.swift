@@ -29,7 +29,7 @@ private struct CellBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
   var blockIdf: Float
-  var velocity: SIMD3<Float> = .zero
+  var dragging: Bool
 }
 
 private struct Params {
@@ -336,7 +336,7 @@ class ImagesRenderer: CustomRenderer {
       let color = SIMD3<Float>(r, g, b)
 
       blocksBase[i] = CellBase(
-        position: position, color: color, blockIdf: Float(i), velocity: .zero)
+        position: position, color: color, blockIdf: Float(i), dragging: false)
 
     }
 
@@ -578,6 +578,9 @@ class ImagesRenderer: CustomRenderer {
 
     for event in events {
       if event.phase == .ended {
+        if let selectedImage = self.selectedImage {
+          cells[selectedImage.0].dragging = false
+        }
         self.selectedImage = nil
       } else {
         if let (idx, prevPosition) = self.selectedImage {
@@ -586,6 +589,7 @@ class ImagesRenderer: CustomRenderer {
           let cell = cells[idx]
           let newPosition = cell.position + delta * 5
           cells[idx].position = newPosition
+          cells[idx].dragging = true
           self.selectedImage = (idx, position)
         } else {
           self.selectedImage = nil
