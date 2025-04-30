@@ -14,14 +14,6 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let imagesCount: Int = 8
-
-private let verticesPerBlock = 6
-private let verticesCount = verticesPerBlock * imagesCount
-
-private let indexesPerBlock = 6
-private let indexesCount: Int = imagesCount * indexesPerBlock
-
 private let blockRadius: Float = 2  // half width
 private let blockHeight: Float = 20
 
@@ -40,6 +32,18 @@ private struct Params {
   var viewerScale: Float = 1.0
   var imagesCount: Int32 = 0
   var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
+}
+
+private struct ImageSelectState {
+  var index: Int
+  var startPosition: SIMD3<Float>
+  var originalPosition: SIMD3<Float>
+  var chirality: Chirality
+}
+
+private struct SecondarySelectedState {
+  var originalScale: Float
+  var originalLength: Float
 }
 
 @MainActor
@@ -76,9 +80,17 @@ class ImagesRenderer: CustomRenderer {
     "image6",
     "image7",
     "image8",
-    "image9",
-    "image10",
   ]
+
+  private var imagesCount: Int {
+    imagesNames.count
+  }
+
+  private let verticesPerBlock = 6
+  private var verticesCount: Int { verticesPerBlock * imagesCount }
+
+  private let indexesPerBlock = 6
+  private var indexesCount: Int { imagesCount * indexesPerBlock }
 
   // Change to store ImageInfo instead of just textures
   private var imageInfos: [ImageInfo] = []
@@ -88,9 +100,10 @@ class ImagesRenderer: CustomRenderer {
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
-  var selectedImage: (Int, SIMD3<Float>, Chirality)?
-  var secondarySelectedState: Float? = nil
-  var scaleBaseLength: Float = 1.0
+  private var selectedImage: ImageSelectState?
+  private var realtimePosePosition: SIMD3<Float> = .zero
+  private var secondarySelectedState: SecondarySelectedState? = nil
+  private var scaleBaseLength: Float = 1.0
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -578,30 +591,35 @@ class ImagesRenderer: CustomRenderer {
     for event in events {
       if event.phase == .ended {
         if let selectedImage = self.selectedImage {
-          cells[selectedImage.0].dragging = false
+          cells[selectedImage.index].dragging = false
         }
         self.selectedImage = nil
+        self.secondarySelectedState = nil
       } else {
-        if let (idx, prevPosition, chirality) = self.selectedImage {
+        if let selectedImage = self.selectedImage {
+          let idx = selectedImage.index
+          let startPosition = selectedImage.startPosition
+          let chirality = selectedImage.chirality
           if event.chirality == chirality {
 
             let position = event.inputDevicePose!.pose3D.position.to_simd3
-            let delta = position - prevPosition
-            let cell = cells[idx]
-            let newPosition = cell.position + delta * 5
+            let delta = position - startPosition
+            let newPosition = selectedImage.originalPosition + delta * 5
             cells[idx].position = newPosition
             cells[idx].dragging = true
-            self.selectedImage = (idx, position, event.chirality!)
+            self.realtimePosePosition = position
+
           } else {
-            if let secondarySelectedState = self.secondarySelectedState {
+            if let secondaryState = self.secondarySelectedState {
               let length0 = simd_distance(
-                event.inputDevicePose!.pose3D.position.to_simd3, prevPosition)
-              let scaled = length0 / secondarySelectedState
-              cells[idx].scale = scaled
+                event.inputDevicePose!.pose3D.position.to_simd3, realtimePosePosition)
+              let scaled: Float = length0 / secondaryState.originalLength
+              cells[idx].scale = scaled * secondaryState.originalScale
             } else {
               let length0 = simd_distance(
-                event.inputDevicePose!.pose3D.position.to_simd3, prevPosition)
-              self.secondarySelectedState = length0
+                event.inputDevicePose!.pose3D.position.to_simd3, realtimePosePosition)
+              self.secondarySelectedState = SecondarySelectedState(
+                originalScale: cells[idx].scale, originalLength: length0)
             }
           }
         } else {
@@ -664,14 +682,19 @@ class ImagesRenderer: CustomRenderer {
             }
 
             if hitImageIndex >= 0 {
-              self.selectedImage = (
-                hitImageIndex, event.inputDevicePose!.pose3D.position.to_simd3, event.chirality!
+              self.selectedImage = ImageSelectState(
+                index: hitImageIndex,
+                startPosition: event.inputDevicePose!.pose3D.position.to_simd3,
+                originalPosition: cells[hitImageIndex].position,
+                chirality: event.chirality!
               )
             }
           }
         }
       }
     }
+
+    computeBuffer?.copy_to_next()
 
   }
 }

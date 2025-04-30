@@ -62,7 +62,6 @@ kernel void imagesComputeShader(
   CellBase cell = cells[id];
   device CellBase &outputCell = outputLamps[id];
 
-  float3 moved = float3(0.0, 0.0, 0.0);
   float y = cell.position.y;
   if ((y < 0.5 || y > 2.5) && !cell.dragging) {
     // Slow clockwise rotation around camera position
@@ -141,9 +140,16 @@ fragment float4 imagesFragmentShader(
     constexpr sampler textureSampler(mag_filter::linear, min_filter::linear);
     float4 textureColor = imageTexture.sample(textureSampler, in.uv);
 
+    float y = in.originalPosition.y;
+    bool nearCamera = y > 0.5 && y < 2.5;
+    float alpha = 1;
+    if (!nearCamera) {
+      alpha = 0.4;
+    }
+
     // Ensure all color channels are preserved correctly
     // Don't multiply colors - this was losing the blue channel
-    return float4(textureColor.rgb, textureColor.a * in.color.a);
+    return float4(textureColor.rgb * alpha, textureColor.a * in.color.a);
   } else {
     // Return red to indicate missing texture
     return float4(1.0, 0.0, 0.0, in.color.a);
