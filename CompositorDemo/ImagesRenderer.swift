@@ -30,13 +30,14 @@ private struct CellBase {
   var color: SIMD3<Float>
   var blockIdf: Float
   var dragging: Bool
+  var scale: Float = 1.0
 }
 
 private struct Params {
   /// prefer time relative to the start of the app, not delta time
   var time: Float
-  var viewerPosition: SIMD3<Float>
-  var viewerScale: Float
+  var viewerPosition: SIMD3<Float> = .zero
+  var viewerScale: Float = 1.0
   var imagesCount: Int32 = 0
   var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
 }
@@ -87,8 +88,9 @@ class ImagesRenderer: CustomRenderer {
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
-  var gestureManager: GestureManager = GestureManager(onScene: true)
-  var selectedImage: (Int, SIMD3<Float>)?
+  var selectedImage: (Int, SIMD3<Float>, Chirality)?
+  var secondarySelectedState: Float? = nil
+  var scaleBaseLength: Float = 1.0
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -432,9 +434,8 @@ class ImagesRenderer: CustomRenderer {
     let dt = delta - frameDelta
     frameDelta = delta
 
-    var params = Params(
-      time: dt, viewerPosition: gestureManager.viewerPosition,
-      viewerScale: gestureManager.viewerScale,
+    var params: Params = Params(
+      time: dt,
       imagesCount: Int32(imagesCount))
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
@@ -492,8 +493,6 @@ class ImagesRenderer: CustomRenderer {
 
     var params_data = Params(
       time: getTimeSinceStart(),
-      viewerPosition: gestureManager.viewerPosition,
-      viewerScale: gestureManager.viewerScale,
       imagesCount: Int32(imagesCount))
 
     let params: any MTLBuffer = device.makeBuffer(
@@ -583,14 +582,28 @@ class ImagesRenderer: CustomRenderer {
         }
         self.selectedImage = nil
       } else {
-        if let (idx, prevPosition) = self.selectedImage {
-          let position = event.inputDevicePose!.pose3D.position.to_simd3
-          let delta = position - prevPosition
-          let cell = cells[idx]
-          let newPosition = cell.position + delta * 5
-          cells[idx].position = newPosition
-          cells[idx].dragging = true
-          self.selectedImage = (idx, position)
+        if let (idx, prevPosition, chirality) = self.selectedImage {
+          if event.chirality == chirality {
+
+            let position = event.inputDevicePose!.pose3D.position.to_simd3
+            let delta = position - prevPosition
+            let cell = cells[idx]
+            let newPosition = cell.position + delta * 5
+            cells[idx].position = newPosition
+            cells[idx].dragging = true
+            self.selectedImage = (idx, position, event.chirality!)
+          } else {
+            if let secondarySelectedState = self.secondarySelectedState {
+              let length0 = simd_distance(
+                event.inputDevicePose!.pose3D.position.to_simd3, prevPosition)
+              let scaled = length0 / secondarySelectedState
+              cells[idx].scale = scaled
+            } else {
+              let length0 = simd_distance(
+                event.inputDevicePose!.pose3D.position.to_simd3, prevPosition)
+              self.secondarySelectedState = length0
+            }
+          }
         } else {
           self.selectedImage = nil
 
@@ -639,7 +652,8 @@ class ImagesRenderer: CustomRenderer {
                   let localY = dot(hitPoint - imagePosition, localUp2)
 
                   // Check if hit point is within the image bounds
-                  if abs(localX) <= halfWidth && abs(localY) <= halfHeight {
+                  if abs(localX) <= halfWidth * cell.scale && abs(localY) <= halfHeight * cell.scale
+                  {
                     if t < closestHitDistance {
                       closestHitDistance = t
                       hitImageIndex = i
@@ -650,7 +664,9 @@ class ImagesRenderer: CustomRenderer {
             }
 
             if hitImageIndex >= 0 {
-              self.selectedImage = (hitImageIndex, event.inputDevicePose!.pose3D.position.to_simd3)
+              self.selectedImage = (
+                hitImageIndex, event.inputDevicePose!.pose3D.position.to_simd3, event.chirality!
+              )
             }
           }
         }

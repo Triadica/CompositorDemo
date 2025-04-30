@@ -23,7 +23,7 @@ typedef struct {
   int seed [[attribute(VertexAttributeSeed)]];
   float height [[attribute(3)]];
   float2 uv [[attribute(4)]];
-} BlockVertexIn;
+} ImageVertexIn;
 
 typedef struct {
   float4 position [[position]];
@@ -31,7 +31,7 @@ typedef struct {
   float3 originalPosition;
   float height;
   float2 uv;
-} BlockInOut;
+} ImageInOut;
 
 typedef struct {
   float time;
@@ -45,6 +45,7 @@ struct CellBase {
   float3 color;
   float lampIdf;
   bool dragging;
+  float scale;
 };
 
 kernel void imagesComputeShader(
@@ -93,25 +94,26 @@ kernel void imagesComputeShader(
   outputCell.lampIdf = cell.lampIdf;
 }
 
-vertex BlockInOut imagesVertexShader(
-    BlockVertexIn in [[stage_in]],
+vertex ImageInOut imagesVertexShader(
+    ImageVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
     const device CellBase *blocksData [[buffer(BufferIndexBase)]]) {
-  BlockInOut out;
+  ImageInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
-  float3 basePosition = blocksData[in.seed].position;
+  CellBase cell = blocksData[in.seed];
+  float3 basePosition = cell.position;
 
   float3 cameraDirection = basePosition - cameraAt;
   float3 upDirection = float3(0.0, 1.0, 0.0);
   float3 rightDirection = normalize(cross(cameraDirection, upDirection));
 
-  float3 boxX = rightDirection * in.position.x;
-  float3 boxY = upDirection * in.position.y;
+  float3 boxX = rightDirection * in.position.x * cell.scale;
+  float3 boxY = upDirection * in.position.y * cell.scale;
   float4 position = float4(basePosition + boxX + boxY, 1.0);
 
   out.originalPosition = basePosition.xyz;
@@ -129,7 +131,7 @@ vertex BlockInOut imagesVertexShader(
 }
 
 fragment float4 imagesFragmentShader(
-    BlockInOut in [[stage_in]], texture2d<float> imageTexture [[texture(0)]]) {
+    ImageInOut in [[stage_in]], texture2d<float> imageTexture [[texture(0)]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
