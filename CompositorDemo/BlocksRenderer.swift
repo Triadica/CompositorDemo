@@ -42,6 +42,14 @@ private struct Params {
   var _padding: SIMD3<Float> = .zero  // required for 48 bytes alignment
 }
 
+private struct BlockVertex {
+  var position: SIMD3<Float>
+  var color: SIMD3<Float>
+  var seed: Int32
+  var height: Float
+  var uv: SIMD2<Float>
+}
+
 @MainActor
 class BlocksRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
@@ -271,36 +279,37 @@ class BlocksRenderer: CustomRenderer {
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
     var offset = 0
+    var idx: Int = 0
 
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[idx].offset = 0
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD3<Float>>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD3<Float>>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format = MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<Int32>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[3].format = MTLVertexFormat.float
-    mtlVertexDescriptor.attributes[3].offset = offset
-    mtlVertexDescriptor.attributes[3].bufferIndex = 0
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<Float>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[4].format = MTLVertexFormat.float2
-    mtlVertexDescriptor.attributes[4].offset = offset
-    mtlVertexDescriptor.attributes[4].bufferIndex = 0
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float2
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD2<Float>>.stride
+    idx += 1
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
       MemoryLayout<BlockVertex>.stride
