@@ -73,7 +73,10 @@ kernel void imagesComputeShader(
     float distance = length(horizontalVector);
 
     // Apply slow rotation (adjust rotationSpeed for desired speed)
-    float angle = -params.time * 0.1 * pow(distance, 0.5);
+    float angle = -params.time * 0.05 * pow(distance, 0.2);
+    if (y < 0.5) {
+      angle = -angle;
+    }
 
     // Rotate the position (clockwise around y-axis)
     float cosAngle = cos(angle);
@@ -144,7 +147,7 @@ fragment float4 imagesFragmentShader(
     bool nearCamera = y > 0.5 && y < 2.5;
     float alpha = 1;
     if (!nearCamera) {
-      alpha = 0.4;
+      alpha = 0.2;
     }
 
     // Ensure all color channels are preserved correctly

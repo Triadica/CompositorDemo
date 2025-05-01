@@ -80,6 +80,25 @@ class ImagesRenderer: CustomRenderer {
     "image6",
     "image7",
     "image8",
+    // "actions.png",
+    // "atom-slime.png",
+    // "backbone_js.png",
+    // "chrome-inspect.png",
+    // "copilot.png",
+    // "dom-diff.png",
+    // "fp-interpreter.png",
+    // "lift-state.png",
+    // "nrepl.png",
+    // "pharo.png",
+    // "redux-diagram.png",
+    // "redux-store.png",
+    // "rescript-action.png",
+    // "respo.png",
+    // "rust-schemars.png",
+    // "smalltalk-wiki.png",
+    // "smalltalk.png",
+    // "ui-tree.png",
+
   ]
 
   private var imagesCount: Int {
@@ -137,36 +156,22 @@ class ImagesRenderer: CustomRenderer {
   private func loadImageTextures(device: MTLDevice) async {
     let textureLoader = MTKTextureLoader(device: device)
 
-    print("🔍 Starting to load \(imagesNames.count) textures from Asset Catalog")
-
     // Try to load each image from the asset catalog
     for imageName in imagesNames {
-      print("🔍 Trying to load image: \(imageName)")
       let url = "https://repo.webgpu.art/image-assets/\(imageName).jpg"
+      // let url = "http://192.168.31.166:8080/\(imageName)"
       do {
         // Asynchronously load the image from URL
         let imageURL = URL(string: url)!
         let (data, _) = try await URLSession.shared.data(from: imageURL)
 
         if let image = UIImage(data: data) {
-          print("✅ Successfully downloaded image from: \(url)")
           loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
         } else {
           print("❌ Failed to create UIImage from data for: \(url)")
         }
       } catch {
         print("❌ Failed to load image from URL: \(url) - Error: \(error.localizedDescription)")
-
-        // Fallback to local assets if URL fails
-        if let image = UIImage(named: imageName, in: Bundle.main, compatibleWith: nil) {
-          print("✅ Fallback: Found image in asset catalog: \(imageName)")
-          loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
-        } else if let path = Bundle.main.path(forResource: imageName, ofType: "jpg") {
-          if let image = UIImage(contentsOfFile: path) {
-            print("✅ Fallback: Loaded image from file path: \(path)")
-            loadTextureFromImage(image, name: imageName, textureLoader: textureLoader)
-          }
-        }
       }
     }
 
@@ -174,7 +179,6 @@ class ImagesRenderer: CustomRenderer {
 
     // If no images were loaded, create a test checkerboard texture
     if imageInfos.isEmpty {
-      print("⚠️ No textures loaded, creating a test checkerboard texture")
       createCheckerboardTexture(device: device)
     }
   }
@@ -339,16 +343,19 @@ class ImagesRenderer: CustomRenderer {
     for i in 0..<imagesCount {
 
       let angle = Float(i) * (2.0 * .pi / Float(imagesCount))
-      let x = cos(angle) * 2
-      let z = sin(angle) * 2
+      let x = cos(angle) * 4
+      let z = sin(angle) * 4
       let y: Float = 1.2
 
-      let position = SIMD3<Float>(x, y, z)
+      var position = SIMD3<Float>(x, y, z)
       // Random color for each lamp
       let r = Float.random(in: 0.1...1.0)
       let g = Float.random(in: 0.1...1.0)
       let b = Float.random(in: 0.1...1.0)
       let color = SIMD3<Float>(r, g, b)
+      position.y += 1.6
+      position.x += Float.random(in: -0.5...0.5)
+      position.z += Float.random(in: -0.5...0.5)
 
       blocksBase[i] = CellBase(
         position: position, color: color, blockIdf: Float(i), dragging: false)
