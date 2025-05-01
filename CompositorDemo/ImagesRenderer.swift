@@ -41,6 +41,14 @@ private struct ImageSelectState {
   var chirality: Chirality
 }
 
+private struct ImageVertex {
+  var position: SIMD3<Float>
+  var color: SIMD3<Float>
+  var seed: Int32
+  var height: Float
+  var uv: SIMD2<Float>
+}
+
 private struct SecondarySelectedState {
   var originalScale: Float
   var originalLength: Float
@@ -245,11 +253,11 @@ class ImagesRenderer: CustomRenderer {
 
   /// create and sets the vertices of the lamp
   private func createBlocksVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<BlockVertex>.stride * verticesCount
+    let bufferLength = MemoryLayout<ImageVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Images vertex buffer"
-    var cellVertices: UnsafeMutablePointer<BlockVertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: BlockVertex.self)
+    var cellVertices: UnsafeMutablePointer<ImageVertex> {
+      vertexBuffer.contents().assumingMemoryBound(to: ImageVertex.self)
     }
 
     for i in 0..<imagesCount {
@@ -280,27 +288,27 @@ class ImagesRenderer: CustomRenderer {
       let p4: SIMD3<Float> = SIMD3<Float>(-halfWidth, halfHeight, 0)
 
       // Assign proper UV coordinates for texture mapping (flipped vertically for Metal's coordinate system)
-      cellVertices[baseIndex] = BlockVertex(
+      cellVertices[baseIndex] = ImageVertex(
         position: p1, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 1)
       )
-      cellVertices[baseIndex + 1] = BlockVertex(
+      cellVertices[baseIndex + 1] = ImageVertex(
         position: p2, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 1)
       )
-      cellVertices[baseIndex + 2] = BlockVertex(
+      cellVertices[baseIndex + 2] = ImageVertex(
         position: p3, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 0)
       )
-      cellVertices[baseIndex + 3] = BlockVertex(
+      cellVertices[baseIndex + 3] = ImageVertex(
         position: p1, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 1)
       )
-      cellVertices[baseIndex + 4] = BlockVertex(
+      cellVertices[baseIndex + 4] = ImageVertex(
         position: p3, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(1, 0)
       )
-      cellVertices[baseIndex + 5] = BlockVertex(
+      cellVertices[baseIndex + 5] = ImageVertex(
         position: p4, color: color, seed: Int32(i), height: height,
         uv: SIMD2<Float>(0, 0)
       )
@@ -370,42 +378,41 @@ class ImagesRenderer: CustomRenderer {
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
     var offset = 0
+    var idx: Int = 0
 
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].offset = 0
-    mtlVertexDescriptor.attributes[VertexAttribute.position.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[idx].offset = 0
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD3<Float>>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].format =
-      MTLVertexFormat.float3
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.color.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float3
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD3<Float>>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].format = MTLVertexFormat.int
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].offset = offset
-    mtlVertexDescriptor.attributes[VertexAttribute.seed.rawValue].bufferIndex =
-      BufferIndex.meshPositions.rawValue
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.int
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<Int32>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[3].format = MTLVertexFormat.float
-    mtlVertexDescriptor.attributes[3].offset = offset
-    mtlVertexDescriptor.attributes[3].bufferIndex = 0
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<Float>.stride
+    idx += 1
 
-    mtlVertexDescriptor.attributes[4].format = MTLVertexFormat.float2
-    mtlVertexDescriptor.attributes[4].offset = offset
-    mtlVertexDescriptor.attributes[4].bufferIndex = 0
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float2
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<SIMD2<Float>>.stride
+    idx += 1
 
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<BlockVertex>.stride
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
-    mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
-      MTLVertexStepFunction.perVertex
+    mtlVertexDescriptor.layouts[0].stride = MemoryLayout<ImageVertex>.stride
+    mtlVertexDescriptor.layouts[0].stepRate = 1
+    mtlVertexDescriptor.layouts[0].stepFunction = MTLVertexStepFunction.perVertex
 
     return mtlVertexDescriptor
   }
