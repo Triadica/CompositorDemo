@@ -48,6 +48,10 @@ struct ImmersiveInteractionScene: Scene {
                         currentRenderer = try ImagesRenderer(
                             layerRenderer: layerRenderer
                         )
+                    case .dragSparks:
+                        currentRenderer = try DragSparksRenderer(
+                            layerRenderer: layerRenderer
+                        )
                     }
                 } catch {
                     fatalError("Failed to create lamps renderer \(error)")

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A13D89F2DC9395000EEA863 /* DragSparksRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */; };
+		9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */; };
 		9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6A2DB5025D00160CF9 /* Gesture.swift */; };
 		9A228C6D2DB56C6200160CF9 /* BlocksRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6C2DB56C5400160CF9 /* BlocksRenderer.swift */; };
 		9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */; };
@@ -37,6 +39,8 @@
 		0BE4D83FD393EC90F51070F3 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		33D190EEBFF9B25310AB436E /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		3E2802D1CC6386AC2E5A3992 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragSparksRenderer.swift; sourceTree = "<group>"; };
+		9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = DragSparksShader.metal; sourceTree = "<group>"; };
 		9A228C6A2DB5025D00160CF9 /* Gesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gesture.swift; sourceTree = "<group>"; };
 		9A228C6C2DB56C5400160CF9 /* BlocksRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksRenderer.swift; sourceTree = "<group>"; };
 		9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BlocksShader.metal; sourceTree = "<group>"; };
@@ -118,6 +122,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */,
+				9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */,
 				9AF975B42DBEA5B800B78645 /* ImagesShader.metal */,
 				9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */,
 				9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */,
@@ -231,10 +237,12 @@
 			files = (
 				9A92D3872D994ECB0021FFCE /* PolylinesShader.metal in Sources */,
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
+				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
 				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
 				9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */,
 				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
+				9A13D89F2DC9395000EEA863 /* DragSparksRenderer.swift in Sources */,
 				9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */,

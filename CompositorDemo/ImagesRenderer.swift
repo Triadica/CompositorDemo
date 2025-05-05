@@ -370,7 +370,7 @@ class ImagesRenderer: CustomRenderer {
 
     }
 
-    computeBuffer.copy_to_next()
+    computeBuffer.copyToNext()
   }
 
   class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
@@ -708,7 +708,7 @@ class ImagesRenderer: CustomRenderer {
       }
     }
 
-    computeBuffer?.copy_to_next()
+    computeBuffer?.copyToNext()
 
   }
 }

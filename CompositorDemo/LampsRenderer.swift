@@ -217,7 +217,7 @@ class LampsRenderer: CustomRenderer {
                 position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
         }
 
-        computeBuffer.copy_to_next()
+        computeBuffer.copyToNext()
     }
 
     class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {

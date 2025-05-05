@@ -189,7 +189,7 @@ class AttractorRenderer: CustomRenderer {
       }
     }
 
-    computeBuffer.copy_to_next()
+    computeBuffer.copyToNext()
   }
 
   class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {

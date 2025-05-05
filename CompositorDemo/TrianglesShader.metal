@@ -35,7 +35,7 @@ typedef struct {
   float time;
 } Params;
 
-vertex TrianglesVertexInInOut trianglesVertexShader(
+vertex TrianglesVertexInInOut dragSparksVertexShader(
     PolylineVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
