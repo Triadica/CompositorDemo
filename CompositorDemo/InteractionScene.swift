@@ -54,7 +54,7 @@ struct ImmersiveInteractionScene: Scene {
                         )
                     }
                 } catch {
-                    fatalError("Failed to create lamps renderer \(error)")
+                    fatalError("Failed to create renderer \(error)")
                 }
 
                 Task(priority: .high) { @RendererActor in

@@ -116,3 +116,11 @@ struct LinesManager {
     }
   }
 }
+
+func randomPosition(x: Float, y: Float, z: Float) -> SIMD3<Float> {
+  return SIMD3<Float>(
+    Float.random(in: -x...x),
+    Float.random(in: -y...y),
+    Float.random(in: -z...z)
+  )
+}

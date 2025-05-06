@@ -45,7 +45,7 @@ extension LinesManager {
 }
 
 @MainActor
-class DragSparksRenderer: CustomRenderer {
+class TrianglesRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
@@ -211,14 +211,14 @@ class DragSparksRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "dragSparksVertexShader")
-    let fragmentFunction = library.makeFunction(name: "dragSparksFragmentShader")
+    let vertexFunction = library.makeFunction(name: "trianglesVertexShader")
+    let fragmentFunction = library.makeFunction(name: "trianglesFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = TrianglesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
