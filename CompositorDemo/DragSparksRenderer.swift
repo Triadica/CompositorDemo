@@ -36,7 +36,7 @@ private struct SparkLine {
   var birthTime: Float = 0
 }
 
-let sparksLimit = 1000
+let sparksLimit = 4000
 
 /// it has a limit of 1000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
 private struct SparksCollection {

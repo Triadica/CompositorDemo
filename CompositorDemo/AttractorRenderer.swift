@@ -241,7 +241,7 @@ class AttractorRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = AttractorRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }

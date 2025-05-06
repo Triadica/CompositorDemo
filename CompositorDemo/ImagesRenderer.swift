@@ -432,7 +432,7 @@ class ImagesRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = ImagesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
