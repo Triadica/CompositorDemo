@@ -55,7 +55,7 @@ vertex TrianglesVertexInInOut dragSparksVertexShader(
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Don't override the alpha here, we'll handle it in the fragment shader
-  out.lifetime = (params.time - in.birthTime) * 1 - in.brushValue;
+  out.lifetime = (params.time - in.birthTime) * 6 - in.brushValue;
 
   return out;
 }
@@ -70,11 +70,10 @@ fragment float4 dragSparksFragmentShader(TrianglesVertexInInOut in
     discard_fragment();
   }
 
-  // Apply the fade value directly to the alpha channel
-  float4 finalColor = float4(in.color.rgb, in.color.a * v);
+  // Start with base color
+  float3 sparkColor = in.color.rgb * v;
 
-  // Premultiply RGB by alpha for correct blending
-  finalColor.rgb *= finalColor.a;
-
-  return finalColor;
+  // Create final color with appropriate alpha
+  // With additive blending, lower alpha makes particles less intense
+  return float4(sparkColor, v);
 }

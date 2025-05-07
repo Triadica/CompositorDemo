@@ -39,7 +39,7 @@ private struct SparkLine {
   var color: SIMD3<Float> = .zero
 }
 
-let sparksLimit = 4000
+let sparksLimit = 8000
 
 func randomFireworksColor() -> SIMD3<Float> {
   let colorType = Float.random(in: 0...1)
@@ -53,22 +53,30 @@ func randomFireworksColor() -> SIMD3<Float> {
       Float.random(in: 0.0...0.3)  // Blue: low
     )
   } else if colorType < 0.92 {
-    // Blue accents (7% chance)
+    // purple accents (7% chance)
     color = SIMD3<Float>(
-      Float.random(in: 0.0...0.3),  // Red: low
-      Float.random(in: 0.4...0.7),  // Green: medium
-      Float.random(in: 0.7...1.0)  // Blue: high
+      Float.random(in: 0.5...0.8),  // Red: medium-high
+      Float.random(in: 0.0...0.3),  // Green: low
+      Float.random(in: 0.5...1.0)  // Blue: medium-high
     )
   } else {
-    // Green accents (8% chance)
+    // Red accents (8% chance)
     color = SIMD3<Float>(
-      Float.random(in: 0.0...0.3),  // Red: low
-      Float.random(in: 0.7...1.0),  // Green: high
-      Float.random(in: 0.2...0.5)  // Blue: low-medium
+      Float.random(in: 0.8...1.0),  // Red: high
+      Float.random(in: 0.0...0.3),  // Green: low
+      Float.random(in: 0.0...0.3)  // Blue: low
     )
   }
 
   return color
+}
+
+/// random function, values near from have higher probability
+func randBaseFromTo(_ from: Float, _ to: Float) -> Float {
+  let range = to - from
+  let randomValue = Float.random(in: 0...1)
+  let adjustedValue = pow(randomValue, 8)  // Adjust the exponent for more or less clustering
+  return from + adjustedValue * range
 }
 
 /// it has a limit of 4000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
@@ -146,7 +154,7 @@ class DragSparksRenderer: CustomRenderer {
     }
 
     var pos = 0
-    let width: Float = 0.01
+    let width: Float = 0.006
 
     for i in 0..<linesManager.coll.count {
       let line = linesManager.getLineAt(i)
@@ -292,12 +300,14 @@ class DragSparksRenderer: CustomRenderer {
     pipelineDescriptor.label = "DragSparksRenderPipeline"
     pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
     pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+
+    // Change to additive blending for particle effects
     pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
     pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
     pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-    pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
-    pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-    pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+    pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+    pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+    pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .one
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
@@ -414,9 +424,9 @@ class DragSparksRenderer: CustomRenderer {
         let position = event.inputDevicePose!.pose3D.position.to_simd3
 
         // Add 10 lines for each active event
-        for _ in 0..<10 {
+        for _ in 0..<40 {
           let offset = randomSpherePosition(radius: 0.1)
-          let nextPosition = position + offset * Float.random(in: 1.0...1.2)
+          let nextPosition = position + offset * randBaseFromTo(0.5, 2.0)
           // print("  chilarity: \(event.chirality!), position: \(position)")
           linesManager.add(position, nextPosition, time: getTimeSinceStart())
         }
