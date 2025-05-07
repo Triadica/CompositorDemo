@@ -22,7 +22,7 @@ typedef struct {
   float3 position [[attribute(PolylineVertexAttributePosition)]];
   float3 color [[attribute(PolylineVertexAttributeColor)]];
   float3 direction [[attribute(PolylineVertexAttributeDirection)]];
-  int seed [[attribute(PolylineVertexAttributeSeed)]];
+  int brushWidth [[attribute(PolylineVertexAttributeSeed)]];
 } PolylineVertexIn;
 
 typedef struct {
@@ -46,7 +46,7 @@ vertex PolylineVertexInInOut polylinesVertexShader(
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   simd_float3 cameraDirection = uniforms.cameraDirection;
   float3 brush = cross(in.direction, cameraDirection);
-  brush = brush * 0.0001 * in.seed;
+  brush = brush * 0.0001 * in.brushWidth;
 
   float4 position = float4(in.position + brush, 1.0);
 

@@ -22,13 +22,15 @@ typedef struct {
   float3 position [[attribute(0)]];
   float3 color [[attribute(1)]];
   float3 direction [[attribute(2)]];
-  float seed [[attribute(3)]];
+  float brushWidth [[attribute(3)]];
+  float brushValue [[attribute(4)]];
+  float birthTime [[attribute(5)]];
 } PolylineVertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
-
+  float lifetime;
 } TrianglesVertexInInOut;
 
 typedef struct {
@@ -46,25 +48,33 @@ vertex TrianglesVertexInInOut dragSparksVertexShader(
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   simd_float3 cameraDirection = uniforms.cameraDirection;
   float3 brush = cross(in.direction, cameraDirection);
-  brush = brush * 0.5 * in.seed;
+  brush = brush * 0.5 * in.brushWidth;
 
   float4 position = float4(in.position + brush, 1.0);
 
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
-  // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a;
-  out.color.a = 0.9;
+  // Don't override the alpha here, we'll handle it in the fragment shader
+  out.lifetime = (params.time - in.birthTime) * 1 - in.brushValue;
 
   return out;
 }
 
 fragment float4 dragSparksFragmentShader(TrianglesVertexInInOut in
                                          [[stage_in]]) {
-  if (in.color.a <= 0.0) {
+  // Calculate fade value based on lifetime
+  float v = sin(in.lifetime * 3.14);
+
+  // If lifetime is negative, or fade value is too low, discard fragment
+  if (in.lifetime < 0.0 || v <= 0.01) {
     discard_fragment();
   }
 
-  // return in.color;
-  return float4(1.0, 0.0, 0.0, 1.0);
+  // Apply the fade value directly to the alpha channel
+  float4 finalColor = float4(in.color.rgb, in.color.a * v);
+
+  // Premultiply RGB by alpha for correct blending
+  finalColor.rgb *= finalColor.a;
+
+  return finalColor;
 }

@@ -269,7 +269,7 @@ class LampsRenderer: CustomRenderer {
         pipelineDescriptor.vertexFunction = vertexFunction
 
         pipelineDescriptor.label = "TriangleRenderPipeline"
-        pipelineDescriptor.vertexDescriptor = LampsRenderer.buildMetalVertexDescriptor()
+        pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
         return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }

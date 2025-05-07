@@ -124,3 +124,13 @@ func randomPosition(x: Float, y: Float, z: Float) -> SIMD3<Float> {
     Float.random(in: -z...z)
   )
 }
+
+/// generate random position on a sphere, with fibonacci grid
+func randomSpherePosition(radius: Float) -> SIMD3<Float> {
+  let phi = Float(acos(1 - 2 * Float.random(in: 0...1)))
+  let theta = Float(2 * .pi * Float.random(in: 0...1))
+  let x = radius * sin(phi) * cos(theta)
+  let y = radius * sin(phi) * sin(theta)
+  let z = radius * cos(phi)
+  return SIMD3<Float>(x, y, z)
+}

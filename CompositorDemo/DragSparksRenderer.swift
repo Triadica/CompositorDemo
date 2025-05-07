@@ -27,24 +27,59 @@ private struct SparkVertex {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
   var direction: SIMD3<Float>
-  var seed: Float
+  var brushWidth: Float
+  var brushValue: Float = 0
+  var birthTime: Float = 0
 }
 
 private struct SparkLine {
   var from: SIMD3<Float> = .zero
   var to: SIMD3<Float> = .zero
   var birthTime: Float = 0
+  var color: SIMD3<Float> = .zero
 }
 
 let sparksLimit = 4000
 
-/// it has a limit of 1000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
+func randomFireworksColor() -> SIMD3<Float> {
+  let colorType = Float.random(in: 0...1)
+  let color: SIMD3<Float>
+
+  if colorType < 0.85 {
+    // Orange-yellow colors (85% chance)
+    color = SIMD3<Float>(
+      Float.random(in: 0.8...1.0),  // Red: high
+      Float.random(in: 0.4...0.7),  // Green: medium
+      Float.random(in: 0.0...0.3)  // Blue: low
+    )
+  } else if colorType < 0.92 {
+    // Blue accents (7% chance)
+    color = SIMD3<Float>(
+      Float.random(in: 0.0...0.3),  // Red: low
+      Float.random(in: 0.4...0.7),  // Green: medium
+      Float.random(in: 0.7...1.0)  // Blue: high
+    )
+  } else {
+    // Green accents (8% chance)
+    color = SIMD3<Float>(
+      Float.random(in: 0.0...0.3),  // Red: low
+      Float.random(in: 0.7...1.0),  // Green: high
+      Float.random(in: 0.2...0.5)  // Blue: low-medium
+    )
+  }
+
+  return color
+}
+
+/// it has a limit of 4000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
 private struct SparksCollection {
   var coll: [SparkLine] = []
   var cursorIdx: Int = 0
 
   mutating func add(_ from: SIMD3<Float>, _ to: SIMD3<Float>, time: Float) {
-    let l = SparkLine(from: from, to: to, birthTime: time)
+    // Create predominantly orange-yellow colors with occasional blue/green accents
+    let color = randomFireworksColor()
+    let l = SparkLine(from: from, to: to, birthTime: time, color: color)
     if coll.count < sparksLimit {
       coll.append(l)
     } else {
@@ -116,37 +151,40 @@ class DragSparksRenderer: CustomRenderer {
     for i in 0..<linesManager.coll.count {
       let line = linesManager.getLineAt(i)
       // Generate a random color for each line
-      let color = SIMD3<Float>(
-        Float.random(in: 0.0...1.0),
-        Float.random(in: 0.0...1.0),
-        Float.random(in: 0.0...1.0)
-      )
 
       let direction = line.to - line.from
 
       let spark1 = SparkVertex(
         position: line.from,
-        color: color,
+        color: line.color,
         direction: direction,
-        seed: Float(-width)
+        brushWidth: Float(-width),
+        brushValue: 0,
+        birthTime: line.birthTime
       )
       let spark2 = SparkVertex(
         position: line.from,
-        color: color,
+        color: line.color,
         direction: direction,
-        seed: Float(width)
+        brushWidth: Float(width),
+        brushValue: 0,
+        birthTime: line.birthTime
       )
       let spark3 = SparkVertex(
         position: line.to,
-        color: color,
+        color: line.color,
         direction: direction,
-        seed: Float(-width)
+        brushWidth: Float(-width),
+        brushValue: 1,
+        birthTime: line.birthTime
       )
       let spark4 = SparkVertex(
         position: line.to,
-        color: color,
+        color: line.color,
         direction: direction,
-        seed: Float(width)
+        brushWidth: Float(width),
+        brushValue: 1,
+        birthTime: line.birthTime
       )
 
       // 2 triangles per line
@@ -209,11 +247,26 @@ class DragSparksRenderer: CustomRenderer {
     offset += MemoryLayout<SIMD3<Float>>.stride
     idx += 1
 
-    // seed
+    // brush width
     mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float
     mtlVertexDescriptor.attributes[idx].offset = offset
     mtlVertexDescriptor.attributes[idx].bufferIndex = 0
     offset += MemoryLayout<Float>.stride
+    idx += 1
+
+    // brush value
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
+    offset += MemoryLayout<Float>.stride
+    idx += 1
+
+    // birth time
+    mtlVertexDescriptor.attributes[idx].format = MTLVertexFormat.float
+    mtlVertexDescriptor.attributes[idx].offset = offset
+    mtlVertexDescriptor.attributes[idx].bufferIndex = 0
+    offset += MemoryLayout<Float>.stride
+    idx += 1
 
     mtlVertexDescriptor.layouts[0].stride = MemoryLayout<SparkVertex>.stride
     mtlVertexDescriptor.layouts[0].stepRate = 1
@@ -238,6 +291,13 @@ class DragSparksRenderer: CustomRenderer {
 
     pipelineDescriptor.label = "DragSparksRenderPipeline"
     pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
+    pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+    pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+    pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+    pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+    pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+    pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+    pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }
@@ -355,8 +415,8 @@ class DragSparksRenderer: CustomRenderer {
 
         // Add 10 lines for each active event
         for _ in 0..<10 {
-          let offset = randomPosition(x: 0.1, y: 0.1, z: 0.1)
-          let nextPosition = position + offset
+          let offset = randomSpherePosition(radius: 0.1)
+          let nextPosition = position + offset * Float.random(in: 1.0...1.2)
           // print("  chilarity: \(event.chirality!), position: \(position)")
           linesManager.add(position, nextPosition, time: getTimeSinceStart())
         }
