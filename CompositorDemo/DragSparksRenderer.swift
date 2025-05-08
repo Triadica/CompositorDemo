@@ -39,28 +39,28 @@ private struct SparkLine {
   var color: SIMD3<Float> = .zero
 }
 
-let sparksLimit = 8000
+let sparksLimit = 12000
 
 func randomFireworksColor() -> SIMD3<Float> {
   let colorType = Float.random(in: 0...1)
   let color: SIMD3<Float>
 
-  if colorType < 0.85 {
+  if colorType < 0.90 {
     // Orange-yellow colors (85% chance)
     color = SIMD3<Float>(
       Float.random(in: 0.8...1.0),  // Red: high
       Float.random(in: 0.4...0.7),  // Green: medium
       Float.random(in: 0.0...0.3)  // Blue: low
     )
-  } else if colorType < 0.92 {
-    // purple accents (7% chance)
+  } else if colorType < 0.96 {
+    // purple accents (6% chance)
     color = SIMD3<Float>(
-      Float.random(in: 0.5...0.8),  // Red: medium-high
+      Float.random(in: 0.7...1.0),  // Red: high
       Float.random(in: 0.0...0.3),  // Green: low
-      Float.random(in: 0.5...1.0)  // Blue: medium-high
+      Float.random(in: 0.3...0.6)  // Blue: medium-low
     )
   } else {
-    // Red accents (8% chance)
+    // Red accents (4% chance)
     color = SIMD3<Float>(
       Float.random(in: 0.8...1.0),  // Red: high
       Float.random(in: 0.0...0.3),  // Green: low
@@ -423,13 +423,30 @@ class DragSparksRenderer: CustomRenderer {
       case .active:
         let position = event.inputDevicePose!.pose3D.position.to_simd3
 
-        // Add 10 lines for each active event
+        // Add 40 lines for each active event
         for _ in 0..<40 {
+          let shifted = randomSpherePosition(radius: 0.001)
           let offset = randomSpherePosition(radius: 0.1)
-          let nextPosition = position + offset * randBaseFromTo(0.5, 2.0)
+          let startPosition = position + shifted
+          let nextPosition = startPosition + offset * randBaseFromTo(0.5, 2.0)
           // print("  chilarity: \(event.chirality!), position: \(position)")
-          linesManager.add(position, nextPosition, time: getTimeSinceStart())
+          linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
         }
+
+        let isMiror = Float.random(in: 0...1) > 0.9
+        if isMiror {
+          let groupShifted = randomSpherePosition(radius: 0.1) * Float.random(in: 0.3...0.8)
+          let startPosition = position + groupShifted
+          // Add 40 lines for each active event
+          for _ in 0..<20 {
+            let offset = randomSpherePosition(radius: 0.1)
+            let nextPosition = startPosition + offset * randBaseFromTo(0.5, 2.0) * 0.4
+            // print("  chilarity: \(event.chirality!), position: \(position)")
+            linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
+          }
+        }
+
+        break
       case .ended:
         break
       case .cancelled:
