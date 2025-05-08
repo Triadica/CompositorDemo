@@ -39,7 +39,7 @@ private struct SparkLine {
   var color: SIMD3<Float> = .zero
 }
 
-let sparksLimit = 12000
+let sparksLimit = 16000
 
 func randomFireworksColor() -> SIMD3<Float> {
   let colorType = Float.random(in: 0...1)
@@ -79,10 +79,21 @@ func randBaseFromTo(_ from: Float, _ to: Float) -> Float {
   return from + adjustedValue * range
 }
 
+func getTimeSinceStart() -> Float {
+  let time: UInt64 = DispatchTime.now().uptimeNanoseconds
+  let timeSinceStart = Float(time) / 1_000_000_000
+  return timeSinceStart
+}
 /// it has a limit of 4000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
 private struct SparksCollection {
   var coll: [SparkLine] = []
   var cursorIdx: Int = 0
+  let emptyLine = SparkLine(
+    from: SIMD3<Float>(0, 0, -1),
+    to: SIMD3<Float>(1, 0, -1),
+    birthTime: getTimeSinceStart(),
+    color: SIMD3<Float>(1, 0, 0)
+  )
 
   mutating func add(_ from: SIMD3<Float>, _ to: SIMD3<Float>, time: Float) {
     // Create predominantly orange-yellow colors with occasional blue/green accents
@@ -90,6 +101,7 @@ private struct SparksCollection {
     let l = SparkLine(from: from, to: to, birthTime: time, color: color)
     if coll.count < sparksLimit {
       coll.append(l)
+      cursorIdx += 1
     } else {
       coll[cursorIdx] = l
       cursorIdx += 1
@@ -104,7 +116,11 @@ private struct SparksCollection {
   }
 
   func getLineAt(_ idx: Int) -> SparkLine {
-    return coll[idx]
+    if idx < coll.count {
+      return coll[idx]
+    } else {
+      return emptyLine
+    }
   }
 
 }
@@ -120,7 +136,7 @@ class DragSparksRenderer: CustomRenderer {
   var indexBuffer: MTLBuffer!
 
   /// tracks buffer size, increased when points getting enormous, should be larger than 0
-  private var currentVertexBufferSize: Int = 6
+  private var currentVertexBufferSize: Int = sparksLimit * 6
 
   private var linesManager = SparksCollection()
 
@@ -145,72 +161,67 @@ class DragSparksRenderer: CustomRenderer {
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Sparks vertex buffer"
 
-    updateVertexBuffer()
-  }
-
-  private func updateVertexBuffer() {
     var polylineVertices: UnsafeMutablePointer<SparkVertex> {
       vertexBuffer.contents().assumingMemoryBound(to: SparkVertex.self)
     }
 
-    var pos = 0
-    let width: Float = 0.006
-
-    for i in 0..<linesManager.coll.count {
-      let line = linesManager.getLineAt(i)
-      // Generate a random color for each line
-
-      let direction = line.to - line.from
-
-      let spark1 = SparkVertex(
-        position: line.from,
-        color: line.color,
-        direction: direction,
-        brushWidth: Float(-width),
-        brushValue: 0,
-        birthTime: line.birthTime
-      )
-      let spark2 = SparkVertex(
-        position: line.from,
-        color: line.color,
-        direction: direction,
-        brushWidth: Float(width),
-        brushValue: 0,
-        birthTime: line.birthTime
-      )
-      let spark3 = SparkVertex(
-        position: line.to,
-        color: line.color,
-        direction: direction,
-        brushWidth: Float(-width),
-        brushValue: 1,
-        birthTime: line.birthTime
-      )
-      let spark4 = SparkVertex(
-        position: line.to,
-        color: line.color,
-        direction: direction,
-        brushWidth: Float(width),
-        brushValue: 1,
-        birthTime: line.birthTime
-      )
-
-      // 2 triangles per line
-      polylineVertices[pos] = spark1
-      pos += 1
-      polylineVertices[pos] = spark2
-      pos += 1
-      polylineVertices[pos] = spark3
-      pos += 1
-      polylineVertices[pos] = spark1
-      pos += 1
-      polylineVertices[pos] = spark3
-      pos += 1
-      polylineVertices[pos] = spark4
-      pos += 1
-
+    for i in 0..<sparksLimit {
+      self.writeInVertexBuffer(polylineVertices, i)
     }
 
+  }
+
+  private func writeInVertexBuffer(
+    _ polylineVertices: UnsafeMutablePointer<SparkVertex>,
+    _ i: Int,
+  ) {
+    var base = i * 6
+    let line = linesManager.getLineAt(i)
+    // Generate a random color for each line
+    let width: Float = 0.004
+
+    let direction = line.to - line.from
+
+    let spark1 = SparkVertex(
+      position: line.from,
+      color: line.color,
+      direction: direction,
+      brushWidth: Float(-width),
+      brushValue: 0,
+      birthTime: line.birthTime
+    )
+    let spark2 = SparkVertex(
+      position: line.from,
+      color: line.color,
+      direction: direction,
+      brushWidth: Float(width),
+      brushValue: 0,
+      birthTime: line.birthTime
+    )
+    let spark3 = SparkVertex(
+      position: line.to,
+      color: line.color,
+      direction: direction,
+      brushWidth: Float(-width),
+      brushValue: 1,
+      birthTime: line.birthTime
+    )
+    let spark4 = SparkVertex(
+      position: line.to,
+      color: line.color,
+      direction: direction,
+      brushWidth: Float(width),
+      brushValue: 1,
+      birthTime: line.birthTime
+    )
+
+    // 2 triangles per line
+    polylineVertices[base] = spark1
+    polylineVertices[base + 1] = spark2
+    polylineVertices[base + 2] = spark3
+    polylineVertices[base + 3] = spark1
+    polylineVertices[base + 4] = spark3
+    polylineVertices[base + 5] = spark4
   }
 
   private func createPolylinesIndexBuffer(device: MTLDevice, count: Int) {
@@ -321,8 +332,7 @@ class DragSparksRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    // createPolylinesVerticesBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
-    // createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
+    // no compute
   }
 
   private func createSparksComputeBuffer(device: MTLDevice) {
@@ -416,6 +426,10 @@ class DragSparksRenderer: CustomRenderer {
       return chirality1.hashValue <= chirality2.hashValue
     }
 
+    var polylineVertices: UnsafeMutablePointer<SparkVertex> {
+      vertexBuffer.contents().assumingMemoryBound(to: SparkVertex.self)
+    }
+
     // Handle spatial events here
     for event in sortedEvents {
       // let _chirality = event.chirality
@@ -425,24 +439,28 @@ class DragSparksRenderer: CustomRenderer {
 
         // Add 40 lines for each active event
         for _ in 0..<40 {
-          let shifted = randomSpherePosition(radius: 0.001)
+          let shifted = randomSpherePosition(radius: 0.002)
           let offset = randomSpherePosition(radius: 0.1)
           let startPosition = position + shifted
-          let nextPosition = startPosition + offset * randBaseFromTo(0.5, 2.0)
+          let nextPosition = startPosition + offset * randBaseFromTo(0.4, 1.6)
           // print("  chilarity: \(event.chirality!), position: \(position)")
+          let cursorIdx = linesManager.cursorIdx
           linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
+          self.writeInVertexBuffer(polylineVertices, cursorIdx)
         }
 
-        let isMiror = Float.random(in: 0...1) > 0.9
+        let isMiror = Float.random(in: 0...1) > 0.84
         if isMiror {
-          let groupShifted = randomSpherePosition(radius: 0.1) * Float.random(in: 0.3...0.8)
+          let groupShifted = randomSpherePosition(radius: 0.1) * Float.random(in: 0.4...1.2)
           let startPosition = position + groupShifted
           // Add 40 lines for each active event
           for _ in 0..<20 {
             let offset = randomSpherePosition(radius: 0.1)
             let nextPosition = startPosition + offset * randBaseFromTo(0.5, 2.0) * 0.4
             // print("  chilarity: \(event.chirality!), position: \(position)")
+            let cursorIdx = linesManager.cursorIdx
             linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
+            self.writeInVertexBuffer(polylineVertices, cursorIdx)
           }
         }
 
@@ -456,21 +474,5 @@ class DragSparksRenderer: CustomRenderer {
         break
       }
     }
-    let verticesCount = linesManager.estimateVerticesCount()
-    let vertexesLimit = sparksLimit * 6
-    if currentVertexBufferSize < vertexesLimit {
-      if verticesCount + 200 > currentVertexBufferSize {
-        while verticesCount + 200 >= currentVertexBufferSize {
-          currentVertexBufferSize = currentVertexBufferSize * 2
-        }
-        if currentVertexBufferSize > vertexesLimit {
-          currentVertexBufferSize = vertexesLimit
-        }
-        self.createPolylinesVerticesBuffer(
-          device: vertexBuffer.device, count: currentVertexBufferSize)
-        self.createPolylinesIndexBuffer(device: vertexBuffer.device, count: currentVertexBufferSize)
-      }
-    }
-    updateVertexBuffer()
   }
 }
