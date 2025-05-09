@@ -39,7 +39,7 @@ private struct SparkLine {
   var color: SIMD3<Float> = .zero
 }
 
-let sparksLimit = 16000
+let sparksLimit = 24000
 
 func randomFireworksColor() -> SIMD3<Float> {
   let colorType = Float.random(in: 0...1)
@@ -87,7 +87,7 @@ func getTimeSinceStart() -> Float {
 /// it has a limit of 4000 lines, if succeeds, it will overwrite from start, tracked with cursorIdx
 private struct SparksCollection {
   var coll: [SparkLine] = []
-  var cursorIdx: Int = 0
+  private var cursorIdx: Int = 0
   let emptyLine = SparkLine(
     from: SIMD3<Float>(0, 0, -1),
     to: SIMD3<Float>(1, 0, -1),
@@ -95,12 +95,24 @@ private struct SparksCollection {
     color: SIMD3<Float>(1, 0, 0)
   )
 
+  func nextIdx() -> Int {
+    if cursorIdx >= sparksLimit {
+      return 0
+    } else {
+      return cursorIdx
+    }
+  }
+
   mutating func add(_ from: SIMD3<Float>, _ to: SIMD3<Float>, time: Float) {
     // Create predominantly orange-yellow colors with occasional blue/green accents
     let color = randomFireworksColor()
     let l = SparkLine(from: from, to: to, birthTime: time, color: color)
     if coll.count < sparksLimit {
       coll.append(l)
+      cursorIdx += 1
+    } else if cursorIdx == sparksLimit {
+      cursorIdx = 0
+      coll[cursorIdx] = l
       cursorIdx += 1
     } else {
       coll[cursorIdx] = l
@@ -121,6 +133,11 @@ private struct SparksCollection {
     } else {
       return emptyLine
     }
+  }
+
+  mutating func reset() {
+    coll.removeAll()
+    cursorIdx = 0
   }
 
 }
@@ -332,7 +349,15 @@ class DragSparksRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
-    // no compute
+    linesManager.reset()
+
+    var polylineVertices: UnsafeMutablePointer<SparkVertex> {
+      vertexBuffer.contents().assumingMemoryBound(to: SparkVertex.self)
+    }
+
+    for i in 0..<sparksLimit {
+      self.writeInVertexBuffer(polylineVertices, i)
+    }
   }
 
   private func createSparksComputeBuffer(device: MTLDevice) {
@@ -444,7 +469,7 @@ class DragSparksRenderer: CustomRenderer {
           let startPosition = position + shifted
           let nextPosition = startPosition + offset * randBaseFromTo(0.4, 1.6)
           // print("  chilarity: \(event.chirality!), position: \(position)")
-          let cursorIdx = linesManager.cursorIdx
+          let cursorIdx = linesManager.nextIdx()
           linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
           self.writeInVertexBuffer(polylineVertices, cursorIdx)
         }
@@ -458,7 +483,7 @@ class DragSparksRenderer: CustomRenderer {
             let offset = randomSpherePosition(radius: 0.1)
             let nextPosition = startPosition + offset * randBaseFromTo(0.5, 2.0) * 0.4
             // print("  chilarity: \(event.chirality!), position: \(position)")
-            let cursorIdx = linesManager.cursorIdx
+            let cursorIdx = linesManager.nextIdx()
             linesManager.add(startPosition, nextPosition, time: getTimeSinceStart())
             self.writeInVertexBuffer(polylineVertices, cursorIdx)
           }
