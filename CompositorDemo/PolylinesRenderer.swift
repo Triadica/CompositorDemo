@@ -232,7 +232,7 @@ class PolylinesRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = PolylinesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }

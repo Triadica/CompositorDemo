@@ -9,6 +9,7 @@ Swift/ObjC source.
 #ifndef ShaderTypes_h
 #define ShaderTypes_h
 
+#include <simd/vector_types.h>
 #ifdef __METAL_VERSION__
 #define NS_ENUM(_type, _name)                                                  \
   enum _name : _type _name;                                                    \
@@ -69,5 +70,20 @@ typedef struct {
   simd_float3 direction;
   int seed;
 } PolylineVertex;
+
+typedef struct {
+  simd_float3 position;
+  int lineNumber;
+  int groupNumber;
+  int cellSide;
+} AttractorCellVertex;
+
+typedef struct {
+  simd_float3 position;
+  simd_float3 color;
+  int seed;
+  float height;
+  simd_float2 uv;
+} BlockVertex;
 
 #endif /* ShaderTypes_h */

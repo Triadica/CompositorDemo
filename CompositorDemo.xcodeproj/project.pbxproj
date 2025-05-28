@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A13D89F2DC9395000EEA863 /* DragSparksRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */; };
+		9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */; };
+		9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6A2DB5025D00160CF9 /* Gesture.swift */; };
+		9A228C6D2DB56C6200160CF9 /* BlocksRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6C2DB56C5400160CF9 /* BlocksRenderer.swift */; };
+		9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */; };
 		9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A45F3A92D889E1B0042486A /* LampsRenderer.swift */; };
 		9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3762D91D35A0021FFCE /* LampsShaders.metal */; };
 		9A92D3852D994EB00021FFCE /* PolylinesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */; };
@@ -16,6 +21,10 @@
 		9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */; };
 		9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */; };
 		9A92D3922D9FFD710021FFCE /* JsonGenShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */; };
+		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
+		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
+		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
+		9AF975B52DBEA5BC00B78645 /* ImagesShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B42DBEA5B800B78645 /* ImagesShader.metal */; };
 		D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274292BC7318900E194CF /* InteractionApp.swift */; };
 		D112742E2BC7318900E194CF /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742D2BC7318900E194CF /* AppModel.swift */; };
 		D11274302BC7318900E194CF /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D112742F2BC7318900E194CF /* Renderer.swift */; };
@@ -30,6 +39,11 @@
 		0BE4D83FD393EC90F51070F3 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		33D190EEBFF9B25310AB436E /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		3E2802D1CC6386AC2E5A3992 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragSparksRenderer.swift; sourceTree = "<group>"; };
+		9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = DragSparksShader.metal; sourceTree = "<group>"; };
+		9A228C6A2DB5025D00160CF9 /* Gesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gesture.swift; sourceTree = "<group>"; };
+		9A228C6C2DB56C5400160CF9 /* BlocksRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksRenderer.swift; sourceTree = "<group>"; };
+		9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BlocksShader.metal; sourceTree = "<group>"; };
 		9A45F3A92D889E1B0042486A /* LampsRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LampsRenderer.swift; sourceTree = "<group>"; };
 		9A92D3762D91D35A0021FFCE /* LampsShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LampsShaders.metal; sourceTree = "<group>"; };
 		9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylinesRenderer.swift; sourceTree = "<group>"; };
@@ -40,6 +54,10 @@
 		9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtendingLine.swift; sourceTree = "<group>"; };
 		9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JsonGenRenderer.swift; sourceTree = "<group>"; };
 		9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = JsonGenShader.metal; sourceTree = "<group>"; };
+		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
+		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
+		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
+		9AF975B42DBEA5B800B78645 /* ImagesShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ImagesShader.metal; sourceTree = "<group>"; };
 		D11274222BC7318900E194CF /* CompositorDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CompositorDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D11274292BC7318900E194CF /* InteractionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionApp.swift; sourceTree = "<group>"; };
 		D112742D2BC7318900E194CF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -104,27 +122,36 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
-				9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */,
-				9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */,
-				9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */,
-				9A92D38B2D9FBAEC0021FFCE /* TrianglesShader.metal */,
-				9A92D3892D9FBADA0021FFCE /* TrianglesRenderer.swift */,
-				9A92D3862D994EBB0021FFCE /* PolylinesShader.metal */,
-				9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */,
-				9A92D3882D99A3E10021FFCE /* PathProperties.h */,
-				9A92D3762D91D35A0021FFCE /* LampsShaders.metal */,
-				D112743F2BC734AD00E194CF /* Bridging-Header.h */,
+				9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */,
+				9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */,
+				9AF975B42DBEA5B800B78645 /* ImagesShader.metal */,
+				9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */,
+				9A228C6E2DB56C6700160CF9 /* BlocksShader.metal */,
+				9A228C6C2DB56C5400160CF9 /* BlocksRenderer.swift */,
 				D112742D2BC7318900E194CF /* AppModel.swift */,
+				D11274372BC7318A00E194CF /* Assets.xcassets */,
+				9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */,
+				9AEFD39C2DAC396400C96226 /* AttractorShader.metal */,
+				D112743F2BC734AD00E194CF /* Bridging-Header.h */,
+				9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */,
+				9A228C6A2DB5025D00160CF9 /* Gesture.swift */,
+				D11274392BC7318A00E194CF /* Info.plist */,
 				D11274292BC7318900E194CF /* InteractionApp.swift */,
 				D11274402BC734AD00E194CF /* InteractionScene.swift */,
 				D11274412BC734AD00E194CF /* InteractionView.swift */,
-				D112742F2BC7318900E194CF /* Renderer.swift */,
+				9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */,
+				9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */,
 				9A45F3A92D889E1B0042486A /* LampsRenderer.swift */,
-				D11274442BC734AD00E194CF /* Uniforms.swift */,
-				D11274332BC7318900E194CF /* ShaderTypes.h */,
-				D11274372BC7318A00E194CF /* Assets.xcassets */,
-				D11274392BC7318A00E194CF /* Info.plist */,
+				9A92D3762D91D35A0021FFCE /* LampsShaders.metal */,
+				9A92D3882D99A3E10021FFCE /* PathProperties.h */,
+				9A92D3842D994EB00021FFCE /* PolylinesRenderer.swift */,
+				9A92D3862D994EBB0021FFCE /* PolylinesShader.metal */,
 				D11274342BC7318900E194CF /* Preview Content */,
+				D112742F2BC7318900E194CF /* Renderer.swift */,
+				D11274332BC7318900E194CF /* ShaderTypes.h */,
+				9A92D3892D9FBADA0021FFCE /* TrianglesRenderer.swift */,
+				9A92D38B2D9FBAEC0021FFCE /* TrianglesShader.metal */,
+				D11274442BC734AD00E194CF /* Uniforms.swift */,
 			);
 			path = CompositorDemo;
 			sourceTree = "<group>";
@@ -210,17 +237,26 @@
 			files = (
 				9A92D3872D994ECB0021FFCE /* PolylinesShader.metal in Sources */,
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
+				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
+				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
+				9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */,
+				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
+				9A13D89F2DC9395000EEA863 /* DragSparksRenderer.swift in Sources */,
 				9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */,
+				9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */,
 				D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */,
 				9A92D3852D994EB00021FFCE /* PolylinesRenderer.swift in Sources */,
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
 				9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				9A92D38A2D9FBAE50021FFCE /* TrianglesRenderer.swift in Sources */,
+				9AF975B52DBEA5BC00B78645 /* ImagesShader.metal in Sources */,
+				9A228C6D2DB56C6200160CF9 /* BlocksRenderer.swift in Sources */,
 				9A92D38C2D9FBAF20021FFCE /* TrianglesShader.metal in Sources */,
+				9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */,
 				9A92D3922D9FFD710021FFCE /* JsonGenShader.metal in Sources */,
 				D11274472BC734AD00E194CF /* Uniforms.swift in Sources */,
 			);

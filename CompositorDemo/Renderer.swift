@@ -66,7 +66,7 @@ class PingPongBuffer {
         nextBuffer.label = label
     }
 
-    func copy_to_next() {
+    func copyToNext() {
         nextBuffer.contents().copyMemory(
             from: currentBuffer.contents(), byteCount: currentBuffer.length)
     }

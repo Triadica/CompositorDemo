@@ -249,7 +249,7 @@ class JsonGenRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "JsonGenRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = JsonGenRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }

@@ -218,7 +218,7 @@ class TrianglesRenderer: CustomRenderer {
     pipelineDescriptor.vertexFunction = vertexFunction
 
     pipelineDescriptor.label = "TriangleRenderPipeline"
-    pipelineDescriptor.vertexDescriptor = TrianglesRenderer.buildMetalVertexDescriptor()
+    pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
   }

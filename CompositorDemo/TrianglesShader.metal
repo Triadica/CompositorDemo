@@ -22,7 +22,7 @@ typedef struct {
   float3 position [[attribute(PolylineVertexAttributePosition)]];
   float3 color [[attribute(PolylineVertexAttributeColor)]];
   float3 direction [[attribute(PolylineVertexAttributeDirection)]];
-  int seed [[attribute(PolylineVertexAttributeSeed)]];
+  int brushWidth [[attribute(PolylineVertexAttributeSeed)]];
 } PolylineVertexIn;
 
 typedef struct {
