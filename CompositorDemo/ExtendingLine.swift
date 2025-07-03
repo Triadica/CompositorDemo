@@ -134,3 +134,15 @@ func randomSpherePosition(radius: Float) -> SIMD3<Float> {
   let z = radius * cos(phi)
   return SIMD3<Float>(x, y, z)
 }
+
+
+
+/// `y` is the height, `x` and `z` are the horizontal plane
+func fibonacciGrid(n: Float, total: Float) -> SIMD3<Float> {
+  let z = (2.0 * n - 1.0) / total - 1.0
+  let t = sqrt(1.0 - z * z)
+  let t2 = 2.0 * .pi * 1.61803398875 * n
+  let x = t * cos(t2)
+  let y = t * sin(t2)
+  return SIMD3(x, z, y)
+}

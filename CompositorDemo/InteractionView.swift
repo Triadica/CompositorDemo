@@ -49,7 +49,7 @@ struct InteractionView: View {
 
     @EnvironmentObject var computeStateNotify: ResetComputeState
 
-    @State private var selectedDemo: DemoTab = .dragSparks
+    @State private var selectedDemo: DemoTab = .bounceInBall
 
     var body: some View {
         HStack {

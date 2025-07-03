@@ -40,6 +40,7 @@ typedef struct {
 struct BounceInBallBase {
   float3 position;
   float3 color;
+  float3 velocity;
 };
 
 // static float random1D(float seed) { return fract(sin(seed) * 43758.5453123);
@@ -54,7 +55,7 @@ static float4 applyGestureViewer(
 
   float4 position = p0;
 
-  // position -= cameraAt4;
+  // position -= cameraAt;
 
   // rotate xz by viewerRotation
   float cosTheta = cos(viewerRotation);
@@ -70,24 +71,9 @@ static float4 applyGestureViewer(
   // translate
   position = position - float4(viewerPosition, 0.0);
 
-  // position += cameraAt4;
+  // position += cameraAt;
 
   return position;
-}
-
-// a Metal function of fourwing
-static float3 fourwingLineIteration(float3 p, float dt) {
-  float a = 0.2;
-  float b = 0.01;
-  float c = -0.4;
-  float x = p.x;
-  float y = p.y;
-  float z = p.z;
-  float dx = a * x + y * z;
-  float dy = b * x + c * y - x * z;
-  float dz = -z - x * y;
-  float3 d = float3(dx, dy, dz) * dt;
-  return p + d;
 }
 
 kernel void bounceInBallComputeShader(
@@ -95,19 +81,51 @@ kernel void bounceInBallComputeShader(
     device BounceInBallBase *outputAttractor [[buffer(1)]],
     constant BounceInBallParams &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  BounceInBallBase lamp = attractor[id];
+  BounceInBallBase cell = attractor[id];
   device BounceInBallBase &outputCell = outputAttractor[id];
 
   bool leading = (id % (params.groupSize + 1) == 0);
+  float3 center = float3(0.0, 0.0, -1.0);
+  float r = 1.0;
+  float dt = params.time * 8;
+  float decay = 0.94;
 
   if (leading) {
-    float dt = params.time * 2;
-    outputCell.position = fourwingLineIteration(lamp.position, dt);
-    outputCell.color = lamp.color;
+    if (distance(cell.position, center) > r) {
+      float3 directionToCenter = normalize(center - cell.position);
+      outputCell.position = cell.position + directionToCenter * r;
+      outputCell.color = cell.color;
+      outputCell.velocity = cell.velocity;
+    } else {
+      float3 newPosition = cell.position + cell.velocity * dt;
+
+      // Check if new position is outside the sphere
+      if (distance(newPosition, center) > r) {
+        // Calculate intersection point with sphere
+        float3 toCenter = normalize(center - cell.position);
+        float3 normal = normalize(newPosition - center);
+
+        // Reflect velocity off the sphere surface
+        float3 parallelVelocity =
+            cell.velocity - dot(cell.velocity, normal) * normal;
+        float3 perpVelocity = dot(cell.velocity, normal) * normal;
+        outputCell.velocity = parallelVelocity - perpVelocity * decay;
+
+        // just stay on the sphere surface
+        outputCell.position = cell.position;
+      } else {
+        float3 acc = float3(0.0, -0.002, 0.0);
+        outputCell.position = newPosition;
+        outputCell.velocity = cell.velocity + acc * dt;
+      }
+
+      outputCell.color = cell.color;
+    }
   } else {
     // copy previous
     outputCell.position = outputAttractor[id - 1].position;
     outputCell.color = outputAttractor[id - 1].color;
+    outputCell.velocity = outputAttractor[id - 1].velocity;
   }
 }
 
@@ -134,7 +152,7 @@ vertex BounceInBallInOut bounceInBallVertexShader(
       linesData[lineNumber * (params.groupSize + 1) + groupNumber];
 
   float3 direction = cell.position - prevCell.position;
-  float3 brush = normalize(cross(direction, cameraDirection)) * 0.002;
+  float3 brush = normalize(cross(direction, cameraDirection)) * 0.001;
 
   float4 position = float4(0., 0., 0., 1.0);
   if (cellSide == 0) {

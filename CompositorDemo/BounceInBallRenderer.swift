@@ -15,9 +15,9 @@ import simd
 private let maxFramesInFlight = 3
 
   /// how many lines for this attractor
-private let linesCount: Int = 2000
+private let linesCount: Int = 40000
   /// how many rectangles in a line
-private let lineGroupSize: Int = 2
+private let lineGroupSize: Int = 4
   /// 1 for leading point, others are following points
 private var controlCountPerLine: Int {
   lineGroupSize + 1
@@ -32,9 +32,10 @@ private let verticesCount = controlCount * 6
   /// rectangle indexes per rectangle
 private let indexesCount: Int = controlCount * 6
 
-private struct AttractorBase {
+private struct BounceBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
+  var velocity: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
 }
 
 private struct Params {
@@ -156,7 +157,7 @@ class BounceInBallRenderer: CustomRenderer {
   }
 
   private func createAttractorComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<AttractorBase>.stride * controlCount
+    let bufferLength = MemoryLayout<BounceBase>.stride * controlCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -167,25 +168,17 @@ class BounceInBallRenderer: CustomRenderer {
     computeBuffer.addLabel("Attractor compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let attractorBase = contents.bindMemory(to: AttractorBase.self, capacity: controlCount)
+    let attractorBase = contents.bindMemory(to: BounceBase.self, capacity: controlCount)
 
     for i in 0..<linesCount {
-        // Random position offsets for each lamp
-      let xOffset = Float.random(in: -2...2)
-      let zOffset = Float.random(in: -2...2)
-      let yOffset = Float.random(in: -2...2)
+      let p = fibonacciGrid(n: Float(i), total: Float(linesCount))
 
-      let attractorPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
-        // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
+      let color = p * 0.5 + SIMD3<Float>(0.5, 0.5, 0.5)
 
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
-        attractorBase[index] = AttractorBase(
-          position: attractorPosition, color: color)
+        attractorBase[index] = BounceBase(
+          position: (p + SIMD3<Float>(0, 0, -1)) * 0.6, color: color, velocity: SIMD3<Float>(0.06, 0, 0) + p * 0.01)
       }
     }
 
