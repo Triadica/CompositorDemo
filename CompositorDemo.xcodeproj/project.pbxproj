@@ -21,6 +21,8 @@
 		9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */; };
 		9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */; };
 		9A92D3922D9FFD710021FFCE /* JsonGenShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */; };
+		9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */; };
+		9A9A3E0F2E16EDE800330D1B /* BounceInBallShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */; };
 		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
 		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
 		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
@@ -54,6 +56,8 @@
 		9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtendingLine.swift; sourceTree = "<group>"; };
 		9A92D38F2D9FFD5E0021FFCE /* JsonGenRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JsonGenRenderer.swift; sourceTree = "<group>"; };
 		9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = JsonGenShader.metal; sourceTree = "<group>"; };
+		9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceInBallRenderer.swift; sourceTree = "<group>"; };
+		9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceInBallShader.metal; sourceTree = "<group>"; };
 		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
 		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
 		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
@@ -122,6 +126,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */,
+				9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */,
 				9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */,
 				9A13D89E2DC9394800EEA863 /* DragSparksRenderer.swift */,
 				9AF975B42DBEA5B800B78645 /* ImagesShader.metal */,
@@ -237,6 +243,7 @@
 			files = (
 				9A92D3872D994ECB0021FFCE /* PolylinesShader.metal in Sources */,
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
+				9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */,
 				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
 				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
@@ -244,6 +251,7 @@
 				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
 				9A13D89F2DC9395000EEA863 /* DragSparksRenderer.swift in Sources */,
 				9A92D3902D9FFD670021FFCE /* JsonGenRenderer.swift in Sources */,
+				9A9A3E0F2E16EDE800330D1B /* BounceInBallShader.metal in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */,
 				9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */,

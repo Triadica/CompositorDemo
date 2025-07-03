@@ -62,6 +62,7 @@ struct InteractionView: View {
                 Text("Blocks").tag(DemoTab.blocks)
                 Text("Images").tag(DemoTab.images)
                 Text("Drag Sparks").tag(DemoTab.dragSparks)
+                Text("Bounce In Ball").tag(DemoTab.bounceInBall)
             }.pickerStyle(.wheel).padding(.bottom, 32).frame(
                 width: 300,
                 height: 400,

@@ -90,20 +90,7 @@ static float3 fourwingLineIteration(float3 p, float dt) {
   return p + d;
 }
 
-// a Metal function of lorenz
-float3 lorenzLineIteration(float3 p, float dt) {
-  float tau = 10.0;
-  float rou = 28.0;
-  float beta = 8.0 / 3.0;
-
-  float dx = tau * (p.y - p.x);
-  float dy = p.x * (rou - p.z) - p.y;
-  float dz = p.x * p.y - beta * p.z;
-  float3 d = float3(dx, dy, dz) * dt;
-  return p + d;
-}
-
-kernel void attractorComputeShader(
+kernel void bounceInBallComputeShader(
     device BounceInBallBase *attractor [[buffer(0)]],
     device BounceInBallBase *outputAttractor [[buffer(1)]],
     constant BounceInBallParams &params [[buffer(2)]],
@@ -116,7 +103,6 @@ kernel void attractorComputeShader(
   if (leading) {
     float dt = params.time * 2;
     outputCell.position = fourwingLineIteration(lamp.position, dt);
-    // outputCell.position = lorenzLineIteration(outputCell.position, dt);
     outputCell.color = lamp.color;
   } else {
     // copy previous
@@ -125,7 +111,7 @@ kernel void attractorComputeShader(
   }
 }
 
-vertex BounceInBallInOut attractorVertexShader(
+vertex BounceInBallInOut bounceInBallVertexShader(
     BounceInBallVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
@@ -176,7 +162,7 @@ vertex BounceInBallInOut attractorVertexShader(
   return out;
 }
 
-fragment float4 attractorFragmentShader(BounceInBallInOut in [[stage_in]]) {
+fragment float4 bounceInBallFragmentShader(BounceInBallInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
