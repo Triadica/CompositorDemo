@@ -43,8 +43,60 @@ struct BounceInBallBase {
   float3 velocity;
 };
 
-// static float random1D(float seed) { return fract(sin(seed) * 43758.5453123);
-// }
+struct IntersectionInfo {
+  bool intersected;
+  float3 intersectionPoint;
+  float3 normal;
+  float moveDistance;
+};
+
+/// find out the point a ray intersects with a sphere
+static IntersectionInfo
+    calculateSphereIntersection(float3 center, float r, float3 p0, float3 v0) {
+  IntersectionInfo info;
+  info.intersected = false;
+
+  // Normalize the direction vector
+  float3 rayDir = normalize(v0);
+
+  // Vector from ray start to sphere center
+  float3 startToCenter = center - p0;
+
+  // Project startToCenter onto ray direction to find closest approach
+  float projectionLength = dot(startToCenter, rayDir);
+
+  // Find closest point on ray to sphere center
+  float3 closestPoint = p0 + projectionLength * rayDir;
+
+  // Distance from sphere center to closest point on ray
+  float centerToRayDistance = length(center - closestPoint);
+
+  if (centerToRayDistance > r) {
+    // Ray misses sphere
+    return info;
+  }
+
+  // Half-length of intersection chord
+  float halfChord = sqrt(r * r - centerToRayDistance * centerToRayDistance);
+
+  // Distance to first intersection point
+  float t = projectionLength - halfChord;
+
+  if (t < 0) {
+    // Check second intersection point
+    t = projectionLength + halfChord;
+    if (t < 0) {
+      // Both intersections behind ray start
+      return info;
+    }
+  }
+
+  info.intersected = true;
+  info.moveDistance = t;
+  info.intersectionPoint = p0 + rayDir * t;
+  info.normal = normalize(info.intersectionPoint - center);
+  return info;
+}
 
 static float4 applyGestureViewer(
     float4 p0,
@@ -92,34 +144,51 @@ kernel void bounceInBallComputeShader(
 
   if (leading) {
     if (distance(cell.position, center) > r) {
-      float3 directionToCenter = normalize(center - cell.position);
-      outputCell.position = cell.position + directionToCenter * r;
+      // If the leading point is outside the sphere, just throw it away
+      outputCell.position = cell.position + cell.velocity * dt;
       outputCell.color = cell.color;
       outputCell.velocity = cell.velocity;
     } else {
       float3 newPosition = cell.position + cell.velocity * dt;
 
-      // Check if new position is outside the sphere
-      if (distance(newPosition, center) > r) {
-        // Calculate intersection point with sphere
-        float3 toCenter = normalize(center - cell.position);
-        float3 normal = normalize(newPosition - center);
+      // Check if new position is moving outside the sphere
+      if (distance(newPosition, center) >= r) {
+        // Check if new position is moving outside the sphere
+        IntersectionInfo info = calculateSphereIntersection(
+            center, r, cell.position, cell.velocity);
 
-        // Reflect velocity off the sphere surface
-        float3 parallelVelocity =
-            cell.velocity - dot(cell.velocity, normal) * normal;
-        float3 perpVelocity = dot(cell.velocity, normal) * normal;
-        outputCell.velocity = parallelVelocity - perpVelocity * decay;
+        if (info.intersected &&
+            info.moveDistance <= length(cell.velocity * dt)) {
+          // Time to collision
+          float timeToCollision = info.moveDistance / length(cell.velocity);
 
-        // just stay on the sphere surface
-        outputCell.position = cell.position;
+          // Reflect velocity
+          float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
+          float3 parallelVelocity = cell.velocity - perpVelocity;
+          float3 newVelocity = parallelVelocity - perpVelocity * decay;
+
+          // Remaining time after collision
+          float remainingTime = dt - timeToCollision;
+
+          // New position after bounce for the remaining time
+          outputCell.position =
+              info.intersectionPoint + newVelocity * remainingTime;
+          outputCell.velocity = newVelocity;
+          outputCell.color = cell.color;
+        } else {
+          // invalid intersection, mark as red
+          outputCell.position = newPosition;
+          outputCell.velocity = cell.velocity;
+          outputCell.color = float3(1.0, 0.0, 0.0);
+        }
       } else {
+
+        // Apply gravity to the new velocity for the remaining time
         float3 acc = float3(0.0, -0.002, 0.0);
         outputCell.position = newPosition;
         outputCell.velocity = cell.velocity + acc * dt;
+        outputCell.color = cell.color;
       }
-
-      outputCell.color = cell.color;
     }
   } else {
     // copy previous
