@@ -140,7 +140,7 @@ kernel void bounceInBallComputeShader(
   float3 center = float3(0.0, 0.0, -1.0);
   float r = 1.0;
   float dt = params.time * 8;
-  float decay = 0.94;
+  float decay = 0.96;
 
   if (leading) {
     if (distance(cell.position, center) > r) {
@@ -162,7 +162,7 @@ kernel void bounceInBallComputeShader(
           // Time to collision
           float timeToCollision = info.moveDistance / length(cell.velocity);
 
-          // Reflect velocity
+          // Reflect velocity(angle changes, could ESCAPE sphere)
           float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
           float3 parallelVelocity = cell.velocity - perpVelocity;
           float3 newVelocity = parallelVelocity - perpVelocity * decay;
@@ -179,7 +179,7 @@ kernel void bounceInBallComputeShader(
           // invalid intersection, mark as red
           outputCell.position = newPosition;
           outputCell.velocity = cell.velocity;
-          outputCell.color = float3(1.0, 0.0, 0.0);
+          outputCell.color = cell.color;
         }
       } else {
 
