@@ -17,6 +17,7 @@ enum DemoTab: String, CaseIterable, Identifiable {
     case images
     case dragSparks
     case bounceInBall
+    case bounceInCube
 
     var id: Self { self }
 }
@@ -36,6 +37,6 @@ public class AppModel {
     // Content rendering
     public var opacity: Float = 1.0
 
-    var selectedTab: DemoTab = .bounceInBall
+    var selectedTab: DemoTab = .bounceInCube
     var lampsRenderer: CustomRenderer?
 }

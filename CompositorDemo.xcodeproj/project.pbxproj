@@ -23,6 +23,8 @@
 		9A92D3922D9FFD710021FFCE /* JsonGenShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */; };
 		9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */; };
 		9A9A3E0F2E16EDE800330D1B /* BounceInBallShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */; };
+		9A9A3E112E19996300330D1B /* BounceInCubeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E102E19995E00330D1B /* BounceInCubeRenderer.swift */; };
+		9A9A3E132E19998200330D1B /* BounceInCubeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */; };
 		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
 		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
 		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
@@ -58,6 +60,8 @@
 		9A92D3912D9FFD6B0021FFCE /* JsonGenShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = JsonGenShader.metal; sourceTree = "<group>"; };
 		9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceInBallRenderer.swift; sourceTree = "<group>"; };
 		9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceInBallShader.metal; sourceTree = "<group>"; };
+		9A9A3E102E19995E00330D1B /* BounceInCubeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceInCubeRenderer.swift; sourceTree = "<group>"; };
+		9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceInCubeShader.metal; sourceTree = "<group>"; };
 		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
 		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
 		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
@@ -126,6 +130,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */,
+				9A9A3E102E19995E00330D1B /* BounceInCubeRenderer.swift */,
 				9A9A3E0E2E16EDDF00330D1B /* BounceInBallShader.metal */,
 				9A9A3E0C2E16EDD200330D1B /* BounceInBallRenderer.swift */,
 				9A13D8A02DC9395300EEA863 /* DragSparksShader.metal */,
@@ -198,7 +204,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2600;
 				ORGANIZATIONNAME = Apple;
 				TargetAttributes = {
 					D11274212BC7318900E194CF = {
@@ -246,6 +252,7 @@
 				9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */,
 				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
+				9A9A3E132E19998200330D1B /* BounceInCubeShader.metal in Sources */,
 				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
 				9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */,
 				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
@@ -258,6 +265,7 @@
 				D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */,
 				9A92D3852D994EB00021FFCE /* PolylinesRenderer.swift in Sources */,
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
+				9A9A3E112E19996300330D1B /* BounceInCubeRenderer.swift in Sources */,
 				9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				9A92D38A2D9FBAE50021FFCE /* TrianglesRenderer.swift in Sources */,
@@ -332,6 +340,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = xros;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				XROS_DEPLOYMENT_TARGET = 2.0;
@@ -390,6 +399,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = xros;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 				XROS_DEPLOYMENT_TARGET = 2.0;
