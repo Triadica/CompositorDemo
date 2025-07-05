@@ -15,7 +15,7 @@ import simd
 private let maxFramesInFlight = 3
 
 /// how many lines for this attractor
-private let linesCount: Int = 40000
+private let linesCount: Int = 80000
 /// how many rectangles in a line
 private let lineGroupSize: Int = 2
 /// 1 for leading point, others are following points

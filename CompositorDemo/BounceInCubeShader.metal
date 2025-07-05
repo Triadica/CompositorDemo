@@ -45,7 +45,7 @@ struct BounceInBallBase {
 
 struct IntersectionInfo {
   bool intersected;
-  float3 intersectionPoint;
+  float3 hitPoint;
   float3 normal;      // normal at the intersection point
   float moveDistance; // distance to the intersection point
   float moveTime;     // time to move to the intersection point
@@ -70,60 +70,60 @@ static IntersectionInfo calculateCubeIntersection(
 
   // try x=1 plane
   float tX = (center.x + halfSize - p0.x) / velocity.x;
-  if (tX >= 0.0 && tX < timeToExit) {
+  if (tX > 0.0 && tX < timeToExit) {
     timeToExit = tX;
-    info.intersectionPoint = p0 + velocity * tX;
+    info.hitPoint = p0 + velocity * tX;
     info.normal = float3(1.0, 0.0, 0.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tX;
     info.intersected = true;
   }
   // try x=-1 plane
   tX = (center.x - halfSize - p0.x) / velocity.x;
-  if (tX >= 0.0 && tX < timeToExit) {
+  if (tX > 0.0 && tX < timeToExit) {
     timeToExit = tX;
-    info.intersectionPoint = p0 + velocity * tX;
+    info.hitPoint = p0 + velocity * tX;
     info.normal = float3(-1.0, 0.0, 0.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tX;
     info.intersected = true;
   }
   // try y=1 plane
   float tY = (center.y + halfSize - p0.y) / velocity.y;
-  if (tY >= 0.0 && tY < timeToExit) {
+  if (tY > 0.0 && tY < timeToExit) {
     timeToExit = tY;
-    info.intersectionPoint = p0 + velocity * tY;
+    info.hitPoint = p0 + velocity * tY;
     info.normal = float3(0.0, 1.0, 0.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tY;
     info.intersected = true;
   }
   // try y=-1 plane
   tY = (center.y - halfSize - p0.y) / velocity.y;
-  if (tY >= 0.0 && tY < timeToExit) {
+  if (tY > 0.0 && tY < timeToExit) {
     timeToExit = tY;
-    info.intersectionPoint = p0 + velocity * tY;
+    info.hitPoint = p0 + velocity * tY;
     info.normal = float3(0.0, -1.0, 0.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tY;
     info.intersected = true;
   }
   // try z=1 plane
   float tZ = (center.z + halfSize - p0.z) / velocity.z;
-  if (tZ >= 0.0 && tZ < timeToExit) {
+  if (tZ > 0.0 && tZ < timeToExit) {
     timeToExit = tZ;
-    info.intersectionPoint = p0 + velocity * tZ;
+    info.hitPoint = p0 + velocity * tZ;
     info.normal = float3(0.0, 0.0, 1.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tZ;
   }
   // try z=-1 plane
   tZ = (center.z - halfSize - p0.z) / velocity.z;
-  if (tZ >= 0.0 && tZ < timeToExit) {
+  if (tZ > 0.0 && tZ < timeToExit) {
     timeToExit = tZ;
-    info.intersectionPoint = p0 + velocity * tZ;
+    info.hitPoint = p0 + velocity * tZ;
     info.normal = float3(0.0, 0.0, -1.0);
-    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveDistance = length(info.hitPoint - p0);
     info.moveTime = tZ;
     info.intersected = true;
   }
@@ -208,9 +208,34 @@ kernel void bounceInCubeComputeShader(
           // Remaining time after collision
           float remainingTime = dt - timeToCollision;
 
+          float3 nextPosition = info.hitPoint + newVelocity * remainingTime;
+          if (cubeDistance(nextPosition, center) > r) {
+            IntersectionInfo nextInfo = calculateCubeIntersection(
+                center, r, info.hitPoint, newVelocity);
+            if (nextInfo.intersected &&
+                nextInfo.moveDistance <= length(newVelocity * remainingTime)) {
+              // If the next position is still outside the cube, we need to
+              // reflect again
+              float nextTimeToCollision =
+                  nextInfo.moveDistance / length(newVelocity);
+              // Reflect again
+              float3 nextPerpVelocity =
+                  dot(newVelocity, nextInfo.normal) * nextInfo.normal;
+              float3 nextParallelVelocity = newVelocity - nextPerpVelocity;
+              newVelocity = nextParallelVelocity - nextPerpVelocity * decay;
+              // Update the next position after the second bounce
+              nextPosition =
+                  nextInfo.hitPoint +
+                  newVelocity * (remainingTime - nextTimeToCollision);
+              outputCell.position = nextPosition;
+              outputCell.velocity = newVelocity;
+              outputCell.color = cell.color;
+              return; // exit early
+            }
+          }
+
           // New position after bounce for the remaining time
-          outputCell.position =
-              info.intersectionPoint + newVelocity * remainingTime;
+          outputCell.position = nextPosition;
           outputCell.velocity = newVelocity;
           outputCell.color = cell.color;
         } else {

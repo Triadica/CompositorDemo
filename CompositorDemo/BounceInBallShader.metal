@@ -169,10 +169,32 @@ kernel void bounceInBallComputeShader(
 
           // Remaining time after collision
           float remainingTime = dt - timeToCollision;
+          float3 newPosition =
+              info.intersectionPoint + newVelocity * timeToCollision;
+
+          // check another following bounce
+          if (distance(newPosition, center) > r) {
+            IntersectionInfo nextInfo = calculateSphereIntersection(
+                center, r, newPosition, newVelocity);
+            if (nextInfo.intersected &&
+                nextInfo.moveDistance <= length(newVelocity * remainingTime)) {
+              // Reflect again
+              float3 nextPerpVelocity =
+                  dot(newVelocity, nextInfo.normal) * nextInfo.normal;
+              float3 nextParallelVelocity = newVelocity - nextPerpVelocity;
+              newVelocity = nextParallelVelocity - nextPerpVelocity * decay;
+              // Update position after second bounce
+              newPosition = nextInfo.intersectionPoint +
+                            newVelocity * nextInfo.moveDistance;
+              outputCell.position = newPosition;
+              outputCell.velocity = newVelocity;
+              outputCell.color = cell.color;
+              return; // Exit early after second bounce
+            }
+          }
 
           // New position after bounce for the remaining time
-          outputCell.position =
-              info.intersectionPoint + newVelocity * remainingTime;
+          outputCell.position = newPosition;
           outputCell.velocity = newVelocity;
           outputCell.color = cell.color;
         } else {
