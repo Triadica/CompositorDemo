@@ -46,55 +46,88 @@ struct BounceInBallBase {
 struct IntersectionInfo {
   bool intersected;
   float3 intersectionPoint;
-  float3 normal;
-  float moveDistance;
+  float3 normal;      // normal at the intersection point
+  float moveDistance; // distance to the intersection point
+  float moveTime;     // time to move to the intersection point
 };
 
-/// find out the point a ray intersects with a sphere
-static IntersectionInfo
-    calculateSphereIntersection(float3 center, float r, float3 p0, float3 v0) {
+/// Calculates the intersection of a ray with an axis-aligned cube, assuming the
+/// starting point is inside the cube, detect if the ray exits the cube.
+static IntersectionInfo calculateCubeIntersection(
+    float3 center, float halfSize, float3 p0, float3 velocity) {
   IntersectionInfo info;
   info.intersected = false;
+  info.moveDistance = 0.0;
+  info.moveTime = 0.0;
 
-  // Normalize the direction vector
-  float3 rayDir = normalize(v0);
-
-  // Vector from ray start to sphere center
-  float3 startToCenter = center - p0;
-
-  // Project startToCenter onto ray direction to find closest approach
-  float projectionLength = dot(startToCenter, rayDir);
-
-  // Find closest point on ray to sphere center
-  float3 closestPoint = p0 + projectionLength * rayDir;
-
-  // Distance from sphere center to closest point on ray
-  float centerToRayDistance = length(center - closestPoint);
-
-  if (centerToRayDistance > r) {
-    // Ray misses sphere
-    return info;
+  // check if p0 is inside the cube, try abs
+  if (abs(p0.x - center.x) > halfSize || abs(p0.y - center.y) > halfSize ||
+      abs(p0.z - center.z) > halfSize) {
+    return info; // not inside the cube
   }
 
-  // Half-length of intersection chord
-  float halfChord = sqrt(r * r - centerToRayDistance * centerToRayDistance);
+  float timeToExit = FLT_MAX;
 
-  // Distance to first intersection point
-  float t = projectionLength - halfChord;
-
-  if (t < 0) {
-    // Check second intersection point
-    t = projectionLength + halfChord;
-    if (t < 0) {
-      // Both intersections behind ray start
-      return info;
-    }
+  // try x=1 plane
+  float tX = (center.x + halfSize - p0.x) / velocity.x;
+  if (tX >= 0.0 && tX < timeToExit) {
+    timeToExit = tX;
+    info.intersectionPoint = p0 + velocity * tX;
+    info.normal = float3(1.0, 0.0, 0.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tX;
+    info.intersected = true;
+  }
+  // try x=-1 plane
+  tX = (center.x - halfSize - p0.x) / velocity.x;
+  if (tX >= 0.0 && tX < timeToExit) {
+    timeToExit = tX;
+    info.intersectionPoint = p0 + velocity * tX;
+    info.normal = float3(-1.0, 0.0, 0.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tX;
+    info.intersected = true;
+  }
+  // try y=1 plane
+  float tY = (center.y + halfSize - p0.y) / velocity.y;
+  if (tY >= 0.0 && tY < timeToExit) {
+    timeToExit = tY;
+    info.intersectionPoint = p0 + velocity * tY;
+    info.normal = float3(0.0, 1.0, 0.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tY;
+    info.intersected = true;
+  }
+  // try y=-1 plane
+  tY = (center.y - halfSize - p0.y) / velocity.y;
+  if (tY >= 0.0 && tY < timeToExit) {
+    timeToExit = tY;
+    info.intersectionPoint = p0 + velocity * tY;
+    info.normal = float3(0.0, -1.0, 0.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tY;
+    info.intersected = true;
+  }
+  // try z=1 plane
+  float tZ = (center.z + halfSize - p0.z) / velocity.z;
+  if (tZ >= 0.0 && tZ < timeToExit) {
+    timeToExit = tZ;
+    info.intersectionPoint = p0 + velocity * tZ;
+    info.normal = float3(0.0, 0.0, 1.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tZ;
+  }
+  // try z=-1 plane
+  tZ = (center.z - halfSize - p0.z) / velocity.z;
+  if (tZ >= 0.0 && tZ < timeToExit) {
+    timeToExit = tZ;
+    info.intersectionPoint = p0 + velocity * tZ;
+    info.normal = float3(0.0, 0.0, -1.0);
+    info.moveDistance = length(info.intersectionPoint - p0);
+    info.moveTime = tZ;
+    info.intersected = true;
   }
 
-  info.intersected = true;
-  info.moveDistance = t;
-  info.intersectionPoint = p0 + rayDir * t;
-  info.normal = normalize(info.intersectionPoint - center);
   return info;
 }
 
@@ -128,6 +161,11 @@ static float4 applyGestureViewer(
   return position;
 }
 
+static float cubeDistance(float3 p0, float3 p1) {
+  // Calculate the distance between two points in a cube
+  return max(abs(p0.x - p1.x), max(abs(p0.y - p1.y), abs(p0.z - p1.z)));
+}
+
 kernel void bounceInCubeComputeShader(
     device BounceInBallBase *attractor [[buffer(0)]],
     device BounceInBallBase *outputAttractor [[buffer(1)]],
@@ -143,7 +181,7 @@ kernel void bounceInCubeComputeShader(
   float decay = 0.96;
 
   if (leading) {
-    if (distance(cell.position, center) > r) {
+    if (cubeDistance(cell.position, center) > r) {
       // If the leading point is outside the sphere, just throw it away
       outputCell.position = cell.position + cell.velocity * dt;
       outputCell.color = cell.color;
@@ -152,10 +190,10 @@ kernel void bounceInCubeComputeShader(
       float3 newPosition = cell.position + cell.velocity * dt;
 
       // Check if new position is moving outside the sphere
-      if (distance(newPosition, center) >= r) {
+      if (cubeDistance(newPosition, center) >= r) {
         // Check if new position is moving outside the sphere
-        IntersectionInfo info = calculateSphereIntersection(
-            center, r, cell.position, cell.velocity);
+        IntersectionInfo info =
+            calculateCubeIntersection(center, r, cell.position, cell.velocity);
 
         if (info.intersected &&
             info.moveDistance <= length(cell.velocity * dt)) {
@@ -184,7 +222,7 @@ kernel void bounceInCubeComputeShader(
       } else {
 
         // Apply gravity to the new velocity for the remaining time
-        float3 acc = float3(0.0, -0.002, 0.0);
+        float3 acc = float3(0.0, -0.004, 0.0);
         outputCell.position = newPosition;
         outputCell.velocity = cell.velocity + acc * dt;
         outputCell.color = cell.color;

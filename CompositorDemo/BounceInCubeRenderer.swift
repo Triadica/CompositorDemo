@@ -14,22 +14,22 @@ import simd
 
 private let maxFramesInFlight = 3
 
-  /// how many lines for this attractor
+/// how many lines for this attractor
 private let linesCount: Int = 40000
-  /// how many rectangles in a line
-private let lineGroupSize: Int = 4
-  /// 1 for leading point, others are following points
+/// how many rectangles in a line
+private let lineGroupSize: Int = 2
+/// 1 for leading point, others are following points
 private var controlCountPerLine: Int {
   lineGroupSize + 1
 }
-  /// all control points in the scene
+/// all control points in the scene
 private var controlCount: Int {
   linesCount * controlCountPerLine
 }
 
 private let verticesCount = controlCount * 6
 
-  /// rectangle indexes per rectangle
+/// rectangle indexes per rectangle
 private let indexesCount: Int = controlCount * 6
 
 private struct BounceBase {
@@ -52,7 +52,7 @@ class BounceInCubeRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
-    /// a buffer to hold the vertices of the lamp
+  /// a buffer to hold the vertices of the lamp
   var vertexBuffer: MTLBuffer!
 
   var indexBuffer: MTLBuffer!
@@ -83,7 +83,7 @@ class BounceInCubeRenderer: CustomRenderer {
     self.createAttractorComputeBuffer(device: layerRenderer.device)
   }
 
-    /// create and sets the vertices of the lamp
+  /// create and sets the vertices of the lamp
   private func createAttractorVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<AttractorCellVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
@@ -97,38 +97,38 @@ class BounceInCubeRenderer: CustomRenderer {
 
       for j in 0..<lineGroupSize {
         let index = baseIndex + j * 6
-          // set 6 vertices for each cell
-          // 1st vertex
+        // set 6 vertices for each cell
+        // 1st vertex
         attractorVertices[index] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
           groupNumber: Int32(j),
           cellSide: 0)
-          // 2nd vertex
+        // 2nd vertex
         attractorVertices[index + 1] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
           groupNumber: Int32(j),
           cellSide: 1)
-          // 3rd vertex
+        // 3rd vertex
         attractorVertices[index + 2] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
           groupNumber: Int32(j),
           cellSide: 2)
-          // 4th vertex
+        // 4th vertex
         attractorVertices[index + 3] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
           groupNumber: Int32(j),
           cellSide: 1)
-          // 5th vertex
+        // 5th vertex
         attractorVertices[index + 4] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
           groupNumber: Int32(j),
           cellSide: 2)
-          // 6th vertex
+        // 6th vertex
         attractorVertices[index + 5] = AttractorCellVertex(
           position: SIMD3<Float>(0, 0, 0),
           lineNumber: Int32(i),
@@ -178,7 +178,8 @@ class BounceInCubeRenderer: CustomRenderer {
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
         attractorBase[index] = BounceBase(
-          position: (p + SIMD3<Float>(0, 0, -1)) * 0.6, color: color, velocity: SIMD3<Float>(0.06, 0, 0) + p * 0.01)
+          position: p * 0.6 + SIMD3<Float>(0, 0, -1), color: color,
+          velocity: SIMD3<Float>(0.06, 0, 0) + p * 0.01)
       }
     }
 
@@ -186,7 +187,7 @@ class BounceInCubeRenderer: CustomRenderer {
   }
 
   class func buildMetalVertexDescriptor() -> MTLVertexDescriptor {
-      // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
+    // Create a vertex descriptor specifying how Metal lays out vertices for input into the render pipeline.
 
     let mtlVertexDescriptor = MTLVertexDescriptor()
     var offset: Int = 0
@@ -211,7 +212,7 @@ class BounceInCubeRenderer: CustomRenderer {
     mtlVertexDescriptor.attributes[3].bufferIndex = 0
     offset += MemoryLayout<Int32>.stride
 
-      // layout is special
+    // layout is special
     mtlVertexDescriptor.layouts[0].stride = MemoryLayout<AttractorCellVertex>.stride
     mtlVertexDescriptor.layouts[0].stepRate = 1
     mtlVertexDescriptor.layouts[0].stepFunction = MTLVertexStepFunction.perVertex
@@ -220,7 +221,7 @@ class BounceInCubeRenderer: CustomRenderer {
   }
 
   private static func makeRenderPipelineDescriptor(layerRenderer: LayerRenderer) throws
-  -> MTLRenderPipelineState
+    -> MTLRenderPipelineState
   {
     let pipelineDescriptor = Renderer.defaultRenderPipelineDescriptor(
       layerRenderer: layerRenderer)
@@ -248,8 +249,8 @@ class BounceInCubeRenderer: CustomRenderer {
 
   func computeCommandCommit() {
     guard let computeBuffer: PingPongBuffer = computeBuffer,
-          let commandBuffer = computeCommandQueue.makeCommandBuffer(),
-          let computeEncoder = commandBuffer.makeComputeCommandEncoder()
+      let commandBuffer = computeCommandQueue.makeCommandBuffer(),
+      let computeEncoder = commandBuffer.makeComputeCommandEncoder()
     else {
       print("Failed to create compute command buffer")
       return
@@ -283,7 +284,7 @@ class BounceInCubeRenderer: CustomRenderer {
     computeBuffer.swap()
   }
 
-    // in seconds
+  // in seconds
   func getTimeSinceStart() -> Float {
     let time = DispatchTime.now().uptimeNanoseconds
     let timeSinceStart = Float(time) / 1_000_000_000
@@ -316,7 +317,7 @@ class BounceInCubeRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
 
-      // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
+    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,
@@ -360,8 +361,8 @@ class BounceInCubeRenderer: CustomRenderer {
       drawable: drawable)
   }
 
-    /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
-    /// other other chirality events are used for scaling the entity
+  /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
+  /// other other chirality events are used for scaling the entity
   func onSpatialEvents(events: SpatialEventCollection) {
     for event in events {
       gestureManager.onSpatialEvent(event: event)
