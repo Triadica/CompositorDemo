@@ -140,10 +140,11 @@ kernel void bounceAroundBallComputeShader(
   float3 center = float3(0.0, 0.0, -1.0);
   float r = 1.0;
   float dt = params.time * 8;
-  float decay = 0.96;
+  float decay = 0.94;
+  float decaySlow = 0.98;
 
   if (leading) {
-    if (distance(cell.position, center) > r) {
+    if (distance(cell.position, center) <= r) {
       // If the leading point is outside the sphere, just throw it away
       outputCell.position = cell.position + cell.velocity * dt;
       outputCell.color = cell.color;
@@ -152,7 +153,7 @@ kernel void bounceAroundBallComputeShader(
       float3 newPosition = cell.position + cell.velocity * dt;
 
       // Check if new position is moving outside the sphere
-      if (distance(newPosition, center) >= r) {
+      if (distance(newPosition, center) <= r) {
         // Check if new position is moving outside the sphere
         IntersectionInfo info = calculateSphereIntersection(
             center, r, cell.position, cell.velocity);
@@ -165,33 +166,13 @@ kernel void bounceAroundBallComputeShader(
           // Reflect velocity(angle changes, could ESCAPE sphere)
           float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
           float3 parallelVelocity = cell.velocity - perpVelocity;
-          float3 newVelocity = parallelVelocity - perpVelocity * decay;
+          float3 newVelocity =
+              parallelVelocity * decaySlow - perpVelocity * decay;
 
           // Remaining time after collision
           float remainingTime = dt - timeToCollision;
           float3 newPosition =
               info.intersectionPoint + newVelocity * timeToCollision;
-
-          // check another following bounce
-          if (distance(newPosition, center) > r) {
-            IntersectionInfo nextInfo = calculateSphereIntersection(
-                center, r, newPosition, newVelocity);
-            if (nextInfo.intersected &&
-                nextInfo.moveDistance <= length(newVelocity * remainingTime)) {
-              // Reflect again
-              float3 nextPerpVelocity =
-                  dot(newVelocity, nextInfo.normal) * nextInfo.normal;
-              float3 nextParallelVelocity = newVelocity - nextPerpVelocity;
-              newVelocity = nextParallelVelocity - nextPerpVelocity * decay;
-              // Update position after second bounce
-              newPosition = nextInfo.intersectionPoint +
-                            newVelocity * nextInfo.moveDistance;
-              outputCell.position = newPosition;
-              outputCell.velocity = newVelocity;
-              outputCell.color = cell.color;
-              return; // Exit early after second bounce
-            }
-          }
 
           // New position after bounce for the remaining time
           outputCell.position = newPosition;
@@ -204,11 +185,9 @@ kernel void bounceAroundBallComputeShader(
           outputCell.color = cell.color;
         }
       } else {
-
-        // Apply gravity to the new velocity for the remaining time
-        float3 acc = float3(0.0, -0.002, 0.0);
+        float3 forceToCenter = normalize(center - newPosition) * 0.001;
         outputCell.position = newPosition;
-        outputCell.velocity = cell.velocity + acc * dt;
+        outputCell.velocity = cell.velocity + forceToCenter * dt;
         outputCell.color = cell.color;
       }
     }

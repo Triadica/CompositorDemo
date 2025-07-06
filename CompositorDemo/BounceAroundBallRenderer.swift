@@ -178,8 +178,8 @@ class BounceAroundBallRenderer: CustomRenderer {
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
         attractorBase[index] = BounceBase(
-          position: (p * 0.6 + SIMD3<Float>(0, 0, -1)), color: color,
-          velocity: SIMD3<Float>(0.06, 0, 0) + p * 0.01)
+          position: (p * 0.6 + SIMD3<Float>(-2, 0.5, -1)), color: color,
+          velocity: SIMD3<Float>(0.06, 0, 0) + p * 0.006)
       }
     }
 
