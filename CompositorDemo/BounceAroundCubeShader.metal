@@ -52,7 +52,7 @@ struct IntersectionInfo {
 };
 
 /// Calculates the intersection of a ray with an axis-aligned cube, assuming the
-/// starting point is inside the cube, detect if the ray exits the cube.
+/// starting point is outside the cube, detect if the ray enter the cube.
 static IntersectionInfo calculateCubeIntersection(
     float3 center, float halfSize, float3 p0, float3 velocity) {
   IntersectionInfo info;
@@ -61,7 +61,7 @@ static IntersectionInfo calculateCubeIntersection(
   info.moveTime = 0.0;
 
   // check if p0 is inside the cube, try abs
-  if (abs(p0.x - center.x) < halfSize || abs(p0.y - center.y) < halfSize ||
+  if (abs(p0.x - center.x) < halfSize && abs(p0.y - center.y) < halfSize &&
       abs(p0.z - center.z) < halfSize) {
     return info; // inside the cube
   }
@@ -178,7 +178,8 @@ kernel void bounceAroundCubeComputeShader(
   float3 center = float3(0.0, 0.0, -1.0);
   float r = 1.0;
   float dt = params.time * 8;
-  float decay = 0.96;
+  float decay = 0.94;
+  float decaySlow = 0.98;
 
   if (leading) {
     if (cubeDistance(cell.position, center) <= r) {
@@ -203,7 +204,8 @@ kernel void bounceAroundCubeComputeShader(
           // Reflect velocity(angle changes, could ESCAPE cube)
           float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
           float3 parallelVelocity = cell.velocity - perpVelocity;
-          float3 newVelocity = parallelVelocity - perpVelocity * decay;
+          float3 newVelocity =
+              parallelVelocity * decaySlow - perpVelocity * decay;
 
           // Remaining time after collision
           float remainingTime = dt - timeToCollision;
