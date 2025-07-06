@@ -43,61 +43,6 @@ struct BounceInBallBase {
   float3 velocity;
 };
 
-struct IntersectionInfo {
-  bool intersected;
-  float3 intersectionPoint;
-  float3 normal;
-  float moveDistance;
-};
-
-/// find out the point a ray intersects with a sphere
-static IntersectionInfo
-    calculateSphereIntersection(float3 center, float r, float3 p0, float3 v0) {
-  IntersectionInfo info;
-  info.intersected = false;
-
-  // Normalize the direction vector
-  float3 rayDir = normalize(v0);
-
-  // Vector from ray start to sphere center
-  float3 startToCenter = center - p0;
-
-  // Project startToCenter onto ray direction to find closest approach
-  float projectionLength = dot(startToCenter, rayDir);
-
-  // Find closest point on ray to sphere center
-  float3 closestPoint = p0 + projectionLength * rayDir;
-
-  // Distance from sphere center to closest point on ray
-  float centerToRayDistance = length(center - closestPoint);
-
-  if (centerToRayDistance > r) {
-    // Ray misses sphere
-    return info;
-  }
-
-  // Half-length of intersection chord
-  float halfChord = sqrt(r * r - centerToRayDistance * centerToRayDistance);
-
-  // Distance to first intersection point
-  float t = projectionLength - halfChord;
-
-  if (t < 0) {
-    // Check second intersection point
-    t = projectionLength + halfChord;
-    if (t < 0) {
-      // Both intersections behind ray start
-      return info;
-    }
-  }
-
-  info.intersected = true;
-  info.moveDistance = t;
-  info.intersectionPoint = p0 + rayDir * t;
-  info.normal = normalize(info.intersectionPoint - center);
-  return info;
-}
-
 static float4 applyGestureViewer(
     float4 p0,
     float3 viewerPosition,
@@ -128,7 +73,7 @@ static float4 applyGestureViewer(
   return position;
 }
 
-kernel void bounceAroundBallComputeShader(
+kernel void bounceGravityComputeShader(
     device BounceInBallBase *attractor [[buffer(0)]],
     device BounceInBallBase *outputAttractor [[buffer(1)]],
     constant BounceInBallParams &params [[buffer(2)]],
@@ -138,59 +83,22 @@ kernel void bounceAroundBallComputeShader(
 
   bool leading = (id % (params.groupSize + 1) == 0);
   float3 center = float3(0.0, 0.0, -1.0);
-  float r = 1.0;
+
   float dt = params.time * 8;
-  float decay = 0.94;
-  float decaySlow = 0.98;
 
   if (leading) {
-    if (distance(cell.position, center) <= r) {
-      // If the leading point is outside the sphere, just throw it away
-      outputCell.position = cell.position + cell.velocity * dt;
-      outputCell.color = cell.color;
-      outputCell.velocity = cell.velocity;
-    } else {
-      float3 newPosition = cell.position + cell.velocity * dt;
 
-      // Check if new position is moving outside the sphere
-      if (distance(newPosition, center) <= r) {
-        // Check if new position is moving outside the sphere
-        IntersectionInfo info = calculateSphereIntersection(
-            center, r, cell.position, cell.velocity);
+    float3 newPosition = cell.position + cell.velocity * dt;
 
-        if (info.intersected &&
-            info.moveDistance <= length(cell.velocity * dt)) {
-          // Time to collision
-          float timeToCollision = info.moveDistance / length(cell.velocity);
+    float3 toCenter = center - newPosition;
+    float dist = length(toCenter);
+    // Inverse square law with small offset to avoid division by zero
+    float gravityStrength = 0.0016 / (dist * dist + 0.1);
+    float3 forceToCenter = normalize(toCenter) * gravityStrength;
+    outputCell.position = newPosition;
+    outputCell.velocity = cell.velocity + forceToCenter * dt;
+    outputCell.color = cell.color;
 
-          // Reflect velocity(angle changes, could ESCAPE sphere)
-          float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
-          float3 parallelVelocity = cell.velocity - perpVelocity;
-          float3 newVelocity =
-              parallelVelocity * decaySlow - perpVelocity * decay;
-
-          // Remaining time after collision
-          // float remainingTime = dt - timeToCollision;
-          float3 newPosition =
-              info.intersectionPoint + newVelocity * timeToCollision;
-
-          // New position after bounce for the remaining time
-          outputCell.position = newPosition;
-          outputCell.velocity = newVelocity;
-          outputCell.color = cell.color;
-        } else {
-          // invalid intersection, mark as red
-          outputCell.position = newPosition;
-          outputCell.velocity = cell.velocity;
-          outputCell.color = cell.color;
-        }
-      } else {
-        float3 forceToCenter = normalize(center - newPosition) * 0.001;
-        outputCell.position = newPosition;
-        outputCell.velocity = cell.velocity + forceToCenter * dt;
-        outputCell.color = cell.color;
-      }
-    }
   } else {
     // copy previous
     outputCell.position = outputAttractor[id - 1].position;
@@ -199,7 +107,7 @@ kernel void bounceAroundBallComputeShader(
   }
 }
 
-vertex BounceInBallInOut bounceAroundBallVertexShader(
+vertex BounceInBallInOut bounceGravityVertexShader(
     BounceInBallVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
@@ -250,8 +158,7 @@ vertex BounceInBallInOut bounceAroundBallVertexShader(
   return out;
 }
 
-fragment float4 bounceAroundBallFragmentShader(BounceInBallInOut in
-                                               [[stage_in]]) {
+fragment float4 bounceGravityFragmentShader(BounceInBallInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

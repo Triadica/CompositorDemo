@@ -49,7 +49,7 @@ struct InteractionView: View {
 
   @EnvironmentObject var computeStateNotify: ResetComputeState
 
-  @State private var selectedDemo: DemoTab = .bounceAroundCube
+  @State private var selectedDemo: DemoTab = .bounceGravity
 
   var body: some View {
     HStack {
@@ -66,6 +66,7 @@ struct InteractionView: View {
         Text("Bounce In Cube").tag(DemoTab.bounceInCube)
         Text("Bounce Around Ball").tag(DemoTab.bounceAroundBall)
         Text("Bounce Around Cube").tag(DemoTab.bounceAroundCube)
+        Text("Bounce Gravity").tag(DemoTab.bounceGravity)
       }.pickerStyle(.wheel).padding(.bottom, 32).frame(
         width: 300,
         height: 400,
