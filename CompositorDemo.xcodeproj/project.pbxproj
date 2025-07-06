@@ -27,6 +27,8 @@
 		9A9A3E132E19998200330D1B /* BounceInCubeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */; };
 		9A9A3E172E1A3DC000330D1B /* BounceAroundBallRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E162E1A3DB700330D1B /* BounceAroundBallRenderer.swift */; };
 		9A9A3E192E1A3DCA00330D1B /* BounceAroundBallShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E182E1A3DC500330D1B /* BounceAroundBallShader.metal */; };
+		9A9A3E1B2E1A557B00330D1B /* BounceAroundCubeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E1A2E1A557300330D1B /* BounceAroundCubeRenderer.swift */; };
+		9A9A3E1D2E1A558A00330D1B /* BounceAroundCubeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */; };
 		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
 		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
 		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
@@ -66,6 +68,8 @@
 		9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceInCubeShader.metal; sourceTree = "<group>"; };
 		9A9A3E162E1A3DB700330D1B /* BounceAroundBallRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceAroundBallRenderer.swift; sourceTree = "<group>"; };
 		9A9A3E182E1A3DC500330D1B /* BounceAroundBallShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceAroundBallShader.metal; sourceTree = "<group>"; };
+		9A9A3E1A2E1A557300330D1B /* BounceAroundCubeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceAroundCubeRenderer.swift; sourceTree = "<group>"; };
+		9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceAroundCubeShader.metal; sourceTree = "<group>"; };
 		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
 		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
 		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
@@ -134,6 +138,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */,
+				9A9A3E1A2E1A557300330D1B /* BounceAroundCubeRenderer.swift */,
 				9A9A3E182E1A3DC500330D1B /* BounceAroundBallShader.metal */,
 				9A9A3E162E1A3DB700330D1B /* BounceAroundBallRenderer.swift */,
 				9A9A3E122E19997000330D1B /* BounceInCubeShader.metal */,
@@ -261,6 +267,7 @@
 				9A9A3E192E1A3DCA00330D1B /* BounceAroundBallShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
 				9A9A3E132E19998200330D1B /* BounceInCubeShader.metal in Sources */,
+				9A9A3E1B2E1A557B00330D1B /* BounceAroundCubeRenderer.swift in Sources */,
 				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
 				9A228C6F2DB56C6F00160CF9 /* BlocksShader.metal in Sources */,
 				9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */,
@@ -276,6 +283,7 @@
 				9A9A3E112E19996300330D1B /* BounceInCubeRenderer.swift in Sources */,
 				9A92D3772D91D35A0021FFCE /* LampsShaders.metal in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
+				9A9A3E1D2E1A558A00330D1B /* BounceAroundCubeShader.metal in Sources */,
 				9A92D38A2D9FBAE50021FFCE /* TrianglesRenderer.swift in Sources */,
 				9AF975B52DBEA5BC00B78645 /* ImagesShader.metal in Sources */,
 				9A228C6D2DB56C6200160CF9 /* BlocksRenderer.swift in Sources */,

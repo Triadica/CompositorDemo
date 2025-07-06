@@ -64,6 +64,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try BounceAroundBallRenderer(
               layerRenderer: layerRenderer
             )
+          case .bounceAroundCube:
+            currentRenderer = try BounceAroundCubeRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
           fatalError("Failed to create renderer \(error)")
