@@ -31,6 +31,8 @@
 		9A9A3E1D2E1A558A00330D1B /* BounceAroundCubeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */; };
 		9A9A3E1F2E1ADA6800330D1B /* BounceGravityRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E1E2E1ADA5E00330D1B /* BounceGravityRenderer.swift */; };
 		9A9A3E212E1ADA7000330D1B /* BounceGravityShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E202E1ADA6C00330D1B /* BounceGravityShader.metal */; };
+		9A9A3E232E1C325200330D1B /* MultiGravityRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E222E1C324100330D1B /* MultiGravityRenderer.swift */; };
+		9A9A3E252E1C325B00330D1B /* MultiGravityShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E242E1C325500330D1B /* MultiGravityShader.metal */; };
 		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
 		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
 		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
@@ -74,6 +76,8 @@
 		9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceAroundCubeShader.metal; sourceTree = "<group>"; };
 		9A9A3E1E2E1ADA5E00330D1B /* BounceGravityRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceGravityRenderer.swift; sourceTree = "<group>"; };
 		9A9A3E202E1ADA6C00330D1B /* BounceGravityShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BounceGravityShader.metal; sourceTree = "<group>"; };
+		9A9A3E222E1C324100330D1B /* MultiGravityRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiGravityRenderer.swift; sourceTree = "<group>"; };
+		9A9A3E242E1C325500330D1B /* MultiGravityShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MultiGravityShader.metal; sourceTree = "<group>"; };
 		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
 		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
 		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
@@ -142,6 +146,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9A9A3E242E1C325500330D1B /* MultiGravityShader.metal */,
+				9A9A3E222E1C324100330D1B /* MultiGravityRenderer.swift */,
 				9A9A3E202E1ADA6C00330D1B /* BounceGravityShader.metal */,
 				9A9A3E1E2E1ADA5E00330D1B /* BounceGravityRenderer.swift */,
 				9A9A3E1C2E1A558500330D1B /* BounceAroundCubeShader.metal */,
@@ -270,8 +276,10 @@
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
 				9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */,
 				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
+				9A9A3E252E1C325B00330D1B /* MultiGravityShader.metal in Sources */,
 				9A9A3E192E1A3DCA00330D1B /* BounceAroundBallShader.metal in Sources */,
 				9A45F3AA2D889E1B0042486A /* LampsRenderer.swift in Sources */,
+				9A9A3E232E1C325200330D1B /* MultiGravityRenderer.swift in Sources */,
 				9A9A3E132E19998200330D1B /* BounceInCubeShader.metal in Sources */,
 				9A9A3E1B2E1A557B00330D1B /* BounceAroundCubeRenderer.swift in Sources */,
 				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
