@@ -76,6 +76,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try MultiGravityRenderer(
               layerRenderer: layerRenderer
             )
+          case .conflictForce:
+            currentRenderer = try ConflictForceRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
           fatalError("Failed to create renderer \(error)")
