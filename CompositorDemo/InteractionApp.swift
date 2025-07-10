@@ -40,12 +40,15 @@ struct InteractionApp: App {
 
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+  
+    @StateObject var sharedShaderAddress = SharedShaderAddress()
 
     var body: some Scene {
         WindowGroup {
             InteractionView()
                 .environment(appModel)
                 .environmentObject(computeStateNotify)
+                .environmentObject(sharedShaderAddress)
                 .onAppear {
                     if appModel.isFirstLaunch {
                         appModel.isFirstLaunch = false
@@ -76,5 +79,7 @@ struct InteractionApp: App {
         ImmersiveInteractionScene()
             .environment(appModel)
             .environmentObject(computeStateNotify)
+            .environmentObject(sharedShaderAddress)
+      
     }
 }

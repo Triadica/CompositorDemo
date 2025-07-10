@@ -11,6 +11,8 @@ import MetalKit
 import Spatial
 import SwiftUI
 import simd
+import Foundation
+import Combine
 
 private let maxFramesInFlight = 3
 
@@ -56,6 +58,8 @@ class MultiGravityRenderer: CustomRenderer {
   var vertexBuffer: MTLBuffer!
 
   var indexBuffer: MTLBuffer!
+  private var sharedShaderAddress: SharedShaderAddress
+  private var cancellables = Set<AnyCancellable>()
 
   let computeDevice: MTLDevice
   var computeBuffer: PingPongBuffer?
@@ -64,7 +68,7 @@ class MultiGravityRenderer: CustomRenderer {
 
   var gestureManager: GestureManager = GestureManager()
 
-  init(layerRenderer: LayerRenderer) throws {
+  init(layerRenderer: LayerRenderer, sharedShaderAddress: SharedShaderAddress) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
       layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
     }
@@ -77,11 +81,26 @@ class MultiGravityRenderer: CustomRenderer {
     computePipeLine = try computeDevice.makeComputePipelineState(function: attractorUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
+    
+    self.sharedShaderAddress = sharedShaderAddress
 
     self.createAttractorVerticesBuffer(device: layerRenderer.device)
     self.createAttractorIndexBuffer(device: layerRenderer.device)
     self.createAttractorComputeBuffer(device: layerRenderer.device)
+    
+    setupBindings()
   }
+  
+  private func setupBindings() {
+    sharedShaderAddress.$inputText
+      .sink { newText in
+        if !newText.isEmpty {
+          print("TODO handle shared data: \(newText)")
+        }
+      }
+      .store(in: &cancellables)
+  }
+
 
   /// create and sets the vertices of the lamp
   private func createAttractorVerticesBuffer(device: MTLDevice) {

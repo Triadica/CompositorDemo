@@ -12,6 +12,7 @@ struct ImmersiveInteractionScene: Scene {
 
   @Environment(AppModel.self) var appModel
   @EnvironmentObject var computeStateNotify: ResetComputeState
+  @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
 
   static let id = "ImmersiveInteractionScene"
 
@@ -74,7 +75,8 @@ struct ImmersiveInteractionScene: Scene {
             )
           case .multiGravity:
             currentRenderer = try MultiGravityRenderer(
-              layerRenderer: layerRenderer
+              layerRenderer: layerRenderer,
+              sharedShaderAddress: sharedShaderAddress
             )
           case .conflictForce:
             currentRenderer = try ConflictForceRenderer(
