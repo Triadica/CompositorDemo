@@ -5,14 +5,14 @@
  A renderer that displays a set of color swatches.
  */
 
+import Combine
 import CompositorServices
+import Foundation
 import Metal
 import MetalKit
 import Spatial
 import SwiftUI
 import simd
-import Foundation
-import Combine
 
 private let maxFramesInFlight = 3
 
@@ -51,7 +51,8 @@ private struct Params {
 
 @MainActor
 class MultiGravityRenderer: CustomRenderer {
-  private let renderPipelineState: MTLRenderPipelineState & Sendable
+  private var renderPipelineState: MTLRenderPipelineState & Sendable
+  var computePipeLine: MTLComputePipelineState
 
   private var uniformsBuffer: [MTLBuffer]
   /// a buffer to hold the vertices of the lamp
@@ -63,7 +64,6 @@ class MultiGravityRenderer: CustomRenderer {
 
   let computeDevice: MTLDevice
   var computeBuffer: PingPongBuffer?
-  let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
   var gestureManager: GestureManager = GestureManager()
@@ -81,26 +81,28 @@ class MultiGravityRenderer: CustomRenderer {
     computePipeLine = try computeDevice.makeComputePipelineState(function: attractorUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
-    
+
     self.sharedShaderAddress = sharedShaderAddress
 
     self.createAttractorVerticesBuffer(device: layerRenderer.device)
     self.createAttractorIndexBuffer(device: layerRenderer.device)
     self.createAttractorComputeBuffer(device: layerRenderer.device)
-    
+
     setupBindings()
   }
-  
+
   private func setupBindings() {
     sharedShaderAddress.$inputText
-      .sink { newText in
-        if !newText.isEmpty {
-          print("TODO handle shared data: \(newText)")
+      .sink { newUrl in
+        if !newUrl.isEmpty {
+          print("handle shared shader address: \(newUrl)")
+          Task {
+            await self.swapShaderWithFromUrl(newUrl)
+          }
         }
       }
       .store(in: &cancellables)
   }
-
 
   /// create and sets the vertices of the lamp
   private func createAttractorVerticesBuffer(device: MTLDevice) {
@@ -386,6 +388,102 @@ class MultiGravityRenderer: CustomRenderer {
   func onSpatialEvents(events: SpatialEventCollection) {
     for event in events {
       gestureManager.onSpatialEvent(event: event)
+    }
+  }
+
+  /// load shader text from url with HTTP library,
+  /// build library with `device.makeLibrary`,
+  /// then update `renderPipelineState` and `computePipeLine` with the new shader.
+  func swapShaderWithFromUrl(_ url: String) async {
+    // load shader text from url with HTTP library
+    guard let shaderText = try? await URL.fetchText(from: URL(string: url)!) else {
+      print("Failed to load shader text from url: \(url)")
+      return
+    }
+
+    print("Loaded shader text: \(shaderText.prefix(100))...")  // Print first 100 characters for debugging
+
+    // build library with `device.makeLibrary`
+    let library: MTLLibrary
+    do {
+      library = try await computeDevice.makeLibrary(source: shaderText, options: nil)
+    } catch {
+      print("Failed to create library from shader text: \(error)")
+      return
+    }
+
+    // does not work with render pipeline state...
+
+    // guard let vertexFunction = library.makeFunction(name: "multiGravityVertexShader"),
+    //   let fragmentFunction = library.makeFunction(name: "multiGravityFragmentShader")
+    // else {
+    //   print("Failed to create vertex or fragment function from library")
+    //   return
+    // }
+
+    // let pipelineDescriptor = MTLRenderPipelineDescriptor()
+    // pipelineDescriptor.vertexFunction = vertexFunction
+    // pipelineDescriptor.fragmentFunction = fragmentFunction
+    // pipelineDescriptor.vertexDescriptor = Self.buildMetalVertexDescriptor()
+    // pipelineDescriptor.label = "MultiGravityRenderPipeline"
+
+    // do {
+    //   renderPipelineState = try await computeDevice.makeRenderPipelineState(
+    //     descriptor: pipelineDescriptor)
+    // } catch {
+    //   print("Failed to create render pipeline state: \(error)")
+    //   return
+    // }
+
+    do {
+      computePipeLine = try await computeDevice.makeComputePipelineState(
+        function: library.makeFunction(name: "multiGravityComputeShader")!)
+    } catch {
+      print("Failed to create compute pipeline state: \(error)")
+      return
+    }
+
+  }
+
+}
+
+extension URL {
+  static func fetchText(from url: URL) async throws -> String {
+    do {
+      var request = URLRequest(url: url)
+      request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+
+      let (data, response) = try await URLSession.shared.data(for: request)
+
+      guard let httpResponse = response as? HTTPURLResponse,
+        (200...299).contains(httpResponse.statusCode)
+      else {
+        if let httpResponse = response as? HTTPURLResponse {
+          throw URLError(
+            .badServerResponse,
+            userInfo: [
+              NSLocalizedDescriptionKey:
+                "Server returned non-success status code: \(httpResponse.statusCode)"
+            ])
+        } else {
+          throw URLError(
+            .badServerResponse,
+            userInfo: [
+              NSLocalizedDescriptionKey: "Non-HTTP response or unknown error"
+            ])
+        }
+      }
+
+      guard let content = String(data: data, encoding: .utf8) else {
+        throw URLError(.cannotDecodeContentData)
+
+      }
+
+      return content
+    } catch let urlError as URLError {
+      throw urlError
+    } catch {
+      throw error
     }
   }
 }

@@ -50,7 +50,7 @@ struct InteractionView: View {
   @EnvironmentObject var computeStateNotify: ResetComputeState
 
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
-  @State private var textInput: String = "http://192.168.31.166:8080/MultiGravityShader.metal"
+  @State private var textInput: String = "http://192.168.31.166:8080/DynamicGravityShader.metal"
 
   @State private var selectedDemo: DemoTab = .conflictForce
 
@@ -114,7 +114,6 @@ struct InteractionView: View {
             // } maximumValueLabel: {
             //     Text("1")
             // }
-
             HStack {
               Button {
                 // to reset states in compute shader
@@ -125,22 +124,24 @@ struct InteractionView: View {
               .padding(.vertical, 30)  // Adds 10 points of padding on top and bottom
             }
 
-            VStack {
-              TextField("Shader Url", text: $textInput)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+            if selectedDemo == .multiGravity {
+              VStack {
+                TextField("Shader Url", text: $textInput)
+                  .textFieldStyle(RoundedBorderTextFieldStyle())
 
-              Button("Send Url") {
-                self.sharedShaderAddress.inputText = textInput
+                Button("Send Url") {
+                  self.sharedShaderAddress.inputText = textInput
+                }
               }
+              .frame(width: 300)
             }
-            .frame(width: 300)
 
           }
         }
       }
     }
     .padding()
-    .frame(width: 800, height: appModel.showImmersiveSpace ? 600 : 200)
+    .frame(width: 800, height: appModel.showImmersiveSpace ? 600 : 300)
     .onChange(of: scenePhase) { _, newPhase in
       Task { @MainActor in
         if newPhase == .background {
