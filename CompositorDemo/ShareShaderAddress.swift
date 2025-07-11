@@ -6,8 +6,8 @@
 //  Copyright © 2025 Apple. All rights reserved.
 //
 
+import Combine  // 确保导入 Combine 框架
 import Foundation
-import Combine // 确保导入 Combine 框架
 
 class SharedShaderAddress: ObservableObject {
   @Published var inputText: String = ""
