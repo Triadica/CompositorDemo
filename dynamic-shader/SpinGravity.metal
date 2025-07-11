@@ -14,21 +14,21 @@ typedef struct {
   float3 viewerPosition;
   float viewerScale;
   float viewerRotation;
-} BounceInBallParams;
+} ComputeParams;
 
-struct BounceInBallBase {
+struct CellBase {
   float3 position;
   float3 color;
   float3 velocity;
 };
 
-kernel void multiGravityComputeShader(
-    device BounceInBallBase *attractor [[buffer(0)]],
-    device BounceInBallBase *outputAttractor [[buffer(1)]],
-    constant BounceInBallParams &params [[buffer(2)]],
+kernel void computeCellMoving(
+    device CellBase *attractor [[buffer(0)]],
+    device CellBase *outputAttractor [[buffer(1)]],
+    constant ComputeParams &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  BounceInBallBase cell = attractor[id];
-  device BounceInBallBase &outputCell = outputAttractor[id];
+  CellBase cell = attractor[id];
+  device CellBase &outputCell = outputAttractor[id];
 
   bool leading = (id % (params.groupSize + 1) == 0);
   float3 center = float3(-1.5, 0.0, -1.0);

@@ -458,7 +458,7 @@ class MultiGravityRenderer: CustomRenderer {
 
     do {
       newComputePipeline = try await computeDevice.makeComputePipelineState(
-        function: library.makeFunction(name: "multiGravityComputeShader")!)
+        function: library.makeFunction(name: "computeCellMoving")!)
     } catch {
       print("Failed to create compute pipeline state: \(error)")
       return
