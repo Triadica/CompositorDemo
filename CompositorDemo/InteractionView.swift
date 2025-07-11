@@ -130,6 +130,8 @@ struct InteractionView: View {
                   .textFieldStyle(RoundedBorderTextFieldStyle())
 
                 Button("Send Url") {
+                  let timestamp = Date().formatted(.dateTime.minute().second())
+                  print("[\(timestamp)] Sending URL: \(textInput)")
                   self.sharedShaderAddress.inputText = textInput
                 }
               }

@@ -95,7 +95,8 @@ class MultiGravityRenderer: CustomRenderer {
     sharedShaderAddress.$inputText
       .sink { newUrl in
         if !newUrl.isEmpty {
-          print("handle shared shader address: \(newUrl)")
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] handle shared shader address: \(newUrl)")
           Task {
             await self.swapShaderWithFromUrl(newUrl)
           }
@@ -395,13 +396,16 @@ class MultiGravityRenderer: CustomRenderer {
   /// build library with `device.makeLibrary`,
   /// then update `renderPipelineState` and `computePipeLine` with the new shader.
   func swapShaderWithFromUrl(_ url: String) async {
+    var timestamp = Date().formatted(.dateTime.minute().second())
+    print("[\(timestamp)] Swapping shader with url: \(url)")
     // load shader text from url with HTTP library
     guard let shaderText = try? await URL.fetchText(from: URL(string: url)!) else {
       print("Failed to load shader text from url: \(url)")
       return
     }
 
-    print("Loaded shader text: \(shaderText.prefix(100))...")  // Print first 100 characters for debugging
+    timestamp = Date().formatted(.dateTime.minute().second())
+    print("[\(timestamp)] Loaded shader length: \(shaderText.count)")
 
     // build library with `device.makeLibrary`
     let library: MTLLibrary
@@ -411,6 +415,8 @@ class MultiGravityRenderer: CustomRenderer {
       print("Failed to create library from shader text: \(error)")
       return
     }
+    timestamp = Date().formatted(.dateTime.minute().second())
+    print("[\(timestamp)] Shader library created successfully")
 
     // does not work with render pipeline state...
 
@@ -435,12 +441,25 @@ class MultiGravityRenderer: CustomRenderer {
     //   return
     // }
 
+    let newComputePipeline: MTLComputePipelineState
+
     do {
-      computePipeLine = try await computeDevice.makeComputePipelineState(
+      newComputePipeline = try await computeDevice.makeComputePipelineState(
         function: library.makeFunction(name: "multiGravityComputeShader")!)
     } catch {
       print("Failed to create compute pipeline state: \(error)")
       return
+    }
+
+    timestamp = Date().formatted(.dateTime.minute().second())
+    print("[\(timestamp)] Compute pipeline state created successfully")
+
+    await MainActor.run {
+      // update the compute pipeline state
+      self.computePipeLine = newComputePipeline
+
+      timestamp = Date().formatted(.dateTime.minute().second())
+      print("[\(timestamp)] Compute pipeline swapped")
     }
 
   }
