@@ -93,7 +93,12 @@ class MultiGravityRenderer: CustomRenderer {
 
   private func setupBindings() {
     sharedShaderAddress.$inputText
-      .sink { newUrl in
+      .sink { [weak self] newUrl in  // weak reference is important to avoid retain cycles
+        guard let self = self else {
+          print("Class instance has been deallocated, cancelling sink operation")
+          return
+        }
+
         if !newUrl.isEmpty {
           let timestamp = Date().formatted(.dateTime.minute().second())
           print("[\(timestamp)] handle shared shader address: \(newUrl)")
