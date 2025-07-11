@@ -9,6 +9,7 @@ using namespace metal;
 
 typedef struct {
   float time;
+  float elapsed;
   int groupSize;
   float3 viewerPosition;
   float viewerScale;
@@ -31,9 +32,14 @@ kernel void multiGravityComputeShader(
 
   bool leading = (id % (params.groupSize + 1) == 0);
   float3 center = float3(-1.5, 0.0, -1.0);
-  float3 center2 = float3(1.5, 0.0, -1.0);
 
-  float dt = params.time * 2;
+  float angle = params.time * 0.1;
+  float r = 0.4;
+  float x = cos(angle) * r - sin(angle) * r;
+  float z = sin(angle) * r + cos(angle) * r;
+  center += float3(x, 0.0, z);
+
+  float dt = params.elapsed * 2;
 
   if (leading) {
 
@@ -42,16 +48,13 @@ kernel void multiGravityComputeShader(
     float3 toCenter = center - newPosition;
     float dist = length(toCenter);
     // Inverse square law with small offset to avoid division by zero
-    float gravityStrength = 0.02 / (dist * dist + 0.6);
+    float gravityStrength = 0.04 / (dist * dist + 0.6);
     float3 forceToCenter = normalize(toCenter) * gravityStrength;
 
-    float3 toCenter2 = center2 - newPosition;
-    float dist2 = length(toCenter2);
-    float gravityStrength2 = 0.002 / (dist2 * dist2 + 0.6);
-    float3 forceToCenter2 = normalize(toCenter2) * gravityStrength2;
+    float3 dampling = -cell.velocity * 0.02;
 
     outputCell.position = newPosition;
-    outputCell.velocity = cell.velocity + (forceToCenter + forceToCenter2) * dt;
+    outputCell.velocity = cell.velocity + (forceToCenter + dampling) * dt;
     outputCell.color = cell.color;
 
   } else {

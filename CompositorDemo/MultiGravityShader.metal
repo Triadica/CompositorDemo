@@ -31,6 +31,7 @@ typedef struct {
 
 typedef struct {
   float time;
+  float elapsed;
   int groupSize;
   float3 viewerPosition;
   float viewerScale;
@@ -85,7 +86,7 @@ kernel void multiGravityComputeShader(
   float3 center = float3(-1.5, 0.0, -1.0);
   float3 center2 = float3(1.5, 0.0, -1.0);
 
-  float dt = params.time * 8;
+  float dt = params.elapsed * 8;
 
   if (leading) {
 

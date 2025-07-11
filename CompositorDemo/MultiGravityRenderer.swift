@@ -42,6 +42,7 @@ private struct BounceBase {
 
 private struct Params {
   var time: Float
+  var elapsed: Float
   var groupSize: Int32 = Int32(lineGroupSize)
   var viewerPosition: SIMD3<Float>
   var viewerScale: Float
@@ -293,7 +294,9 @@ class MultiGravityRenderer: CustomRenderer {
     frameDelta = delta
 
     var params = Params(
-      time: dt, viewerPosition: self.gestureManager.viewerPosition,
+      time: delta,
+      elapsed: dt,
+      viewerPosition: self.gestureManager.viewerPosition,
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
@@ -352,8 +355,13 @@ class MultiGravityRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
+    let delta = -Float(viewStartTime.timeIntervalSinceNow)
+    let dt = delta - frameDelta
+    frameDelta = delta
+
     var params_data = Params(
-      time: getTimeSinceStart(),
+      time: delta,
+      elapsed: dt,
       viewerPosition: self.gestureManager.viewerPosition,
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)

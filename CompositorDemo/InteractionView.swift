@@ -50,7 +50,7 @@ struct InteractionView: View {
   @EnvironmentObject var computeStateNotify: ResetComputeState
 
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
-  @State private var textInput: String = "http://192.168.31.166:8080/DynamicGravityShader.metal"
+  @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
   @State private var selectedDemo: DemoTab = .conflictForce
 
