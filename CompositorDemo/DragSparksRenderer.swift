@@ -192,7 +192,7 @@ class DragSparksRenderer: CustomRenderer {
     _ polylineVertices: UnsafeMutablePointer<SparkVertex>,
     _ i: Int,
   ) {
-    var base = i * 6
+    let base = i * 6
     let line = linesManager.getLineAt(i)
     // Generate a random color for each line
     let width: Float = 0.004

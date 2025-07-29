@@ -22,12 +22,12 @@ typedef struct {
   int lineNumber [[attribute(1)]];
   int groupNumber [[attribute(2)]];
   int cellSide [[attribute(3)]];
-} BounceInBallVertexIn;
+} ConflictForceVertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
-} BounceInBallInOut;
+} ConflictForceInOut;
 
 typedef struct {
   float time;
@@ -35,15 +35,13 @@ typedef struct {
   float3 viewerPosition;
   float viewerScale;
   float viewerRotation;
-} BounceInBallParams;
+} ConflictForceParams;
 
-struct BounceInBallBase {
+struct ConflictForceBase {
   float3 position;
   float3 color;
+  float3 velocity;
 };
-
-// static float random1D(float seed) { return fract(sin(seed) * 43758.5453123);
-// }
 
 static float4 applyGestureViewer(
     float4 p0,
@@ -54,7 +52,7 @@ static float4 applyGestureViewer(
 
   float4 position = p0;
 
-  // position -= cameraAt4;
+  // position -= cameraAt;
 
   // rotate xz by viewerRotation
   float cosTheta = cos(viewerRotation);
@@ -70,69 +68,60 @@ static float4 applyGestureViewer(
   // translate
   position = position - float4(viewerPosition, 0.0);
 
-  // position += cameraAt4;
+  // position += cameraAt;
 
   return position;
 }
 
-// a Metal function of fourwing
-static float3 fourwingLineIteration(float3 p, float dt) {
-  float a = 0.2;
-  float b = 0.01;
-  float c = -0.4;
-  float x = p.x;
-  float y = p.y;
-  float z = p.z;
-  float dx = a * x + y * z;
-  float dy = b * x + c * y - x * z;
-  float dz = -z - x * y;
-  float3 d = float3(dx, dy, dz) * dt;
-  return p + d;
-}
-
-// a Metal function of lorenz
-float3 lorenzLineIteration(float3 p, float dt) {
-  float tau = 10.0;
-  float rou = 28.0;
-  float beta = 8.0 / 3.0;
-
-  float dx = tau * (p.y - p.x);
-  float dy = p.x * (rou - p.z) - p.y;
-  float dz = p.x * p.y - beta * p.z;
-  float3 d = float3(dx, dy, dz) * dt;
-  return p + d;
-}
-
-kernel void attractorComputeShader(
-    device BounceInBallBase *attractor [[buffer(0)]],
-    device BounceInBallBase *outputAttractor [[buffer(1)]],
-    constant BounceInBallParams &params [[buffer(2)]],
+kernel void conflictForceComputeShader(
+    device ConflictForceBase *attractor [[buffer(0)]],
+    device ConflictForceBase *outputAttractor [[buffer(1)]],
+    constant ConflictForceParams &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  BounceInBallBase lamp = attractor[id];
-  device BounceInBallBase &outputCell = outputAttractor[id];
+  ConflictForceBase cell = attractor[id];
+  device ConflictForceBase &outputCell = outputAttractor[id];
 
   bool leading = (id % (params.groupSize + 1) == 0);
+  float3 center = float3(0, 1.0, -1.0);
+  float3 center2 = float3(0, 0.5, -1.0);
+
+  float dt = params.time * 8;
 
   if (leading) {
-    float dt = params.time * 2;
-    outputCell.position = fourwingLineIteration(lamp.position, dt);
-    // outputCell.position = lorenzLineIteration(outputCell.position, dt);
-    outputCell.color = lamp.color;
+
+    float3 newPosition = cell.position + cell.velocity * dt;
+
+    float3 toCenter = center - newPosition;
+    float dist = length(toCenter);
+    // Inverse square law with small offset to avoid division by zero
+    float gravityStrength = 0.0004 / (dist + 0.4);
+    float3 forceToCenter = normalize(toCenter) * gravityStrength;
+
+    float3 toCenter2 = newPosition - center2;
+    float dist2 = length(toCenter2);
+    float gravityStrength2 = 0.0001 / (dist2 + 0.1);
+    float3 forceToCenter2 = normalize(toCenter2) * gravityStrength2;
+
+    outputCell.position = newPosition;
+    outputCell.velocity = cell.velocity + (forceToCenter + forceToCenter2) * dt;
+    outputCell.color = cell.color;
+
   } else {
     // copy previous
     outputCell.position = outputAttractor[id - 1].position;
     outputCell.color = outputAttractor[id - 1].color;
+    outputCell.velocity = outputAttractor[id - 1].velocity;
   }
 }
 
-vertex BounceInBallInOut attractorVertexShader(
-    BounceInBallVertexIn in [[stage_in]],
+vertex ConflictForceInOut conflictForceVertexShader(
+    ConflictForceVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
-    constant BounceInBallParams &params [[buffer(BufferIndexParams)]],
-    const device BounceInBallBase *linesData [[buffer(BufferIndexBase)]]) {
-  BounceInBallInOut out;
+    constant ConflictForceParams &params [[buffer(BufferIndexParams)]],
+    const device ConflictForceBase *linesData [[buffer(BufferIndexBase)]]) {
+  ConflictForceInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   // float3 cameraAt = uniforms.cameraPos;
@@ -142,13 +131,13 @@ vertex BounceInBallInOut attractorVertexShader(
   int groupNumber = in.groupNumber;
   int cellSide = in.cellSide;
 
-  BounceInBallBase cell =
+  ConflictForceBase cell =
       linesData[lineNumber * (params.groupSize + 1) + groupNumber + 1];
-  BounceInBallBase prevCell =
+  ConflictForceBase prevCell =
       linesData[lineNumber * (params.groupSize + 1) + groupNumber];
 
   float3 direction = cell.position - prevCell.position;
-  float3 brush = normalize(cross(direction, cameraDirection)) * 0.002;
+  float3 brush = normalize(cross(direction, cameraDirection)) * 0.001;
 
   float4 position = float4(0., 0., 0., 1.0);
   if (cellSide == 0) {
@@ -176,7 +165,8 @@ vertex BounceInBallInOut attractorVertexShader(
   return out;
 }
 
-fragment float4 attractorFragmentShader(BounceInBallInOut in [[stage_in]]) {
+fragment float4 conflictForceFragmentShader(ConflictForceInOut in
+                                            [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

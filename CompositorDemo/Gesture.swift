@@ -54,7 +54,7 @@ class GestureManager {
     }
 
     if let primaryStarted = self.primaryStarted {
-      handlePinchPinchActive(
+      handleFollowingPinch(
         event: event,
         chirality: chirality,
         primaryPinch: primaryStarted
@@ -78,17 +78,19 @@ class GestureManager {
             position: event.inputDevicePose!.pose3D.position.to_simd3,
             chirality: chirality
           )
+          primaryPinchRealtimePosition = primaryStarted!.position
         }
       } else {
         primaryStarted = PinchHappen(
           position: event.inputDevicePose!.pose3D.position.to_simd3,
           chirality: chirality
         )
+        primaryPinchRealtimePosition = primaryStarted!.position
       }
     }
   }
 
-  private func handlePinchPinchActive(
+  private func handleFollowingPinch(
     event: SpatialEventCollection.Event,
     chirality: Chirality,
     primaryPinch: PinchHappen

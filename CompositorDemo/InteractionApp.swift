@@ -9,72 +9,77 @@ import CompositorServices
 import SwiftUI
 
 struct ContentStageConfiguration: CompositorLayerConfiguration {
-    func makeConfiguration(
-        capabilities: LayerRenderer.Capabilities, configuration: inout LayerRenderer.Configuration
-    ) {
-        configuration.depthFormat = .depth32Float
-        configuration.colorFormat = .rgba16Float
+  func makeConfiguration(
+    capabilities: LayerRenderer.Capabilities, configuration: inout LayerRenderer.Configuration
+  ) {
+    configuration.depthFormat = .depth32Float
+    configuration.colorFormat = .rgba16Float
 
-        let foveationEnabled = capabilities.supportsFoveation
-        configuration.isFoveationEnabled = foveationEnabled
+    let foveationEnabled = capabilities.supportsFoveation
+    configuration.isFoveationEnabled = foveationEnabled
 
-        let options: LayerRenderer.Capabilities.SupportedLayoutsOptions =
-            foveationEnabled ? [.foveationEnabled] : []
-        let supportedLayouts = capabilities.supportedLayouts(options: options)
+    let options: LayerRenderer.Capabilities.SupportedLayoutsOptions =
+      foveationEnabled ? [.foveationEnabled] : []
+    let supportedLayouts = capabilities.supportedLayouts(options: options)
 
-        configuration.layout = supportedLayouts.contains(.layered) ? .layered : .dedicated
-    }
+    configuration.layout = supportedLayouts.contains(.layered) ? .layered : .dedicated
+  }
 }
 
 class ResetComputeState: ObservableObject {
-    /// every time this value changes, the compute will be reset
-    @Published var reset = 1
+  /// every time this value changes, the compute will be reset
+  @Published var reset = 1
 }
 
 @main
 struct InteractionApp: App {
 
-    @State private var appModel = AppModel()
+  @State private var appModel = AppModel()
 
-    @StateObject var computeStateNotify = ResetComputeState()
+  @StateObject var computeStateNotify = ResetComputeState()
 
-    @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
-    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+  @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
+  @Environment(\.openImmersiveSpace) private var openImmersiveSpace
 
-    var body: some Scene {
-        WindowGroup {
-            InteractionView()
-                .environment(appModel)
-                .environmentObject(computeStateNotify)
-                .onAppear {
-                    if appModel.isFirstLaunch {
-                        appModel.isFirstLaunch = false
-                        // Immediately show immersive space on first launch.
-                        appModel.showImmersiveSpace = true
-                    }
-                }
-                .onChange(of: appModel.showImmersiveSpace) { _, newValue in
-                    // Manage the lifecycle of the immersive space.
-                    Task { @MainActor in
-                        if newValue {
-                            switch await openImmersiveSpace(id: ImmersiveInteractionScene.id) {
-                            case .opened:
-                                appModel.immersiveSpaceIsShown = true
-                            case .error, .userCancelled:
-                                fallthrough
-                            @unknown default:
-                                appModel.immersiveSpaceIsShown = false
-                                appModel.showImmersiveSpace = false
-                            }
-                        } else if appModel.immersiveSpaceIsShown {
-                            await dismissImmersiveSpace()
-                        }
-                    }
-                }
+  @StateObject var sharedShaderAddress = SharedShaderAddress()
+
+  var body: some Scene {
+    WindowGroup {
+      InteractionView()
+        .environment(appModel)
+        .environmentObject(computeStateNotify)
+        .environmentObject(sharedShaderAddress)
+        .onAppear {
+          if appModel.isFirstLaunch {
+            appModel.isFirstLaunch = false
+            // Immediately show immersive space on first launch.
+            appModel.showImmersiveSpace = true
+          }
         }
-        .windowResizability(.contentSize)
-        ImmersiveInteractionScene()
-            .environment(appModel)
-            .environmentObject(computeStateNotify)
+        .onChange(of: appModel.showImmersiveSpace) { _, newValue in
+          // Manage the lifecycle of the immersive space.
+          Task { @MainActor in
+            if newValue {
+              switch await openImmersiveSpace(id: ImmersiveInteractionScene.id) {
+              case .opened:
+                appModel.immersiveSpaceIsShown = true
+              case .error, .userCancelled:
+                fallthrough
+              @unknown default:
+                appModel.immersiveSpaceIsShown = false
+                appModel.showImmersiveSpace = false
+              }
+            } else if appModel.immersiveSpaceIsShown {
+              await dismissImmersiveSpace()
+            }
+          }
+        }
     }
+    .windowResizability(.contentSize)
+    ImmersiveInteractionScene()
+      .environment(appModel)
+      .environmentObject(computeStateNotify)
+      .environmentObject(sharedShaderAddress)
+
+  }
 }

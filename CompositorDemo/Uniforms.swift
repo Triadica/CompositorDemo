@@ -8,42 +8,42 @@ Non-varying shader parameters for presenting content.
 import CompositorServices
 
 extension SIMD4 {
-    var xyz: SIMD3<Scalar> {
-        .init(x, y, z)
-    }
+  var xyz: SIMD3<Scalar> {
+    .init(x, y, z)
+  }
 }
 
 extension Uniforms {
-    init(drawable: LayerRenderer.Drawable) {
-        let simdDeviceAnchor =
-            drawable.deviceAnchor?.originFromAnchorTransform ?? matrix_identity_float4x4
+  init(drawable: LayerRenderer.Drawable) {
+    let simdDeviceAnchor =
+      drawable.deviceAnchor?.originFromAnchorTransform ?? matrix_identity_float4x4
 
-        func createUniforms(forViewIndex viewIndex: Int) -> UniformsPerView {
-            let view = drawable.views[viewIndex]
-            let viewMatrix = (simdDeviceAnchor * view.transform).inverse
-            let projection = drawable.computeProjection(
-                convention: .rightUpBack,
-                viewIndex: viewIndex)
+    func createUniforms(forViewIndex viewIndex: Int) -> UniformsPerView {
+      let view = drawable.views[viewIndex]
+      let viewMatrix = (simdDeviceAnchor * view.transform).inverse
+      let projection = drawable.computeProjection(
+        convention: .rightUpBack,
+        viewIndex: viewIndex)
 
-            return UniformsPerView(modelViewProjectionMatrix: projection * viewMatrix)
-        }
-
-        let cameraPos: SIMD3<Float> = simdDeviceAnchor.columns.3.xyz
-        let cameraDirection = simd_normalize(simdDeviceAnchor.columns.2.xyz)
-
-        // print("cameraDirection: \(cameraDirection)")
-
-        let firstView = createUniforms(forViewIndex: 0)
-        let views: (UniformsPerView, UniformsPerView)
-        if drawable.views.count == 1 {
-            views = (firstView, firstView)
-        } else {
-            views = (firstView, createUniforms(forViewIndex: 1))
-        }
-
-        self.init(
-            perView: views,
-            cameraPos: cameraPos,
-            cameraDirection: cameraDirection)
+      return UniformsPerView(modelViewProjectionMatrix: projection * viewMatrix)
     }
+
+    let cameraPos: SIMD3<Float> = simdDeviceAnchor.columns.3.xyz
+    let cameraDirection = simd_normalize(simdDeviceAnchor.columns.2.xyz)
+
+    // print("cameraDirection: \(cameraDirection)")
+
+    let firstView = createUniforms(forViewIndex: 0)
+    let views: (UniformsPerView, UniformsPerView)
+    if drawable.views.count == 1 {
+      views = (firstView, firstView)
+    } else {
+      views = (firstView, createUniforms(forViewIndex: 1))
+    }
+
+    self.init(
+      perView: views,
+      cameraPos: cameraPos,
+      cameraDirection: cameraDirection)
+  }
 }
