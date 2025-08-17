@@ -30,11 +30,13 @@ typedef struct {
   float viewerRotation;
 } Params;
 
-struct CellBase {
+struct RaindropBase {
   float3 position;
   float3 color;
-  float lampIdf;
+  float raindropId;
   float3 velocity;
+  float groundTime; // 在地面停留的时间
+  bool isOnGround;  // 是否在地面
 };
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
@@ -70,19 +72,66 @@ static float4 applyGestureViewerOnScene(
 }
 
 kernel void rainComputeShader(
-    device CellBase *lamps [[buffer(0)]],
-    device CellBase *outputLamps [[buffer(1)]],
+    device RaindropBase *raindrops [[buffer(0)]],
+    device RaindropBase *outputRaindrops [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  CellBase lamp = lamps[id];
-  device CellBase &outputLamp = outputLamps[id];
-  float seed = fract(lamp.lampIdf / 10.) * 10.;
-  float speed = random1D(seed) + 0.1;
-  float dt = params.time * speed * 0.1;
-  outputLamp.position =
-      lamp.position + float3(0.0, dt, 0.0) + lamp.velocity * dt;
-  outputLamp.color = lamp.color;
-  outputLamp.lampIdf = lamp.lampIdf;
+
+  RaindropBase raindrop = raindrops[id];
+  device RaindropBase &outputRaindrop = outputRaindrops[id];
+
+  float seed = raindrop.raindropId + float(id) * 0.1;
+
+  // Use a more stable time delta
+  float dt = max(abs(params.time), 0.016); // At least 16ms (60fps)
+  dt = min(dt, 0.1);                       // Cap at 100ms to prevent huge jumps
+
+  // Ground level and reset height
+  const float groundLevel = -0.5;
+  const float resetHeight = 8.0; // Height to reset to
+
+  // Copy basic properties
+  outputRaindrop.color = raindrop.color;
+  outputRaindrop.raindropId = raindrop.raindropId;
+
+  // Ensure consistent downward velocity for falling raindrops
+  outputRaindrop.velocity = raindrop.velocity;
+
+  // If velocity is too small (possibly uninitialized), set default falling
+  // velocity
+  if (abs(outputRaindrop.velocity.y) < 0.5) {
+    outputRaindrop.velocity.y = -(1.5 + random1D(seed) * 0.5); // -1.5 to -2.0
+  }
+
+  // Normal falling motion
+  float3 newPosition = raindrop.position + outputRaindrop.velocity * dt;
+
+  // Check if reached ground - if so, immediately reset to high altitude
+  if (newPosition.y <= groundLevel) {
+    // Use time-based seed for better randomness
+    float timeSeed = seed + float(id) * 0.234 + params.time * 0.01;
+
+    // Reset position to random high altitude
+    outputRaindrop.position.y = resetHeight + random1D(timeSeed * 1.23) * 4.0;
+    outputRaindrop.position.x = (random1D(timeSeed * 2.47) - 0.5) * 50.0;
+    outputRaindrop.position.z = (random1D(timeSeed * 3.71) - 0.5) * 50.0;
+
+    // Reset velocity for falling with new random values
+    outputRaindrop.velocity = float3(
+        (random1D(timeSeed * 4.13) - 0.5) * 0.4,  // Horizontal drift
+        -(1.2 + random1D(timeSeed * 5.29) * 0.6), // Downward speed -1.2 to -1.8
+        (random1D(timeSeed * 6.83) - 0.5) * 0.4   // Horizontal drift
+    );
+
+    // Clear ground-related states (not used anymore but keep for compatibility)
+    outputRaindrop.isOnGround = false;
+    outputRaindrop.groundTime = 0.0;
+  } else {
+    // Normal falling - just update position
+    outputRaindrop.position = newPosition;
+    outputRaindrop.isOnGround = false;
+    outputRaindrop.groundTime = 0.0;
+  }
 }
 
 vertex LampInOut rainVertexShader(
@@ -91,18 +140,17 @@ vertex LampInOut rainVertexShader(
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
     constant Params &params [[buffer(BufferIndexParams)]],
-    const device CellBase *lampData [[buffer(BufferIndexBase)]]) {
+    const device RaindropBase *raindropData [[buffer(BufferIndexBase)]]) {
   LampInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   float3 cameraAt = uniforms.cameraPos;
 
-  float4 position = float4(in.position + lampData[in.seed].position, 1.0);
+  // Use position directly from compute buffer, no additional calculation needed
+  float4 position = float4(in.position + raindropData[in.seed].position, 1.0);
 
-  float lampDistance = distance(cameraAt, position.xyz);
-  float distanceDim = 1.0 - clamp(lampDistance / 30.0, 0.0, 1.0);
-  float randSeed = random1D(lampData[in.seed].lampIdf);
-  float breathDim = 1.0 - sin(params.time * 1. * randSeed) * 0.8;
+  float raindropDistance = distance(cameraAt, position.xyz);
+  float distanceDim = 1.0 - clamp(raindropDistance / 40.0, 0.0, 0.8);
 
   position = applyGestureViewerOnScene(
       position,
@@ -116,7 +164,7 @@ vertex LampInOut rainVertexShader(
   out.position = uniformsPerView.modelViewProjectionMatrix * position;
   out.color = float4(in.color, tintUniform.tintOpacity);
   // Premultiply color channel by alpha channel.
-  out.color.rgb = out.color.rgb * out.color.a * distanceDim * breathDim;
+  out.color.rgb = out.color.rgb * out.color.a * distanceDim;
 
   return out;
 }
