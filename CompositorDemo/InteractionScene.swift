@@ -82,6 +82,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try ConflictForceRenderer(
               layerRenderer: layerRenderer
             )
+          case .rain:
+            currentRenderer = try RainRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
           fatalError("Failed to create renderer \(error)")

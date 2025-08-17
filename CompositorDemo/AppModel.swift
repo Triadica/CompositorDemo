@@ -23,6 +23,7 @@ enum DemoTab: String, CaseIterable, Identifiable {
   case bounceGravity
   case multiGravity
   case conflictForce
+  case rain
 
   var id: Self { self }
 }
