@@ -86,6 +86,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try RainRenderer(
               layerRenderer: layerRenderer
             )
+          case .dome:
+            currentRenderer = try DomeRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
           fatalError("Failed to create renderer \(error)")

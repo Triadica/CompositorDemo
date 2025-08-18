@@ -38,6 +38,8 @@
 		9A9A3E3F2E202A1C00330D1B /* ShareShaderAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E3E2E202A1300330D1B /* ShareShaderAddress.swift */; };
 		9AD002F02E5260450074380A /* RainRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD002EF2E52603E0074380A /* RainRenderer.swift */; };
 		9AD002F22E52604E0074380A /* RainShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AD002F12E5260490074380A /* RainShader.metal */; };
+		9AE74C1F2E538D8B00887A30 /* DomeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE74C1E2E538D8600887A30 /* DomeRenderer.swift */; };
+		9AE74C212E538D9B00887A30 /* DomeShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AE74C202E538D9000887A30 /* DomeShader.metal */; };
 		9AEFD39B2DAC396000C96226 /* AttractorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */; };
 		9AEFD39D2DAC396B00C96226 /* AttractorShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9AEFD39C2DAC396400C96226 /* AttractorShader.metal */; };
 		9AF975B32DBEA5B400B78645 /* ImagesRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */; };
@@ -88,6 +90,8 @@
 		9A9A3E3E2E202A1300330D1B /* ShareShaderAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareShaderAddress.swift; sourceTree = "<group>"; };
 		9AD002EF2E52603E0074380A /* RainRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RainRenderer.swift; sourceTree = "<group>"; };
 		9AD002F12E5260490074380A /* RainShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = RainShader.metal; sourceTree = "<group>"; };
+		9AE74C1E2E538D8600887A30 /* DomeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomeRenderer.swift; sourceTree = "<group>"; };
+		9AE74C202E538D9000887A30 /* DomeShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = DomeShader.metal; sourceTree = "<group>"; };
 		9AEFD39A2DAC395800C96226 /* AttractorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttractorRenderer.swift; sourceTree = "<group>"; };
 		9AEFD39C2DAC396400C96226 /* AttractorShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AttractorShader.metal; sourceTree = "<group>"; };
 		9AF975B22DBEA5AD00B78645 /* ImagesRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesRenderer.swift; sourceTree = "<group>"; };
@@ -156,6 +160,8 @@
 		D11274242BC7318900E194CF /* CompositorDemo */ = {
 			isa = PBXGroup;
 			children = (
+				9AE74C202E538D9000887A30 /* DomeShader.metal */,
+				9AE74C1E2E538D8600887A30 /* DomeRenderer.swift */,
 				9AD002F12E5260490074380A /* RainShader.metal */,
 				9AD002EF2E52603E0074380A /* RainRenderer.swift */,
 				9A9A3E3E2E202A1300330D1B /* ShareShaderAddress.swift */,
@@ -290,6 +296,7 @@
 				9A92D3872D994ECB0021FFCE /* PolylinesShader.metal in Sources */,
 				D11274302BC7318900E194CF /* Renderer.swift in Sources */,
 				9A9A3E0D2E16EDDC00330D1B /* BounceInBallRenderer.swift in Sources */,
+				9AE74C212E538D9B00887A30 /* DomeShader.metal in Sources */,
 				9A13D8A12DC9395A00EEA863 /* DragSparksShader.metal in Sources */,
 				9A9A3E252E1C325B00330D1B /* MultiGravityShader.metal in Sources */,
 				9AD002F02E5260450074380A /* RainRenderer.swift in Sources */,
@@ -313,6 +320,7 @@
 				D112742A2BC7318900E194CF /* InteractionApp.swift in Sources */,
 				9A92D3852D994EB00021FFCE /* PolylinesRenderer.swift in Sources */,
 				9A9A3E1F2E1ADA6800330D1B /* BounceGravityRenderer.swift in Sources */,
+				9AE74C1F2E538D8B00887A30 /* DomeRenderer.swift in Sources */,
 				D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */,
 				9A9A3E112E19996300330D1B /* BounceInCubeRenderer.swift in Sources */,
 				9A92D3772D91D35A0021FFCE /* LampsShader.metal in Sources */,

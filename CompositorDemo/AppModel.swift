@@ -24,6 +24,7 @@ enum DemoTab: String, CaseIterable, Identifiable {
   case multiGravity
   case conflictForce
   case rain
+  case dome
 
   var id: Self { self }
 }
@@ -43,6 +44,6 @@ public class AppModel {
   // Content rendering
   public var opacity: Float = 1.0
 
-  var selectedTab: DemoTab = .rain
+  var selectedTab: DemoTab = .dome
   var lampsRenderer: CustomRenderer?
 }
