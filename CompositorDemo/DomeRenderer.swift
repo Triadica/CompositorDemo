@@ -7,28 +7,20 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let domeSegmentCount: Int = 10000  // 圆顶段数
-private let segmentsPerDomeSegment: Int = 4  // 每个圆顶段的细分
-private let verticesPerDomeSegment = segmentsPerDomeSegment * 2 + 2  // 上下底面各一个中心点
-private let verticesCount = verticesPerDomeSegment * domeSegmentCount
+// 球壳参数
+private let sphereRadius: Float = 5.0  // 球壳半径 5m
+private let pointCount: Int = 40  // 球壳上的点数量
 
-private let sideIndexesPerDomeSegment: Int = 6 * segmentsPerDomeSegment  // 6 vertices per rectangle (side faces)
-private let topIndexesPerDomeSegment: Int = segmentsPerDomeSegment * 3  // cover the top with triangles
-private let bottomIndexesPerDomeSegment: Int = segmentsPerDomeSegment * 3  // cover the bottom with triangles
-private let indexesPerDomeSegment =
-  sideIndexesPerDomeSegment + topIndexesPerDomeSegment + bottomIndexesPerDomeSegment
-private let indexesCount: Int = domeSegmentCount * indexesPerDomeSegment
+// 球壳网格参数 - 大幅减少密度以提升性能
+private let sphereSegments: Int = 16  // 球壳经度分段
+private let sphereRings: Int = 8  // 球壳纬度分段
+private let verticesCount = (sphereRings + 1) * (sphereSegments + 1)
+private let indexesCount = sphereRings * sphereSegments * 6
 
-private let domeSegmentHeight: Float = 0.04  // 圆顶段高度
-private let domeSegmentRadius: Float = 0.01  // 圆顶段半径
-
-private struct DomeSegmentBase {
-  var position: SIMD3<Float>
-  var color: SIMD3<Float>
-  var segmentId: Float
-  var velocity: SIMD3<Float> = .zero
-  var activateTime: Float = 0.0  // 激活时间
-  var isActive: Bool = false  // 是否激活
+private struct SpherePoint {
+  var position: SIMD3<Float>  // 球壳上的点位置
+  var velocity: SIMD3<Float>  // 移动速度
+  var pointId: Float  // 点ID
 }
 
 private struct Params {
@@ -75,123 +67,80 @@ class DomeRenderer: CustomRenderer {
     self.createDomeComputeBuffer(device: layerRenderer.device)
   }
 
-  /// create and sets the vertices of the dome segment
+  /// 创建球壳顶点缓冲区
   private func createDomeVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Dome segment vertex buffer"
-    var cellVertices: UnsafeMutablePointer<LampsVertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
-    }
+    vertexBuffer.label = "Sphere vertex buffer"
 
-    for i in 0..<domeSegmentCount {
-      let baseIndex = i * verticesPerDomeSegment
+    let vertices = vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
 
-      // Create dome segment vertices
-      for s in 0..<segmentsPerDomeSegment {
-        let angle = Float(s) * (2 * Float.pi / Float(segmentsPerDomeSegment))
+    var vertexIndex = 0
 
-        // Top edge
-        let topEdge = SIMD3<Float>(
-          cos(angle) * domeSegmentRadius, domeSegmentHeight / 2, sin(angle) * domeSegmentRadius)
+    // 生成球壳顶点
+    for ring in 0...sphereRings {
+      let phi = Float(ring) * Float.pi / Float(sphereRings)  // 纬度角
+      let y = cos(phi) * sphereRadius
+      let ringRadius = sin(phi) * sphereRadius
 
-        // Bottom edge
-        let bottomEdge = SIMD3<Float>(
-          cos(angle) * domeSegmentRadius, -domeSegmentHeight / 2, sin(angle) * domeSegmentRadius)
+      for segment in 0...sphereSegments {
+        let theta = Float(segment) * 2.0 * Float.pi / Float(sphereSegments)  // 经度角
+        let x = cos(theta) * ringRadius
+        let z = sin(theta) * ringRadius
 
-        // 橙色 (top)
-        let orangeColor = SIMD3<Float>(1.0, 0.6, 0.2)
-        // 红色 (bottom)
-        let redColor = SIMD3<Float>(0.8, 0.2, 0.2)
+        let position = SIMD3<Float>(x, y, z)
+        let color = SIMD3<Float>(0.2, 0.2, 0.2)  // 默认灰色
 
-        cellVertices[baseIndex + s] = LampsVertex(
-          position: topEdge, color: orangeColor, seed: Int32(i))
-        cellVertices[baseIndex + s + segmentsPerDomeSegment] = LampsVertex(
-          position: bottomEdge, color: redColor, seed: Int32(i))
+        vertices[vertexIndex] = LampsVertex(
+          position: position,
+          color: color,
+          seed: Int32(vertexIndex)
+        )
+        vertexIndex += 1
+
       }
-
-      // Top center point (orange)
-      cellVertices[baseIndex + segmentsPerDomeSegment * 2] = LampsVertex(
-        position: SIMD3<Float>(0, domeSegmentHeight / 2, 0),
-        color: SIMD3<Float>(1.0, 0.7, 0.3),
-        seed: Int32(i)
-      )
-
-      // Bottom center point (red)
-      cellVertices[baseIndex + segmentsPerDomeSegment * 2 + 1] = LampsVertex(
-        position: SIMD3<Float>(0, -domeSegmentHeight / 2, 0),
-        color: SIMD3<Float>(0.7, 0.1, 0.1),
-        seed: Int32(i)
-      )
     }
   }
 
   func resetComputeState() {
-    self.createDomeComputeBuffer(device: computeDevice)
+    self.createDomeComputeBuffer(device: self.computeDevice)
   }
 
+  /// 创建球壳索引缓冲区
   private func createDomeIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
-    indexBuffer.label = "Dome segment index buffer"
+    indexBuffer.label = "Sphere index buffer"
 
-    let cellIndices = indexBuffer.contents().bindMemory(
-      to: UInt32.self, capacity: indexesCount)
+    let indices = indexBuffer.contents().assumingMemoryBound(to: UInt32.self)
+    var indexOffset = 0
 
-    for i in 0..<domeSegmentCount {
-      let verticesBase = i * verticesPerDomeSegment
-      let indexBase = i * indexesPerDomeSegment
+    // 生成球壳三角形索引
+    for ring in 0..<sphereRings {
+      for segment in 0..<sphereSegments {
+        let current = UInt32(ring * (sphereSegments + 1) + segment)
+        let next = UInt32(ring * (sphereSegments + 1) + (segment + 1))
+        let currentNext = UInt32((ring + 1) * (sphereSegments + 1) + segment)
+        let nextNext = UInt32((ring + 1) * (sphereSegments + 1) + (segment + 1))
 
-      // Side faces (rectangles)
-      for s in 0..<segmentsPerDomeSegment {
-        let topCurrent = verticesBase + s
-        let topNext = verticesBase + (s + 1) % segmentsPerDomeSegment
-        let bottomCurrent = verticesBase + s + segmentsPerDomeSegment
-        let bottomNext = verticesBase + (s + 1) % segmentsPerDomeSegment + segmentsPerDomeSegment
+        // 第一个三角形
+        indices[indexOffset] = current
+        indices[indexOffset + 1] = currentNext
+        indices[indexOffset + 2] = next
 
-        let sideIndexBase = indexBase + s * 6
+        // 第二个三角形
+        indices[indexOffset + 3] = next
+        indices[indexOffset + 4] = currentNext
+        indices[indexOffset + 5] = nextNext
 
-        // First triangle
-        cellIndices[sideIndexBase] = UInt32(topCurrent)
-        cellIndices[sideIndexBase + 1] = UInt32(bottomCurrent)
-        cellIndices[sideIndexBase + 2] = UInt32(topNext)
-
-        // Second triangle
-        cellIndices[sideIndexBase + 3] = UInt32(topNext)
-        cellIndices[sideIndexBase + 4] = UInt32(bottomCurrent)
-        cellIndices[sideIndexBase + 5] = UInt32(bottomNext)
-      }
-
-      // Top cap
-      let topCenter = verticesBase + segmentsPerDomeSegment * 2
-      let topIndexBase = indexBase + sideIndexesPerDomeSegment
-      for s in 0..<segmentsPerDomeSegment {
-        let current = verticesBase + s
-        let next = verticesBase + (s + 1) % segmentsPerDomeSegment
-        let triangleBase = topIndexBase + s * 3
-
-        cellIndices[triangleBase] = UInt32(topCenter)
-        cellIndices[triangleBase + 1] = UInt32(current)
-        cellIndices[triangleBase + 2] = UInt32(next)
-      }
-
-      // Bottom cap
-      let bottomCenter = verticesBase + segmentsPerDomeSegment * 2 + 1
-      let bottomIndexBase = indexBase + sideIndexesPerDomeSegment + topIndexesPerDomeSegment
-      for s in 0..<segmentsPerDomeSegment {
-        let current = verticesBase + s + segmentsPerDomeSegment
-        let next = verticesBase + (s + 1) % segmentsPerDomeSegment + segmentsPerDomeSegment
-        let triangleBase = bottomIndexBase + s * 3
-
-        cellIndices[triangleBase] = UInt32(bottomCenter)
-        cellIndices[triangleBase + 1] = UInt32(next)
-        cellIndices[triangleBase + 2] = UInt32(current)
+        indexOffset += 6
       }
     }
   }
 
+  /// 创建球壳上的点数据
   private func createDomeComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<DomeSegmentBase>.stride * domeSegmentCount
+    let bufferLength = MemoryLayout<SpherePoint>.stride * pointCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -199,40 +148,33 @@ class DomeRenderer: CustomRenderer {
       print("Failed to create compute buffer")
       return
     }
-    computeBuffer.addLabel("Dome segment compute buffer")
+    computeBuffer.addLabel("Sphere points compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let domeSegmentBase = contents.bindMemory(to: DomeSegmentBase.self, capacity: domeSegmentCount)
+    let spherePoints = contents.bindMemory(to: SpherePoint.self, capacity: pointCount)
 
-    for i in 0..<domeSegmentCount {
-      // 形成圆顶状分布
-      let angle = Float(i) * (2 * Float.pi / Float(domeSegmentCount))
-      let radius = Float.random(in: 5...20)
-      let height = sqrt(max(0, 400 - radius * radius)) / 10 // 圆顶高度函数
-      
-      let xOffset = cos(angle) * radius
-      let zOffset = sin(angle) * radius
-      let yOffset = height
+    for i in 0..<pointCount {
+      // 在球壳上随机分布点
+      let phi = Float.random(in: 0...Float.pi)  // 纬度角
+      let theta = Float.random(in: 0...(2 * Float.pi))  // 经度角
 
-      let domeSegmentPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
+      let x = sin(phi) * cos(theta) * sphereRadius
+      let y = cos(phi) * sphereRadius
+      let z = sin(phi) * sin(theta) * sphereRadius
 
-      // 圆顶段颜色 (橙红渐变)
-      let color = SIMD3<Float>(1.0, 0.5, 0.2)
+      let position = SIMD3<Float>(x, y, z)
 
-      // 静态或缓慢移动
+      // 缓慢的随机移动速度
       let velocity = SIMD3<Float>(
-        Float.random(in: (-0.1)...0.1),
-        Float.random(in: (-0.1)...0.1),
-        Float.random(in: (-0.1)...0.1)
+        Float.random(in: -0.02...0.02),
+        Float.random(in: -0.02...0.02),
+        Float.random(in: -0.02...0.02)
       )
 
-      domeSegmentBase[i] = DomeSegmentBase(
-        position: domeSegmentPosition,
-        color: color,
-        segmentId: Float(i),
+      spherePoints[i] = SpherePoint(
+        position: position,
         velocity: velocity,
-        activateTime: 0.0,
-        isActive: true
+        pointId: Float(i)
       )
     }
 
@@ -319,7 +261,7 @@ class DomeRenderer: CustomRenderer {
 
     var params = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: dt,
+      time: 0.016,  // 使用固定的时间步长，避免闪烁
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
@@ -327,7 +269,7 @@ class DomeRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (domeSegmentCount + threadGroupSize - 1) / threadGroupSize,
+      width: (pointCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
@@ -381,7 +323,7 @@ class DomeRenderer: CustomRenderer {
 
     var params_data = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: frameDelta,  // Use the same delta time as compute shader
+      time: 0.016,  // 使用固定的时间步长，避免闪烁
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
@@ -398,6 +340,15 @@ class DomeRenderer: CustomRenderer {
       index: BufferIndex.params.rawValue)
 
     encoder.setVertexBuffer(
+      computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
+
+    // 为 fragment shader 设置缓冲区
+    encoder.setFragmentBuffer(
+      params,
+      offset: 0,
+      index: BufferIndex.params.rawValue)
+
+    encoder.setFragmentBuffer(
       computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
 
     encoder.drawIndexedPrimitives(
