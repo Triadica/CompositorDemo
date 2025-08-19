@@ -62,7 +62,7 @@ typedef struct {
   simd_float3 position;
   simd_float3 color;
   int seed;
-} LampsVertex;
+} VertexWithSeed;
 
 typedef struct {
   simd_float3 position;

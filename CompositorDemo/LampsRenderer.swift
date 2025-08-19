@@ -83,11 +83,11 @@ class LampsRenderer: CustomRenderer {
 
   /// create and sets the vertices of the lamp
   private func createLampVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
+    let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Lamp vertex buffer"
-    var cellVertices: UnsafeMutablePointer<LampsVertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
+    var cellVertices: UnsafeMutablePointer<VertexWithSeed> {
+      vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
     }
 
     for i in 0..<lampCount {
@@ -115,16 +115,16 @@ class LampsRenderer: CustomRenderer {
         let vertexBase = baseIndex + p
 
         // First triangle of rectangle (inner1, outer1, inner2)
-        cellVertices[vertexBase] = LampsVertex(
+        cellVertices[vertexBase] = VertexWithSeed(
           position: upperEdge, color: color, seed: Int32(i))
-        cellVertices[vertexBase + patelPerLamp] = LampsVertex(
+        cellVertices[vertexBase + patelPerLamp] = VertexWithSeed(
           position: lowerEdge,
           color: dimColor,
           seed: Int32(i)
         )
       }
       // top center of the lamp
-      cellVertices[baseIndex + patelPerLamp * 2] = LampsVertex(
+      cellVertices[baseIndex + patelPerLamp * 2] = VertexWithSeed(
         position: SIMD3<Float>(0, verticalScale, 0),
         color: color * 2.0,
         seed: Int32(i)
@@ -239,7 +239,7 @@ class LampsRenderer: CustomRenderer {
       BufferIndex.meshPositions.rawValue
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<LampsVertex>.stride
+      MemoryLayout<VertexWithSeed>.stride
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
       MTLVertexStepFunction.perVertex
@@ -352,8 +352,6 @@ class LampsRenderer: CustomRenderer {
       drawCommand.uniforms,
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
-
-    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,

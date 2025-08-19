@@ -77,11 +77,11 @@ class RainRenderer: CustomRenderer {
 
   /// create and sets the vertices of the raindrop
   private func createLampVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
+    let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Raindrop vertex buffer"
-    var cellVertices: UnsafeMutablePointer<LampsVertex> {
-      vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
+    var cellVertices: UnsafeMutablePointer<VertexWithSeed> {
+      vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
     }
 
     for i in 0..<raindropCount {
@@ -104,21 +104,21 @@ class RainRenderer: CustomRenderer {
         // Blue color (bottom)
         let blueColor = SIMD3<Float>(0.2, 0.4, 0.8)
 
-        cellVertices[baseIndex + s] = LampsVertex(
+        cellVertices[baseIndex + s] = VertexWithSeed(
           position: topEdge, color: whiteColor, seed: Int32(i))
-        cellVertices[baseIndex + s + segmentsPerRaindrop] = LampsVertex(
+        cellVertices[baseIndex + s + segmentsPerRaindrop] = VertexWithSeed(
           position: bottomEdge, color: blueColor, seed: Int32(i))
       }
 
       // Top center point (white)
-      cellVertices[baseIndex + segmentsPerRaindrop * 2] = LampsVertex(
+      cellVertices[baseIndex + segmentsPerRaindrop * 2] = VertexWithSeed(
         position: SIMD3<Float>(0, raindropHeight / 2, 0),
         color: SIMD3<Float>(1.0, 1.0, 1.0),
         seed: Int32(i)
       )
 
       // Bottom center point (blue)
-      cellVertices[baseIndex + segmentsPerRaindrop * 2 + 1] = LampsVertex(
+      cellVertices[baseIndex + segmentsPerRaindrop * 2 + 1] = VertexWithSeed(
         position: SIMD3<Float>(0, -raindropHeight / 2, 0),
         color: SIMD3<Float>(0.1, 0.2, 0.6),
         seed: Int32(i)
@@ -256,7 +256,7 @@ class RainRenderer: CustomRenderer {
       BufferIndex.meshPositions.rawValue
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<LampsVertex>.stride
+      MemoryLayout<VertexWithSeed>.stride
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
       MTLVertexStepFunction.perVertex
@@ -369,8 +369,6 @@ class RainRenderer: CustomRenderer {
       drawCommand.uniforms,
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
-
-    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,

@@ -69,11 +69,11 @@ class DomeRenderer: CustomRenderer {
 
   /// 创建球壳顶点缓冲区
   private func createDomeVerticesBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<LampsVertex>.stride * verticesCount
+    let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
     vertexBuffer.label = "Sphere vertex buffer"
 
-    let vertices = vertexBuffer.contents().assumingMemoryBound(to: LampsVertex.self)
+    let vertices = vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
 
     var vertexIndex = 0
 
@@ -91,7 +91,7 @@ class DomeRenderer: CustomRenderer {
         let position = SIMD3<Float>(x, y, z)
         let color = SIMD3<Float>(0.2, 0.2, 0.2)  // 默认灰色
 
-        vertices[vertexIndex] = LampsVertex(
+        vertices[vertexIndex] = VertexWithSeed(
           position: position,
           color: color,
           seed: Int32(vertexIndex)
@@ -200,7 +200,7 @@ class DomeRenderer: CustomRenderer {
       BufferIndex.meshPositions.rawValue
 
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stride =
-      MemoryLayout<LampsVertex>.stride
+      MemoryLayout<VertexWithSeed>.stride
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepRate = 1
     mtlVertexDescriptor.layouts[BufferIndex.meshPositions.rawValue].stepFunction =
       MTLVertexStepFunction.perVertex
@@ -256,7 +256,7 @@ class DomeRenderer: CustomRenderer {
     computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
 
     let delta = -Float(viewStartTime.timeIntervalSinceNow)
-    let dt = delta - frameDelta
+    // let dt = delta - frameDelta
     frameDelta = delta
 
     var params = Params(
@@ -313,8 +313,6 @@ class DomeRenderer: CustomRenderer {
       drawCommand.uniforms,
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
-
-    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
 
     encoder.setVertexBuffer(
       buffer,
