@@ -168,11 +168,12 @@ class DomeRenderer: CustomRenderer {
       // 生成随机的旋转轴（过球心的直线方向）
       let axisTheta = Float.random(in: 0...(2 * Float.pi))
       let axisPhi = Float.random(in: 0...Float.pi)
-      let rotationAxis = normalize(SIMD3<Float>(
-        sin(axisPhi) * cos(axisTheta),
-        cos(axisPhi),
-        sin(axisPhi) * sin(axisTheta)
-      ))
+      let rotationAxis = normalize(
+        SIMD3<Float>(
+          sin(axisPhi) * cos(axisTheta),
+          cos(axisPhi),
+          sin(axisPhi) * sin(axisTheta)
+        ))
 
       // 设置角速度（弧度/秒），范围在 0.1 到 1.0 弧度/秒
       let angularSpeed = Float.random(in: 0.1...1.0)

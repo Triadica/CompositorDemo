@@ -11,17 +11,18 @@
 
 using namespace metal;
 
-typedef struct {
+struct DomeVertexIn {
   float3 position [[attribute(VertexAttributePosition)]];
   float3 color [[attribute(VertexAttributeColor)]];
   int seed [[attribute(VertexAttributeSeed)]];
-} DomeVertexIn;
+};
 
-typedef struct {
+struct DomeInOut {
   float4 position [[position]];
   float4 color;
-  float is_facing_camera;
-} DomeInOut;
+  float3 fragPos;
+  bool is_facing_camera;
+};
 
 typedef struct {
   float3 viewerPosition;
@@ -142,7 +143,7 @@ vertex DomeInOut domeVertexShader(
 
   // Calculate visibility
   float3 view_dir = normalize(uniforms.cameraPos - position_world.xyz);
-  out.is_facing_camera = dot(normal_world, view_dir);
+  out.is_facing_camera = dot(normal_world, view_dir) > 0.0;
 
   // Final position
   position_world.w = 1;
@@ -159,7 +160,7 @@ fragment float4 domeFragmentShader(
     constant Params &params [[buffer(BufferIndexParams)]],
     const device SpherePoint *spherePoints [[buffer(BufferIndexBase)]]) {
 
-  if (in.is_facing_camera <= 0.0) {
+  if (!in.is_facing_camera) {
     return float4(0.2, 0.2, 0.2, 1.0);
   }
 
@@ -173,59 +174,44 @@ fragment float4 domeFragmentShader(
   // 默认透明
   float4 finalColor = float4(0.0, 0.0, 0.0, 0.0);
 
-  // 渲染球壳上的点
   for (uint i = 0; i < 80; i++) {
-    float3 pointPos = spherePoints[i].position;
-    float dist = distance(fragPos, pointPos);
+    float3 point1 = spherePoints[i].position;
+    float dist = distance(fragPos, point1);
+
     if (dist < 0.05) {
       finalColor = float4(1.0, 1.0, 1.0, 1.0);
       break;
     }
-  }
 
-  // 连线效果计算 (Optimized)
-  if (finalColor.a < 0.1) { // 如果不是圆点位置
-
-    for (uint i = 0; i < 80; i++) {
-      float3 point1 = spherePoints[i].position;
-
-      // 优化：如果片段离 point1 太远，则不可能在任何从 point1 出发的线段上。
-      // 最大线长为 1.5，线宽为 0.02。因此，片段到 point1 的最大距离为 1.5 +
-      // 0.02 = 1.52。
-      if (distance(fragPos, point1) > 1.52) {
-        continue;
-      }
-
+    if (dist < 1.52) {
       for (uint j = i + 1; j < 80; j++) {
         float3 point2 = spherePoints[j].position;
+        float lineLength = distance(point1, point2);
 
-        float pointDistance = distance(point1, point2);
+        if (lineLength > 1e-5 && lineLength < 1.5) {
+            float3 p1_norm = normalize(point1);
+            float3 p2_norm = normalize(point2);
+            float3 frag_norm = normalize(fragPos);
 
-        // 只处理距离小于 1.5m 且大于 0 的点对
-        if (pointDistance > 1e-5 && pointDistance < 1.5) {
-          // 计算当前片段到线段的距离
-          float3 lineDir = (point2 - point1) / pointDistance;
-          float3 toFrag = fragPos - point1;
-          float projLength = dot(toFrag, lineDir);
+            // The normal to the plane defined by the two points and the origin.
+            float3 n = normalize(cross(p1_norm, p2_norm));
+            
+            // The distance of the fragment from that plane, which acts as our
+            // proxy for distance to the great circle line on the sphere.
+            float dist_from_plane = abs(dot(frag_norm, n));
 
-          // 确保投影在线段范围内
-          projLength = clamp(projLength, 0.0, pointDistance);
-          float3 closestPoint = point1 + lineDir * projLength;
-          float distToLine = distance(fragPos, closestPoint);
+            // Check if the fragment is on the shorter arc between the two points.
+            float p1_p2_dot = dot(p1_norm, p2_norm);
+            bool on_arc = dot(frag_norm, p1_norm) >= p1_p2_dot && dot(frag_norm, p2_norm) >= p1_p2_dot;
 
-          // 如果片段在连线附近（线宽 0.02m）
-          if (distToLine < 0.02) {
-            float brightness = 1.0 - (pointDistance / 1.5);
-            brightness = max(brightness, 0.2);
-
-            // 根据距离线段的远近调整透明度
-            float lineAlpha = 1.0 - (distToLine / 0.02);
-            float alpha = brightness * lineAlpha * 0.4;
-
-            finalColor = max(finalColor, float4(1.0, 1.0, 1.0, alpha));
-          }
+            // If the fragment is close enough to the plane and on the arc, color it.
+            if (dist_from_plane < 0.002 && on_arc) {
+                finalColor = float4(1.0, 1.0, 1.0, 1.0);
+                break;
+            }
         }
       }
+      if (finalColor.a > 0.1) break;
     }
   }
 

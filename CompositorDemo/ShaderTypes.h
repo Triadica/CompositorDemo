@@ -86,4 +86,9 @@ typedef struct {
   simd_float2 uv;
 } BlockVertex;
 
+typedef struct {
+  matrix_float4x4 modelMatrix;
+  matrix_float3x3 normalMatrix;
+} RenderParams;
+
 #endif /* ShaderTypes_h */
