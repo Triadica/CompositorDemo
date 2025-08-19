@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
   float4 position [[position]];
   float4 color;
+  float is_facing_camera;
 } DomeInOut;
 
 typedef struct {
@@ -41,8 +42,6 @@ struct SphereVertex {
   float3 color;
   int seed;
 };
-
-static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
 
 static float4 applyGestureViewerOnScene(
     float4 p0,
@@ -121,21 +120,35 @@ vertex DomeInOut domeVertexShader(
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
 
-  // 使用球壳顶点位置
-  float4 position = float4(in.position, 1.0);
+  // Object-space position and normal
+  float4 position_obj = float4(in.position, 1.0);
+  float3 normal_obj = normalize(-in.position);
 
-  position = applyGestureViewerOnScene(
-      position,
+  // Apply model transform to position to get world position
+  float4 position_world = applyGestureViewerOnScene(
+      position_obj,
       params.viewerPosition,
       params.viewerScale,
       params.viewerRotation,
       uniforms.cameraPos);
 
-  position.w = 1;
+  // To get the world-space normal, we need to apply the rotation part of the transform.
+  // The applyGestureViewerOnScene function has rotation logic.
+  float cosTheta = cos(params.viewerRotation);
+  float sinTheta = sin(params.viewerRotation);
+  float normal_x = normal_obj.x * cosTheta - normal_obj.z * sinTheta;
+  float normal_z = normal_obj.x * sinTheta + normal_obj.z * cosTheta;
+  float3 normal_world = normalize(float3(normal_x, normal_obj.y, normal_z));
 
-  out.position = uniformsPerView.modelViewProjectionMatrix * position;
+  // Calculate visibility
+  float3 view_dir = normalize(uniforms.cameraPos - position_world.xyz);
+  out.is_facing_camera = dot(normal_world, view_dir);
 
-  // 传递顶点位置到fragment shader用于计算连线效果
+  // Final position
+  position_world.w = 1;
+  out.position = uniformsPerView.modelViewProjectionMatrix * position_world;
+
+  // Pass object-space position to fragment shader via 'color'
   out.color = float4(in.position, tintUniform.tintOpacity);
 
   return out;
@@ -145,6 +158,11 @@ fragment float4 domeFragmentShader(
     DomeInOut in [[stage_in]],
     constant Params &params [[buffer(BufferIndexParams)]],
     const device SpherePoint *spherePoints [[buffer(BufferIndexBase)]]) {
+
+  if (in.is_facing_camera <= 0.0) {
+    return float4(0.2, 0.2, 0.2, 1.0);
+  }
+
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
