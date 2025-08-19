@@ -12,14 +12,15 @@ private let sphereRadius: Float = 5.0  // 球壳半径 5m
 private let pointCount: Int = 40  // 球壳上的点数量
 
 // 球壳网格参数 - 大幅减少密度以提升性能
-private let sphereSegments: Int = 16  // 球壳经度分段
-private let sphereRings: Int = 8  // 球壳纬度分段
+private let sphereSegments: Int = 32  // 球壳经度分段
+private let sphereRings: Int = 16  // 球壳纬度分段
 private let verticesCount = (sphereRings + 1) * (sphereSegments + 1)
 private let indexesCount = sphereRings * sphereSegments * 6
 
 private struct SpherePoint {
   var position: SIMD3<Float>  // 球壳上的点位置
-  var velocity: SIMD3<Float>  // 移动速度
+  var rotationAxis: SIMD3<Float>  // 旋转轴（过球心的直线方向）
+  var angularSpeed: Float  // 角速度（弧度/秒）
   var pointId: Float  // 点ID
 }
 
@@ -164,16 +165,22 @@ class DomeRenderer: CustomRenderer {
 
       let position = SIMD3<Float>(x, y, z)
 
-      // 缓慢的随机移动速度
-      let velocity = SIMD3<Float>(
-        Float.random(in: -0.02...0.02),
-        Float.random(in: -0.02...0.02),
-        Float.random(in: -0.02...0.02)
-      )
+      // 生成随机的旋转轴（过球心的直线方向）
+      let axisTheta = Float.random(in: 0...(2 * Float.pi))
+      let axisPhi = Float.random(in: 0...Float.pi)
+      let rotationAxis = normalize(SIMD3<Float>(
+        sin(axisPhi) * cos(axisTheta),
+        cos(axisPhi),
+        sin(axisPhi) * sin(axisTheta)
+      ))
+
+      // 设置角速度（弧度/秒），范围在 0.1 到 1.0 弧度/秒
+      let angularSpeed = Float.random(in: 0.1...1.0)
 
       spherePoints[i] = SpherePoint(
         position: position,
-        velocity: velocity,
+        rotationAxis: rotationAxis,
+        angularSpeed: angularSpeed,
         pointId: Float(i)
       )
     }

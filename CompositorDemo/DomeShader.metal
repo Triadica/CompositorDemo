@@ -31,9 +31,10 @@ typedef struct {
 } Params;
 
 struct SpherePoint {
-  float3 position; // 球壳上的点位置
-  float3 velocity; // 移动速度
-  float pointId;   // 点ID
+  float3 position;     // 球壳上的点位置
+  float3 rotationAxis; // 旋转轴（过球心的直线方向）
+  float angularSpeed;  // 角速度（弧度/秒）
+  float pointId;       // 点ID
 };
 
 struct SphereVertex {
@@ -80,10 +81,13 @@ kernel void domeComputeShader(
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
 
+  // 防止越界线程访问
+  if (id >= 40) { // pointCount is 40
+    return;
+  }
+
   SpherePoint point = spherePoints[id];
   device SpherePoint &outputPoint = outputSpherePoints[id];
-
-  float seed = point.pointId + float(id) * 0.1;
 
   // 使用稳定的时间增量
   float dt = max(abs(params.time), 0.016); // 至少16ms (60fps)
@@ -91,32 +95,36 @@ kernel void domeComputeShader(
 
   // 复制基本属性
   outputPoint.pointId = point.pointId;
+  outputPoint.rotationAxis = point.rotationAxis;
+  outputPoint.angularSpeed = point.angularSpeed;
 
-  // 缓慢移动，保持在球壳上
-  float3 newPos = point.position + point.velocity * dt;
+  // 计算旋转角度
+  float rotationAngle = point.angularSpeed * dt;
 
-  // 将点重新投影到球壳上
-  float currentRadius = length(newPos);
+  // 使用罗德里格旋转公式（Rodrigues' rotation formula）
+  float3 k = normalize(point.rotationAxis); // 单位旋转轴
+  float3 v = point.position;                // 当前位置向量
+
+  float cosTheta = cos(rotationAngle);
+  float sinTheta = sin(rotationAngle);
+
+  // 计算叉积 k × v
+  float3 kCrossV = cross(k, v);
+
+  // 计算点积 k · v
+  float kDotV = dot(k, v);
+
+  // 应用罗德里格旋转公式
+  float3 rotatedPos =
+      v * cosTheta + kCrossV * sinTheta + k * kDotV * (1.0 - cosTheta);
+
+  // 确保点仍在球面上（由于数值误差可能偏离）
+  float currentRadius = length(rotatedPos);
   if (currentRadius > 0.0) {
-    newPos = normalize(newPos) * 5.0; // 保持在半径5m的球壳上
+    rotatedPos = normalize(rotatedPos) * 5.0; // 保持在半径5m的球壳上
   }
 
-  outputPoint.position = newPos;
-
-  // 更新速度，添加一些随机扰动
-  float3 newVelocity = point.velocity;
-  newVelocity += float3(
-      (random1D(seed + params.time) - 0.5) * 0.001,
-      (random1D(seed + params.time + 1.0) - 0.5) * 0.001,
-      (random1D(seed + params.time + 2.0) - 0.5) * 0.001);
-
-  // 限制速度大小
-  float velocityMag = length(newVelocity);
-  if (velocityMag > 0.05) {
-    newVelocity = normalize(newVelocity) * 0.05;
-  }
-
-  outputPoint.velocity = newVelocity;
+  outputPoint.position = rotatedPos;
 }
 
 vertex DomeInOut domeVertexShader(
