@@ -20,7 +20,6 @@ typedef struct {
 typedef struct {
   float4 position [[position]];
   float4 color;
-
 } DomeInOut;
 
 typedef struct {
@@ -80,52 +79,36 @@ kernel void domeComputeShader(
     device SpherePoint *outputSpherePoints [[buffer(1)]],
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-
   // 防止越界线程访问
-  if (id >= 40) { // pointCount is 40
+  if (id >= 80) {
     return;
   }
 
   SpherePoint point = spherePoints[id];
-  device SpherePoint &outputPoint = outputSpherePoints[id];
+  SpherePoint outputPoint;
 
-  // 使用稳定的时间增量
-  float dt = max(abs(params.time), 0.016); // 至少16ms (60fps)
-  dt = min(dt, 0.1);                       // 限制在100ms以防止大跳跃
-
-  // 复制基本属性
-  outputPoint.pointId = point.pointId;
-  outputPoint.rotationAxis = point.rotationAxis;
-  outputPoint.angularSpeed = point.angularSpeed;
-
-  // 计算旋转角度
-  float rotationAngle = point.angularSpeed * dt;
-
-  // 使用罗德里格旋转公式（Rodrigues' rotation formula）
-  float3 k = normalize(point.rotationAxis); // 单位旋转轴
-  float3 v = point.position;                // 当前位置向量
-
-  float cosTheta = cos(rotationAngle);
-  float sinTheta = sin(rotationAngle);
-
-  // 计算叉积 k × v
-  float3 kCrossV = cross(k, v);
-
-  // 计算点积 k · v
-  float kDotV = dot(k, v);
-
-  // 应用罗德里格旋转公式
-  float3 rotatedPos =
-      v * cosTheta + kCrossV * sinTheta + k * kDotV * (1.0 - cosTheta);
-
-  // 确保点仍在球面上（由于数值误差可能偏离）
-  float currentRadius = length(rotatedPos);
-  if (currentRadius > 0.0) {
-    rotatedPos = normalize(rotatedPos) * 5.0; // 保持在半径5m的球壳上
+  float dt = params.time;
+  if (dt > 0.1) {
+    dt = 0.016;
   }
 
-  outputPoint.position = rotatedPos;
+  // Rodrigues' rotation formula
+  float3 v = point.position;
+  float3 k = point.rotationAxis;
+  float theta = point.angularSpeed * dt;
+  float cos_theta = cos(theta);
+  float sin_theta = sin(theta);
+  float3 rotated_v =
+      v * cos_theta + cross(k, v) * sin_theta + k * dot(k, v) * (1 - cos_theta);
+
+  outputPoint.position = rotated_v;
+  outputPoint.rotationAxis = point.rotationAxis;
+  outputPoint.angularSpeed = point.angularSpeed;
+  outputPoint.pointId = point.pointId;
+
+  outputSpherePoints[id] = outputPoint;
 }
+
 
 vertex DomeInOut domeVertexShader(
     DomeVertexIn in [[stage_in]],
@@ -137,13 +120,9 @@ vertex DomeInOut domeVertexShader(
   DomeInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  // float3 cameraAt = uniforms.cameraPos;
 
   // 使用球壳顶点位置
   float4 position = float4(in.position, 1.0);
-
-  // float sphereDistance = distance(cameraAt, position.xyz);
-  // float distanceDim = 1.0 - clamp(sphereDistance / 40.0, 0.0, 0.8);
 
   position = applyGestureViewerOnScene(
       position,
@@ -166,7 +145,6 @@ fragment float4 domeFragmentShader(
     DomeInOut in [[stage_in]],
     constant Params &params [[buffer(BufferIndexParams)]],
     const device SpherePoint *spherePoints [[buffer(BufferIndexBase)]]) {
-
   if (in.color.a <= 0.0) {
     discard_fragment();
   }
@@ -177,54 +155,56 @@ fragment float4 domeFragmentShader(
   // 默认透明
   float4 finalColor = float4(0.0, 0.0, 0.0, 0.0);
 
-  // 检查是否在点的位置显示小圆点
-  for (uint i = 0; i < 40; i++) { // pointCount = 40
+  // 渲染球壳上的点
+  for (uint i = 0; i < 80; i++) {
     float3 pointPos = spherePoints[i].position;
-    float distToPoint = distance(fragPos, pointPos);
-
-    // 在点的位置显示小圆点
-    if (distToPoint < 0.1) {
-      finalColor = float4(1.0, 1.0, 1.0, 0.8); // 白色圆点
+    float dist = distance(fragPos, pointPos);
+    if (dist < 0.05) {
+      finalColor = float4(1.0, 1.0, 1.0, 1.0);
       break;
     }
   }
 
-  // 连线效果计算
+  // 连线效果计算 (Optimized)
   if (finalColor.a < 0.1) { // 如果不是圆点位置
-    for (uint i = 0; i < 40; i++) {
-      for (uint j = i + 1; j < 40; j++) {
-        float3 point1 = spherePoints[i].position;
+
+    for (uint i = 0; i < 80; i++) {
+      float3 point1 = spherePoints[i].position;
+
+      // 优化：如果片段离 point1 太远，则不可能在任何从 point1 出发的线段上。
+      // 最大线长为 1.5，线宽为 0.02。因此，片段到 point1 的最大距离为 1.5 +
+      // 0.02 = 1.52。
+      if (distance(fragPos, point1) > 1.52) {
+        continue;
+      }
+
+      for (uint j = i + 1; j < 80; j++) {
         float3 point2 = spherePoints[j].position;
 
         float pointDistance = distance(point1, point2);
 
-        // 只处理距离小于1.5m的点对
-        if (pointDistance < 1.5) {
+        // 只处理距离小于 1.5m 且大于 0 的点对
+        if (pointDistance > 1e-5 && pointDistance < 1.5) {
           // 计算当前片段到线段的距离
-          float3 lineDir = point2 - point1;
-          float lineLength = length(lineDir);
+          float3 lineDir = (point2 - point1) / pointDistance;
+          float3 toFrag = fragPos - point1;
+          float projLength = dot(toFrag, lineDir);
 
-          if (lineLength > 0.0) {
-            lineDir = lineDir / lineLength;
-            float3 toFrag = fragPos - point1;
-            float projLength = dot(toFrag, lineDir);
+          // 确保投影在线段范围内
+          projLength = clamp(projLength, 0.0, pointDistance);
+          float3 closestPoint = point1 + lineDir * projLength;
+          float distToLine = distance(fragPos, closestPoint);
 
-            // 确保投影在线段范围内
-            projLength = clamp(projLength, 0.0, lineLength);
-            float3 closestPoint = point1 + lineDir * projLength;
-            float distToLine = distance(fragPos, closestPoint);
+          // 如果片段在连线附近（线宽 0.02m）
+          if (distToLine < 0.02) {
+            float brightness = 1.0 - (pointDistance / 1.5);
+            brightness = max(brightness, 0.2);
 
-            // 如果片段在连线附近（线宽0.08m）
-            if (distToLine < 0.08) {
-              float brightness = 1.0 - (pointDistance / 1.5);
-              brightness = max(brightness, 0.2);
+            // 根据距离线段的远近调整透明度
+            float lineAlpha = 1.0 - (distToLine / 0.02);
+            float alpha = brightness * lineAlpha * 0.4;
 
-              // 根据距离线段的远近调整透明度
-              float lineAlpha = 1.0 - (distToLine / 0.08);
-              float alpha = brightness * lineAlpha * 0.4;
-
-              finalColor = max(finalColor, float4(1.0, 1.0, 1.0, alpha));
-            }
+            finalColor = max(finalColor, float4(1.0, 1.0, 1.0, alpha));
           }
         }
       }

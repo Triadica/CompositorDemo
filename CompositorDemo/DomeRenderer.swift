@@ -9,7 +9,7 @@ private let maxFramesInFlight = 3
 
 // 球壳参数
 private let sphereRadius: Float = 5.0  // 球壳半径 5m
-private let pointCount: Int = 40  // 球壳上的点数量
+private let pointCount: Int = 80  // 球壳上的点数量
 
 // 球壳网格参数 - 大幅减少密度以提升性能
 private let sphereSegments: Int = 32  // 球壳经度分段
