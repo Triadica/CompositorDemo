@@ -37,6 +37,7 @@ class DomeRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
+  private var paramsBuffer: [MTLBuffer]
   /// a buffer to hold the vertices of the lamp
   var vertexBuffer: MTLBuffer!
 
@@ -51,7 +52,12 @@ class DomeRenderer: CustomRenderer {
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
-      layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
+      layerRenderer.device.makeBuffer(length: MemoryLayout<Uniforms>.uniformStride)!
+    }
+
+    paramsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
+      layerRenderer.device.makeBuffer(
+        length: MemoryLayout<Params>.stride, options: .storageModeShared)!
     }
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
@@ -327,6 +333,8 @@ class DomeRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
+    let currentParamsBuffer = paramsBuffer[Int(drawCommand.frameIndex % UInt64(Renderer.maxFramesInFlight))]
+
     var params_data = Params(
       viewerPosition: gestureManager.viewerPosition,
       time: 0.016,  // 使用固定的时间步长，避免闪烁
@@ -334,14 +342,11 @@ class DomeRenderer: CustomRenderer {
       viewerRotation: gestureManager.viewerRotation
     )
 
-    let params: any MTLBuffer = device.makeBuffer(
-      bytes: &params_data,
-      length: MemoryLayout<Params>.size,
-      options: .storageModeShared
-    )!
+    currentParamsBuffer.contents().copyMemory(
+      from: &params_data, byteCount: MemoryLayout<Params>.stride)
 
     encoder.setVertexBuffer(
-      params,
+      currentParamsBuffer,
       offset: 0,
       index: BufferIndex.params.rawValue)
 
@@ -350,7 +355,7 @@ class DomeRenderer: CustomRenderer {
 
     // 为 fragment shader 设置缓冲区
     encoder.setFragmentBuffer(
-      params,
+      currentParamsBuffer,
       offset: 0,
       index: BufferIndex.params.rawValue)
 
