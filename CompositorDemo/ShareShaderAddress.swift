@@ -6,7 +6,7 @@
 //  Copyright © 2025 Apple. All rights reserved.
 //
 
-import Combine  // 确保导入 Combine 框架
+import Combine  // Ensure Combine framework is imported
 import Foundation
 
 class SharedShaderAddress: ObservableObject {

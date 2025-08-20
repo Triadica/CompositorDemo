@@ -7,21 +7,22 @@ import simd
 
 private let maxFramesInFlight = 3
 
-// 球壳参数
-private let sphereRadius: Float = 5.0  // 球壳半径 5m
-private let pointCount: Int = 80  // 球壳上的点数量
+// Dome parameters
+private let sphereRadius: Float = 5.0  // Dome radius 5m
+private let pointCount: Int = 80  // Number of points on the dome
 
-// 球壳网格参数 - 大幅减少密度以提升性能
-private let sphereSegments: Int = 32  // 球壳经度分段
-private let sphereRings: Int = 16  // 球壳纬度分段
+// Dome mesh parameters - further optimized density for better performance
+private let sphereSegments: Int = 24  // Dome longitude segments (reduced from 32 to 24)
+private let sphereRings: Int = 12  // Dome latitude segments (reduced from 16 to 12)
 private let verticesCount = (sphereRings + 1) * (sphereSegments + 1)
 private let indexesCount = sphereRings * sphereSegments * 6
 
+// Optimized memory layout: consistent with Metal shader
 private struct SpherePoint {
-  var position: SIMD3<Float>  // 球壳上的点位置
-  var rotationAxis: SIMD3<Float>  // 旋转轴（过球心的直线方向）
-  var angularSpeed: Float  // 角速度（弧度/秒）
-  var pointId: Float  // 点ID
+  var position: SIMD3<Float>  // Point position on the dome (12 bytes)
+  var angularSpeed: Float  // Angular speed (radians/second) (4 bytes) - total 16 bytes
+  var rotationAxis: SIMD3<Float>  // Rotation axis (line direction through sphere center) (12 bytes)
+  var pointId: Float  // Point ID (4 bytes) - total 16 bytes
 }
 
 private struct Params {
@@ -74,7 +75,7 @@ class DomeRenderer: CustomRenderer {
     self.createDomeComputeBuffer(device: layerRenderer.device)
   }
 
-  /// 创建球壳顶点缓冲区
+  /// Create dome vertex buffer
   private func createDomeVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
@@ -84,19 +85,19 @@ class DomeRenderer: CustomRenderer {
 
     var vertexIndex = 0
 
-    // 生成球壳顶点
+    // Generate dome vertices
     for ring in 0...sphereRings {
-      let phi = Float(ring) * Float.pi / Float(sphereRings)  // 纬度角
+      let phi = Float(ring) * Float.pi / Float(sphereRings)  // Latitude angle
       let y = cos(phi) * sphereRadius
       let ringRadius = sin(phi) * sphereRadius
 
       for segment in 0...sphereSegments {
-        let theta = Float(segment) * 2.0 * Float.pi / Float(sphereSegments)  // 经度角
+        let theta = Float(segment) * 2.0 * Float.pi / Float(sphereSegments)  // Longitude angle
         let x = cos(theta) * ringRadius
         let z = sin(theta) * ringRadius
 
         let position = SIMD3<Float>(x, y, z)
-        let color = SIMD3<Float>(0.2, 0.2, 0.2)  // 默认灰色
+        let color = SIMD3<Float>(0.2, 0.2, 0.2)  // Default gray
 
         vertices[vertexIndex] = VertexWithSeed(
           position: position,
@@ -113,7 +114,7 @@ class DomeRenderer: CustomRenderer {
     self.createDomeComputeBuffer(device: self.computeDevice)
   }
 
-  /// 创建球壳索引缓冲区
+  /// Create dome index buffer
   private func createDomeIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
@@ -122,7 +123,7 @@ class DomeRenderer: CustomRenderer {
     let indices = indexBuffer.contents().assumingMemoryBound(to: UInt32.self)
     var indexOffset = 0
 
-    // 生成球壳三角形索引
+    // Generate dome triangle indices
     for ring in 0..<sphereRings {
       for segment in 0..<sphereSegments {
         let current = UInt32(ring * (sphereSegments + 1) + segment)
@@ -130,12 +131,12 @@ class DomeRenderer: CustomRenderer {
         let currentNext = UInt32((ring + 1) * (sphereSegments + 1) + segment)
         let nextNext = UInt32((ring + 1) * (sphereSegments + 1) + (segment + 1))
 
-        // 第一个三角形
+        // First triangle
         indices[indexOffset] = current
         indices[indexOffset + 1] = currentNext
         indices[indexOffset + 2] = next
 
-        // 第二个三角形
+        // Second triangle
         indices[indexOffset + 3] = next
         indices[indexOffset + 4] = currentNext
         indices[indexOffset + 5] = nextNext
@@ -145,7 +146,7 @@ class DomeRenderer: CustomRenderer {
     }
   }
 
-  /// 创建球壳上的点数据
+  /// Create point data on the dome
   private func createDomeComputeBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<SpherePoint>.stride * pointCount
 
@@ -161,9 +162,9 @@ class DomeRenderer: CustomRenderer {
     let spherePoints = contents.bindMemory(to: SpherePoint.self, capacity: pointCount)
 
     for i in 0..<pointCount {
-      // 在球壳上随机分布点
-      let phi = Float.random(in: 0...Float.pi)  // 纬度角
-      let theta = Float.random(in: 0...(2 * Float.pi))  // 经度角
+      // Randomly distribute points on the dome
+      let phi = Float.random(in: 0...Float.pi)  // Latitude angle
+      let theta = Float.random(in: 0...(2 * Float.pi))  // Longitude angle
 
       let x = sin(phi) * cos(theta) * sphereRadius
       let y = cos(phi) * sphereRadius
@@ -171,7 +172,7 @@ class DomeRenderer: CustomRenderer {
 
       let position = SIMD3<Float>(x, y, z)
 
-      // 生成随机的旋转轴（过球心的直线方向）
+      // Generate random rotation axis (line direction through sphere center)
       let axisTheta = Float.random(in: 0...(2 * Float.pi))
       let axisPhi = Float.random(in: 0...Float.pi)
       let rotationAxis = normalize(
@@ -181,13 +182,13 @@ class DomeRenderer: CustomRenderer {
           sin(axisPhi) * sin(axisTheta)
         ))
 
-      // 设置角速度（弧度/秒），范围在 0.1 到 1.0 弧度/秒
+      // Set angular speed (radians/second), range from 0.1 to 1.0 radians/second
       let angularSpeed = Float.random(in: 0.1...1.0)
 
       spherePoints[i] = SpherePoint(
         position: position,
-        rotationAxis: rotationAxis,
         angularSpeed: angularSpeed,
+        rotationAxis: rotationAxis,
         pointId: Float(i)
       )
     }
@@ -257,6 +258,13 @@ class DomeRenderer: CustomRenderer {
   }
 
   func computeCommandCommit() {
+    let currentTime = -Float(viewStartTime.timeIntervalSinceNow)
+    
+    // Optimization: limit compute shader execution frequency
+    if currentTime - lastComputeTime < computeInterval {
+      return  // Skip computation for this frame
+    }
+    
     guard let computeBuffer: PingPongBuffer = computeBuffer,
       let commandBuffer = computeCommandQueue.makeCommandBuffer(),
       let computeEncoder = commandBuffer.makeComputeCommandEncoder()
@@ -269,18 +277,20 @@ class DomeRenderer: CustomRenderer {
     computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
     computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
 
-    let delta = -Float(viewStartTime.timeIntervalSinceNow)
-    // let dt = delta - frameDelta
+    let delta = currentTime
     frameDelta = delta
+    lastComputeTime = currentTime
 
     var params = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: 0.016,  // 使用固定的时间步长，避免闪烁
+      time: computeInterval,  // Use fixed time step
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
-    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
+    
+    // Optimization: use smaller thread group size
+    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 64)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
       width: (pointCount + threadGroupSize - 1) / threadGroupSize,
@@ -304,6 +314,8 @@ class DomeRenderer: CustomRenderer {
 
   private var viewStartTime: Date = Date()
   private var frameDelta: Float = 0.0
+  private var lastComputeTime: Float = 0.0
+  private let computeInterval: Float = 1.0/60.0  // Limit compute shader to 60FPS
 
   func encodeDraw(
     _ drawCommand: TintDrawCommand,
@@ -337,7 +349,7 @@ class DomeRenderer: CustomRenderer {
 
     var params_data = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: 0.016,  // 使用固定的时间步长，避免闪烁
+      time: 0.016,  // Use fixed time step to avoid flickering
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
@@ -353,7 +365,7 @@ class DomeRenderer: CustomRenderer {
     encoder.setVertexBuffer(
       computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
 
-    // 为 fragment shader 设置缓冲区
+    // Set buffers for fragment shader
     encoder.setFragmentBuffer(
       currentParamsBuffer,
       offset: 0,

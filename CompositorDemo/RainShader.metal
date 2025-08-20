@@ -35,8 +35,8 @@ struct RaindropBase {
   float3 color;
   float raindropId;
   float3 velocity;
-  float groundTime; // 在地面停留的时间
-  bool isOnGround;  // 是否在地面
+  float groundTime; // Time staying on the ground
+    bool isOnGround;  // Whether on the ground
 };
 
 static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }

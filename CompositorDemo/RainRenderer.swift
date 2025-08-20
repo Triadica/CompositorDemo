@@ -7,9 +7,9 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let raindropCount: Int = 10000  // 增加到10000个雨滴
-private let segmentsPerRaindrop: Int = 4  // 进一步简化到4段，减少三角形数量
-private let verticesPerRaindrop = segmentsPerRaindrop * 2 + 2  // 上下底面各一个中心点
+private let raindropCount: Int = 10000  // Increased to 10000 raindrops
+    private let segmentsPerRaindrop: Int = 4  // Further simplified to 4 segments, reducing triangle count
+    private let verticesPerRaindrop = segmentsPerRaindrop * 2 + 2  // One center point for top and bottom faces each
 private let verticesCount = verticesPerRaindrop * raindropCount
 
 private let sideIndexesPerRaindrop: Int = 6 * segmentsPerRaindrop  // 6 vertices per rectangle (side faces)
@@ -19,8 +19,8 @@ private let indexesPerRaindrop =
   sideIndexesPerRaindrop + topIndexesPerRaindrop + bottomIndexesPerRaindrop
 private let indexesCount: Int = raindropCount * indexesPerRaindrop
 
-private let raindropHeight: Float = 0.04  // 更小的雨滴尺寸
-private let raindropRadius: Float = 0.01  // 更小的雨滴半径
+private let raindropHeight: Float = 0.04  // Smaller raindrop size
+    private let raindropRadius: Float = 0.01  // Smaller raindrop radius
 
 private struct RaindropBase {
   var position: SIMD3<Float>
