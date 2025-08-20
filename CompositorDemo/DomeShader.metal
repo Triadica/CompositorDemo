@@ -11,6 +11,9 @@
 
 using namespace metal;
 
+// Dome configuration constants
+constant uint POINT_COUNT = 120;
+
 struct DomeVertexIn {
   float3 position [[attribute(VertexAttributePosition)]];
   float3 color [[attribute(VertexAttributeColor)]];
@@ -81,7 +84,7 @@ kernel void domeComputeShader(
     constant Params &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
   // Prevent out-of-bounds thread access
-  if (id >= 80) {
+  if (id >= POINT_COUNT) {
     return;
   }
 
@@ -150,7 +153,7 @@ vertex DomeInOut domeVertexShader(
   float minDist = 10.0;  // Initialize to a large value
   
   // Quick check for nearby points
-  for (uint i = 0; i < 80; i++) {
+  for (uint i = 0; i < POINT_COUNT; i++) {
     float dist = distance(fragPos, spherePoints[i].position);
     minDist = min(minDist, dist);
     if (minDist < 1.6) break;  // Early exit
@@ -191,9 +194,9 @@ fragment float4 domeFragmentShader(
   float4 finalColor = float4(0.0, 0.0, 0.0, 0.0);
   
   // Optimization 1: pre-calculate common values
-  const float pointRadius = 0.05;
+  const float pointRadius = 0.02;
   const float maxConnectionDist = 1.5;
-  const float lineThickness = 0.002;
+  const float lineThickness = 0.001;
   const float searchRadius = 1.52;
   
   // Optimization 2: use smaller search radius and early exit
@@ -201,7 +204,7 @@ fragment float4 domeFragmentShader(
   uint nearbyCount = 0;
   
   // First pass: find nearby points
-  for (uint i = 0; i < 80 && nearbyCount < 16; i++) {
+  for (uint i = 0; i < POINT_COUNT && nearbyCount < 16; i++) {
     float3 point1 = spherePoints[i].position;
     float dist = distance(fragPos, point1);
     

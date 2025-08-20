@@ -9,7 +9,7 @@ private let maxFramesInFlight = 3
 
 // Dome parameters
 private let sphereRadius: Float = 5.0  // Dome radius 5m
-private let pointCount: Int = 80  // Number of points on the dome
+private let pointCount: Int = 120  // Number of points on the dome
 
 // Dome mesh parameters - further optimized density for better performance
 private let sphereSegments: Int = 24  // Dome longitude segments (reduced from 32 to 24)
