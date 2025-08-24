@@ -1,40 +1,48 @@
 /*
-See the LICENSE.txt file for this sample’s licensing information.
+See the LICENSE.txt file for this sample's licensing information.
 
 Abstract:
 A renderer that displays a set of color swatches.
 */
 
-import CompositorServices
 import Metal
 import MetalKit
 import Spatial
 import SwiftUI
 import simd
 
+#if canImport(CompositorServices)
+  import CompositorServices
+#endif
+
 private let maxFramesInFlight = 3
 
-private let lampCount: Int = 2000
-private let patelPerLamp: Int = 24
-private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * lampCount
+// 正八面体相关常量
+private let octahedronCount: Int = 2  // 简化为2个正八面体
+private let trianglesPerOctahedron: Int = 2500  // 每个正八面体内的三角形数量（50*50）
+private let totalTriangles = octahedronCount * trianglesPerOctahedron
 
-private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
-// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
-// prepare the indices for the lamp
-private let indexesCount: Int = lampCount * indexesPerLamp
+// 三角形顶点数（每个三角形3个顶点）
+private let verticesPerTriangle = 3
+private let verticesCount = totalTriangles * verticesPerTriangle
 
-private let verticalScale: Float = 0.4
-private let upperRadius: Float = 0.14
-private let lowerRadius: Float = 0.18
+// 索引数（每个三角形3个索引）
+private let indexesPerTriangle = 3
+private let indexesCount = totalTriangles * indexesPerTriangle
+
+// 正八面体尺寸常量
+private let octahedronSize: Float = 0.3  // 正八面体边长约0.3米
+private let triangleMinSize: Float = 0.00075
+    let triangleMaxSize: Float = 0.00125  // 极微小三角形尺寸
+private let octahedronRadius: Float = octahedronSize * 0.707  // 正八面体外接球半径
 
 private struct CellBase {
-  var position: SIMD3<Float>
-  var color: SIMD3<Float>
-  var lampIdf: Float
-  var velocity: SIMD3<Float> = .zero
+  var position: SIMD3<Float>  // 三角形在正八面体内的相对位置
+  var color: SIMD3<Float>  // 三角形颜色（与所属正八面体一致）
+  var octahedronId: Float  // 所属正八面体的ID
+  var octahedronCenter: SIMD3<Float>  // 正八面体中心位置
+  var rotationAngle: Float = 0.0  // 正八面体当前旋转角度
+  var triangleSize: Float = 0.01  // 三角形大小
 }
 
 private struct Params {
@@ -60,7 +68,7 @@ class OctahedronRenderer: CustomRenderer {
   let computePipeLine: MTLComputePipelineState
   let computeCommandQueue: MTLCommandQueue
 
-  var gestureManager: GestureManager = GestureManager(onScene: true)
+  var gestureManager: GestureManager = GestureManager(onScene: false)
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
@@ -81,55 +89,149 @@ class OctahedronRenderer: CustomRenderer {
     self.createLampComputeBuffer(device: layerRenderer.device)
   }
 
-  /// create and sets the vertices of the lamp
+  /// 创建正八面体区域内的小三角形顶点
   private func createLampVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Lamp vertex buffer"
+    vertexBuffer.label = "Octahedron triangle vertex buffer"
     var cellVertices: UnsafeMutablePointer<VertexWithSeed> {
       vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
     }
 
-    for i in 0..<lampCount {
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      let dimColor = color * 0.5
-      let baseIndex = i * verticesPerLamp
+    var vertexIndex = 0
 
-      for p in 0..<patelPerLamp {
-        let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+    // 为每个正八面体生成多个小三角形
+    for octId in 0..<octahedronCount {
+      for triangleId in 0..<trianglesPerOctahedron {
+        // 在正八面体区域内随机生成三角形位置
+        let randomPosition = generateRandomPositionInOctahedron()
 
-        // Calculate the four corners of this rectangular petal
-        // Calculate the upper and lower points of petals on x-z plane
-        // upper ring
-        let upperEdge = SIMD3<Float>(
-          cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
+        // 生成小三角形的三个顶点
+        let triangleSize = Float.random(in: triangleMinSize...triangleMaxSize)
+        let height = triangleSize * sqrt(3.0) / 2.0
 
-        // lower ring
-        let lowerEdge = SIMD3<Float>(
-          cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
+        // 生成随机3D旋转角度
+        let rotationX = Float.random(in: 0...(2 * Float.pi))
+        let rotationY = Float.random(in: 0...(2 * Float.pi))
+        let rotationZ = Float.random(in: 0...(2 * Float.pi))
 
-        let vertexBase = baseIndex + p
+        // 创建旋转矩阵
+        let cosX = cos(rotationX)
+        let sinX = sin(rotationX)
+        let cosY = cos(rotationY)
+        let sinY = sin(rotationY)
+        let cosZ = cos(rotationZ)
+        let sinZ = sin(rotationZ)
 
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellVertices[vertexBase] = VertexWithSeed(
-          position: upperEdge, color: color, seed: Int32(i))
-        cellVertices[vertexBase + patelPerLamp] = VertexWithSeed(
-          position: lowerEdge,
-          color: dimColor,
-          seed: Int32(i)
+        // 组合旋转矩阵 (Z * Y * X)
+        let rotationMatrix = simd_float3x3(
+          SIMD3<Float>(cosY * cosZ, -cosY * sinZ, sinY),
+          SIMD3<Float>(
+            sinX * sinY * cosZ + cosX * sinZ, -sinX * sinY * sinZ + cosX * cosZ, -sinX * cosY),
+          SIMD3<Float>(
+            -cosX * sinY * cosZ + sinX * sinZ, cosX * sinY * sinZ + sinX * cosZ, cosX * cosY)
         )
+
+        // 三角形的三个顶点（相对于三角形中心）
+        let vertex1 = SIMD3<Float>(0.0, height / 3.0, 0.0)
+        let vertex2 = SIMD3<Float>(-triangleSize / 2.0, -height * 2.0 / 3.0, 0.0)
+        let vertex3 = SIMD3<Float>(triangleSize / 2.0, -height * 2.0 / 3.0, 0.0)
+
+        // 应用随机3D旋转
+        let rotatedVertex1 = rotationMatrix * vertex1
+        let rotatedVertex2 = rotationMatrix * vertex2
+        let rotatedVertex3 = rotationMatrix * vertex3
+
+        // 添加随机位置偏移
+        let finalVertex1 = rotatedVertex1 + randomPosition
+        let finalVertex2 = rotatedVertex2 + randomPosition
+        let finalVertex3 = rotatedVertex3 + randomPosition
+
+        let triangleIndex = octId * trianglesPerOctahedron + triangleId
+
+        // 创建顶点
+        cellVertices[vertexIndex] = VertexWithSeed(
+          position: finalVertex1,
+          color: SIMD3<Float>(1.0, 1.0, 1.0),
+          seed: Int32(triangleIndex)
+        )
+        vertexIndex += 1
+
+        cellVertices[vertexIndex] = VertexWithSeed(
+          position: finalVertex2,
+          color: SIMD3<Float>(1.0, 1.0, 1.0),
+          seed: Int32(triangleIndex)
+        )
+        vertexIndex += 1
+
+        cellVertices[vertexIndex] = VertexWithSeed(
+          position: finalVertex3,
+          color: SIMD3<Float>(1.0, 1.0, 1.0),
+          seed: Int32(triangleIndex)
+        )
+        vertexIndex += 1
       }
-      // top center of the lamp
-      cellVertices[baseIndex + patelPerLamp * 2] = VertexWithSeed(
-        position: SIMD3<Float>(0, verticalScale, 0),
-        color: color * 2.0,
-        seed: Int32(i)
-      )
     }
+  }
+
+  // 在正八面体的面上生成随机位置
+  private func generateRandomPositionInOctahedron() -> SIMD3<Float> {
+    // 正八面体有8个面，随机选择一个面
+    let faceIndex = Int.random(in: 0..<8)
+    
+    // 生成面上的随机重心坐标
+    let u = Float.random(in: 0...1)
+    let v = Float.random(in: 0...(1-u))
+    let w = 1 - u - v
+    
+    // 正八面体的8个面的顶点（每个面是三角形）
+    let faces: [[SIMD3<Float>]] = [
+      // 上半部分的4个面
+      [SIMD3<Float>(octahedronRadius, 0, 0), SIMD3<Float>(0, octahedronRadius, 0), SIMD3<Float>(0, 0, octahedronRadius)],
+      [SIMD3<Float>(0, octahedronRadius, 0), SIMD3<Float>(-octahedronRadius, 0, 0), SIMD3<Float>(0, 0, octahedronRadius)],
+      [SIMD3<Float>(-octahedronRadius, 0, 0), SIMD3<Float>(0, octahedronRadius, 0), SIMD3<Float>(0, 0, -octahedronRadius)],
+      [SIMD3<Float>(0, octahedronRadius, 0), SIMD3<Float>(octahedronRadius, 0, 0), SIMD3<Float>(0, 0, -octahedronRadius)],
+      // 下半部分的4个面
+      [SIMD3<Float>(octahedronRadius, 0, 0), SIMD3<Float>(0, 0, octahedronRadius), SIMD3<Float>(0, -octahedronRadius, 0)],
+      [SIMD3<Float>(0, 0, octahedronRadius), SIMD3<Float>(-octahedronRadius, 0, 0), SIMD3<Float>(0, -octahedronRadius, 0)],
+      [SIMD3<Float>(-octahedronRadius, 0, 0), SIMD3<Float>(0, 0, -octahedronRadius), SIMD3<Float>(0, -octahedronRadius, 0)],
+      [SIMD3<Float>(0, 0, -octahedronRadius), SIMD3<Float>(octahedronRadius, 0, 0), SIMD3<Float>(0, -octahedronRadius, 0)]
+    ]
+    
+    let selectedFace = faces[faceIndex]
+    
+    // 使用重心坐标在三角形面上生成随机点
+    let randomPoint = u * selectedFace[0] + v * selectedFace[1] + w * selectedFace[2]
+    
+    return randomPoint
+  }
+
+  // 检查点是否在正八面体内
+  private func isPointInOctahedron(point: SIMD3<Float>) -> Bool {
+    let x = abs(point.x)
+    let y = abs(point.y)
+    let z = abs(point.z)
+
+    // 正八面体的约束条件：|x| + |y| + |z| <= radius
+    return (x + y + z) <= octahedronRadius
+  }
+
+  // 辅助函数：创建3D旋转矩阵
+  private func createRotationMatrix(x: Float, y: Float, z: Float) -> simd_float3x3 {
+    let cosX = cos(x)
+    let sinX = sin(x)
+    let cosY = cos(y)
+    let sinY = sin(y)
+    let cosZ = cos(z)
+    let sinZ = sin(z)
+
+    // 组合旋转矩阵 (Z * Y * X)
+    return simd_float3x3(
+      SIMD3<Float>(cosY * cosZ, -cosY * sinZ, sinY),
+      SIMD3<Float>(
+        sinX * sinY * cosZ + cosX * sinZ, -sinX * sinY * sinZ + cosX * cosZ, -sinX * cosY),
+      SIMD3<Float>(-cosX * sinY * cosZ + sinX * sinZ, cosX * sinY * sinZ + sinX * cosZ, cosX * cosY)
+    )
   }
 
   func resetComputeState() {
@@ -139,82 +241,88 @@ class OctahedronRenderer: CustomRenderer {
   private func createLampIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
-    indexBuffer.label = "Lamp index buffer"
+    indexBuffer.label = "Octahedron triangle index buffer"
 
     let cellIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<lampCount {
-      // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
-      let verticesBase = i * verticesPerLamp
 
-      let indexBase = i * indexesPerLamp
-      // rect angles of patel size
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = indexBase + p * 6
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+    // 为每个三角形生成索引（每个三角形3个顶点，按顺序排列）
+    for triangleIndex in 0..<totalTriangles {
+      let baseVertexIndex = triangleIndex * verticesPerTriangle
+      let baseIndexIndex = triangleIndex * indexesPerTriangle
 
-        // Second triangle of rectangle (inner2, outer1, outer2)
-        cellIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        cellIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
-      }
-      // cover the top of the lamp with triangles
-      let topCenter = verticesBase + patelPerLamp * 2
-      let topCenterIndexBase = indexBase + rectIndexesPerRect
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = topCenterIndexBase + p * 3
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(topCenter)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
-      }
+      // 三角形的三个顶点索引
+      cellIndices[baseIndexIndex] = UInt32(baseVertexIndex)
+      cellIndices[baseIndexIndex + 1] = UInt32(baseVertexIndex + 1)
+      cellIndices[baseIndexIndex + 2] = UInt32(baseVertexIndex + 2)
     }
-
   }
 
   private func createLampComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<CellBase>.stride * lampCount
-
+    let bufferLength = MemoryLayout<CellBase>.stride * totalTriangles
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
     guard let computeBuffer = computeBuffer else {
       print("Failed to create compute buffer")
       return
     }
-    computeBuffer.addLabel("Lamp compute buffer")
+    computeBuffer.addLabel("Octahedron compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let lampBase = contents.bindMemory(to: CellBase.self, capacity: lampCount)
+    let triangleBase = contents.bindMemory(to: CellBase.self, capacity: totalTriangles)
 
-    for i in 0..<lampCount {
-      // Random position offsets for each lamp
-      let xOffset = Float.random(in: -20...20)
-      let zOffset = Float.random(in: -30...10)
-      let yOffset = Float.random(in: 0...2)
+    // 为每个正八面体生成位置（前后分布）
+    var octahedronCenters: [SIMD3<Float>] = []
+    let halfCount = octahedronCount / 2
 
-      let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      // let dimColor = color * 0.5
+    // 调整位置到2-3米范围内，确保可见性
+    for i in 0..<octahedronCount {
+      let xOffset: Float = (i == 0) ? -0.8 : 0.8  // 左右分布，距离稍近
+      let yOffset: Float = 0.0  // 保持在视野中心高度
+      let zOffset: Float = -2.5  // 固定在视野前方2.5米处
+      octahedronCenters.append(SIMD3<Float>(xOffset, yOffset, zOffset))
+    }
 
-      let velocity = SIMD3<Float>(
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8)
-      )
+    var triangleIndex = 0
 
-      lampBase[i] = CellBase(
-        position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
+    for octId in 0..<octahedronCount {
+      let octahedronCenter = octahedronCenters[octId]
+
+      // 使用更明亮的颜色确保可见性
+      let octahedronColor: SIMD3<Float>
+      if octId < halfCount {
+        // 第一个正八面体使用明亮的红色
+        octahedronColor = SIMD3<Float>(1.0, 0.2, 0.2)
+      } else {
+        // 第二个正八面体使用明亮的绿色
+        octahedronColor = SIMD3<Float>(0.2, 1.0, 0.2)
+      }
+
+      // 为该正八面体内的所有三角形设置属性
+      for _ in 0..<trianglesPerOctahedron {
+        // 在正八面体内随机生成三角形相对位置
+        let u = Float.random(in: -1...1)
+        let v = Float.random(in: -1...1)
+        let w = Float.random(in: -1...1)
+
+        // 确保点在正八面体内部，并增加一些扩散以提高可见性
+        let sum = abs(u) + abs(v) + abs(w)
+        let scale = sum > octahedronRadius ? octahedronRadius / sum : 1.0
+        let relativePosition = SIMD3<Float>(u * scale, v * scale, w * scale)
+
+        let triangleSize = Float.random(in: triangleMinSize...triangleMaxSize)
+
+        triangleBase[triangleIndex] = CellBase(
+          position: relativePosition,
+          color: octahedronColor,
+          octahedronId: Float(octId),
+          octahedronCenter: octahedronCenter,
+          rotationAngle: 0.0,
+          triangleSize: triangleSize
+        )
+
+        triangleIndex += 1
+      }
     }
 
     computeBuffer.copyToNext()
@@ -308,7 +416,7 @@ class OctahedronRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (lampCount + threadGroupSize - 1) / threadGroupSize,
+      width: (totalTriangles + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
