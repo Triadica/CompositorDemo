@@ -76,36 +76,7 @@ static float4 applyGestureViewer(
 
   return position;
 }
-kernel void octahedronComputeShader(
-    device CellBase *triangles [[buffer(0)]],
-    device CellBase *outputTriangles [[buffer(1)]],
-    constant Params &params [[buffer(2)]],
-    uint id [[thread_position_in_grid]]) {
-  CellBase triangle = triangles[id];
-  device CellBase &outputTriangle = outputTriangles[id];
-  
-  // 计算正八面体的旋转角度（围绕y轴缓慢旋转）
-  float rotationSpeed = 0.5; // 旋转速度
-  float currentRotation = triangle.rotationAngle + params.time * rotationSpeed;
-  
-  // 应用y轴旋转变换到三角形的相对位置
-  float cosTheta = cos(currentRotation);
-  float sinTheta = sin(currentRotation);
-  
-  float3 rotatedPosition = triangle.position;
-  float x = rotatedPosition.x * cosTheta - rotatedPosition.z * sinTheta;
-  float z = rotatedPosition.x * sinTheta + rotatedPosition.z * cosTheta;
-  rotatedPosition.x = x;
-  rotatedPosition.z = z;
-  
-  // 最终位置 = 正八面体中心 + 旋转后的相对位置
-  outputTriangle.position = triangle.octahedronCenter + rotatedPosition;
-  outputTriangle.color = triangle.color;
-  outputTriangle.octahedronId = triangle.octahedronId;
-  outputTriangle.octahedronCenter = triangle.octahedronCenter;
-  outputTriangle.rotationAngle = currentRotation;
-  outputTriangle.triangleSize = triangle.triangleSize;
-}
+// 移除compute shader以优化性能，所有计算移至vertex shader
 
 vertex LampInOut octahedronVertexShader(
     LampVertexIn in [[stage_in]],
@@ -117,38 +88,28 @@ vertex LampInOut octahedronVertexShader(
   LampInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
-  float3 cameraAt = uniforms.cameraPos;
+  // float3 cameraAt = uniforms.cameraPos;
 
   // 获取三角形数据
   int triangleIndex = in.seed;
   CellBase triangleInfo = triangleData[triangleIndex];
   
-  // 计算旋转角度（基于时间）
-  float time = params.time;
-  float rotationSpeed = 0.5; // 缓慢旋转
-  float angle = time * rotationSpeed;
+  // 优化的旋转计算
+  float angle = params.time * 0.5; // 缓慢旋转
+  // uint octahedronId = uint(triangleIndex) / 1000; // 每个正八面体1000个三角形
   
-  // 根据种子确定所属的正八面体
-   uint octahedronId = uint(triangleIndex) / 2500; // 每个正八面体2500个三角形
-  
-  // 创建Y轴旋转矩阵
+  // 直接计算旋转后的位置，避免矩阵乘法
   float cosAngle = cos(angle);
   float sinAngle = sin(angle);
-  float3x3 rotationMatrix = float3x3(
-    float3(cosAngle, 0.0, sinAngle),
-    float3(0.0, 1.0, 0.0),
-    float3(-sinAngle, 0.0, cosAngle)
+  float3 pos = in.position;
+  float3 rotatedPos = float3(
+    pos.x * cosAngle - pos.z * sinAngle,
+    pos.y,
+    pos.x * sinAngle + pos.z * cosAngle
   );
   
-  // 应用旋转到顶点位置（小三角形相对于正八面体中心的位置）
-  float3 rotatedPosition = rotationMatrix * in.position;
-  
-  // 计算最终世界位置：正八面体中心 + 旋转后的相对位置
-  float4 position = float4(triangleInfo.octahedronCenter + rotatedPosition, 1.0);
-
-  // 简化实现，确保基本可见性
-  float distanceDim = 1.0; // 移除距离衰减
-  float breathDim = 1.0;   // 移除闪烁效果
+  // 计算最终世界位置
+  float4 position = float4(triangleInfo.octahedronCenter + rotatedPos, 1.0);
 
   position = applyGestureViewer(
       position,
