@@ -23,6 +23,10 @@ struct ImmersiveInteractionScene: Scene {
         let currentRenderer: CustomRenderer
         do {
           switch appModel.selectedTab {
+          case .flowers:
+            currentRenderer = try FlowersRenderer(
+              layerRenderer: layerRenderer
+            )
           case .octahedron:
             currentRenderer = try OctahedronRenderer(
               layerRenderer: layerRenderer

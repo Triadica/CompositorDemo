@@ -52,11 +52,12 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .octahedron
+  @State private var selectedDemo: DemoTab = .flowers
 
   var body: some View {
     HStack {
       Picker("Demo", selection: $selectedDemo) {
+        Text("Flowers").tag(DemoTab.flowers)
         Text("Octahedron").tag(DemoTab.octahedron)
         Text("Lamps").tag(DemoTab.lamps)
         Text("Polylines").tag(DemoTab.polylines)
