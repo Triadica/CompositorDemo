@@ -8,6 +8,7 @@ Shared app state and renderers.
 import SwiftUI
 
 enum DemoTab: String, CaseIterable, Identifiable {
+  case octahedron
   case lamps
   case polylines
   case triangles
@@ -44,6 +45,6 @@ public class AppModel {
   // Content rendering
   public var opacity: Float = 1.0
 
-  var selectedTab: DemoTab = .dome
+  var selectedTab: DemoTab = .octahedron
   var lampsRenderer: CustomRenderer?
 }
