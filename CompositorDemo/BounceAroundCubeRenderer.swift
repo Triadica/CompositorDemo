@@ -317,8 +317,6 @@ class BounceAroundCubeRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
 
-    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
-
     encoder.setVertexBuffer(
       buffer,
       offset: 0,

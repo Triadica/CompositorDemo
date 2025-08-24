@@ -52,11 +52,12 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .conflictForce
+  @State private var selectedDemo: DemoTab = .octahedron
 
   var body: some View {
     HStack {
       Picker("Demo", selection: $selectedDemo) {
+        Text("Octahedron").tag(DemoTab.octahedron)
         Text("Lamps").tag(DemoTab.lamps)
         Text("Polylines").tag(DemoTab.polylines)
         Text("Triangles").tag(DemoTab.triangles)
@@ -72,6 +73,8 @@ struct InteractionView: View {
         Text("Bounce Gravity").tag(DemoTab.bounceGravity)
         Text("Multi Gravity").tag(DemoTab.multiGravity)
         Text("Conflict Force").tag(DemoTab.conflictForce)
+        Text("Rain").tag(DemoTab.rain)
+        Text("Dome").tag(DemoTab.dome)
       }.pickerStyle(.wheel).padding(.bottom, 32).frame(
         width: 300,
         height: 400,

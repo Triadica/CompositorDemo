@@ -61,7 +61,6 @@ kernel void imagesComputeShader(
 
   CellBase cell = cells[id];
   device CellBase &outputCell = outputLamps[id];
-
   float y = cell.position.y;
   if ((y < 0.5 || y > 2.5) && !cell.dragging) {
     // Slow clockwise rotation around camera position

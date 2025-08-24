@@ -62,7 +62,7 @@ typedef struct {
   simd_float3 position;
   simd_float3 color;
   int seed;
-} LampsVertex;
+} VertexWithSeed;
 
 typedef struct {
   simd_float3 position;
@@ -85,5 +85,10 @@ typedef struct {
   float height;
   simd_float2 uv;
 } BlockVertex;
+
+typedef struct {
+  matrix_float4x4 modelMatrix;
+  matrix_float3x3 normalMatrix;
+} RenderParams;
 
 #endif /* ShaderTypes_h */
