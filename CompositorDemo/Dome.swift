@@ -1,10 +1,3 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-A renderer that displays a set of color swatches.
-*/
-
 import CompositorServices
 import Metal
 import MetalKit
@@ -14,27 +7,22 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let lampCount: Int = 2000
-private let patelPerLamp: Int = 24
-private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * lampCount
+// Dome parameters
+private let sphereRadius: Float = 5.0  // Dome radius 5m
+private let pointCount: Int = 120  // Number of points on the dome
 
-private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
-// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
-// prepare the indices for the lamp
-private let indexesCount: Int = lampCount * indexesPerLamp
+// Dome mesh parameters - further optimized density for better performance
+private let sphereSegments: Int = 24  // Dome longitude segments (reduced from 32 to 24)
+private let sphereRings: Int = 12  // Dome latitude segments (reduced from 16 to 12)
+private let verticesCount = (sphereRings + 1) * (sphereSegments + 1)
+private let indexesCount = sphereRings * sphereSegments * 6
 
-private let verticalScale: Float = 0.4
-private let upperRadius: Float = 0.14
-private let lowerRadius: Float = 0.18
-
-private struct CellBase {
-  var position: SIMD3<Float>
-  var color: SIMD3<Float>
-  var lampIdf: Float
-  var velocity: SIMD3<Float> = .zero
+// Optimized memory layout: consistent with Metal shader
+private struct SpherePoint {
+  var position: SIMD3<Float>  // Point position on the dome (12 bytes)
+  var angularSpeed: Float  // Angular speed (radians/second) (4 bytes) - total 16 bytes
+  var rotationAxis: SIMD3<Float>  // Rotation axis (line direction through sphere center) (12 bytes)
+  var pointId: Float  // Point ID (4 bytes) - total 16 bytes
 }
 
 private struct Params {
@@ -46,10 +34,11 @@ private struct Params {
 }
 
 @MainActor
-class LampsRenderer: CustomRenderer {
+class DomeRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
+  private var paramsBuffer: [MTLBuffer]
   /// a buffer to hold the vertices of the lamp
   var vertexBuffer: MTLBuffer!
 
@@ -64,123 +53,102 @@ class LampsRenderer: CustomRenderer {
 
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
-      layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
+      layerRenderer.device.makeBuffer(length: MemoryLayout<Uniforms>.uniformStride)!
+    }
+
+    paramsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
+      layerRenderer.device.makeBuffer(
+        length: MemoryLayout<Params>.stride, options: .storageModeShared)!
     }
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
-    let cellUpdateBase = library.makeFunction(name: "lampsComputeShader")!
+    let cellUpdateBase = library.makeFunction(name: "domeComputeShader")!
     computePipeLine = try computeDevice.makeComputePipelineState(function: cellUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
-    self.createLampVerticesBuffer(device: layerRenderer.device)
-    self.createLampIndexBuffer(device: layerRenderer.device)
-    self.createLampComputeBuffer(device: layerRenderer.device)
+    self.createDomeVerticesBuffer(device: layerRenderer.device)
+    self.createDomeIndexBuffer(device: layerRenderer.device)
+    self.createDomeComputeBuffer(device: layerRenderer.device)
   }
 
-  /// create and sets the vertices of the lamp
-  private func createLampVerticesBuffer(device: MTLDevice) {
+  /// Create dome vertex buffer
+  private func createDomeVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Lamp vertex buffer"
-    var cellVertices: UnsafeMutablePointer<VertexWithSeed> {
-      vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
-    }
+    vertexBuffer.label = "Sphere vertex buffer"
 
-    for i in 0..<lampCount {
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      let dimColor = color * 0.5
-      let baseIndex = i * verticesPerLamp
+    let vertices = vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
 
-      for p in 0..<patelPerLamp {
-        let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+    var vertexIndex = 0
 
-        // Calculate the four corners of this rectangular petal
-        // Calculate the upper and lower points of petals on x-z plane
-        // upper ring
-        let upperEdge = SIMD3<Float>(
-          cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
+    // Generate dome vertices
+    for ring in 0...sphereRings {
+      let phi = Float(ring) * Float.pi / Float(sphereRings)  // Latitude angle
+      let y = cos(phi) * sphereRadius
+      let ringRadius = sin(phi) * sphereRadius
 
-        // lower ring
-        let lowerEdge = SIMD3<Float>(
-          cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
+      for segment in 0...sphereSegments {
+        let theta = Float(segment) * 2.0 * Float.pi / Float(sphereSegments)  // Longitude angle
+        let x = cos(theta) * ringRadius
+        let z = sin(theta) * ringRadius
 
-        let vertexBase = baseIndex + p
+        let position = SIMD3<Float>(x, y, z)
+        let color = SIMD3<Float>(0.2, 0.2, 0.2)  // Default gray
 
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellVertices[vertexBase] = VertexWithSeed(
-          position: upperEdge, color: color, seed: Int32(i))
-        cellVertices[vertexBase + patelPerLamp] = VertexWithSeed(
-          position: lowerEdge,
-          color: dimColor,
-          seed: Int32(i)
+        vertices[vertexIndex] = VertexWithSeed(
+          position: position,
+          color: color,
+          seed: Int32(vertexIndex)
         )
+        vertexIndex += 1
+
       }
-      // top center of the lamp
-      cellVertices[baseIndex + patelPerLamp * 2] = VertexWithSeed(
-        position: SIMD3<Float>(0, verticalScale, 0),
-        color: color * 2.0,
-        seed: Int32(i)
-      )
     }
   }
 
   func resetComputeState() {
-    self.createLampComputeBuffer(device: computeDevice)
+    self.createDomeComputeBuffer(device: self.computeDevice)
   }
 
-  private func createLampIndexBuffer(device: MTLDevice) {
+  /// Create dome index buffer
+  private func createDomeIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
-    indexBuffer.label = "Lamp index buffer"
+    indexBuffer.label = "Sphere index buffer"
 
-    let cellIndices = indexBuffer.contents().bindMemory(
-      to: UInt32.self, capacity: indexesCount)
-    for i in 0..<lampCount {
-      // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
-      let verticesBase = i * verticesPerLamp
+    let indices = indexBuffer.contents().assumingMemoryBound(to: UInt32.self)
+    var indexOffset = 0
 
-      let indexBase = i * indexesPerLamp
-      // rect angles of patel size
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = indexBase + p * 6
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+    // Generate dome triangle indices
+    for ring in 0..<sphereRings {
+      for segment in 0..<sphereSegments {
+        let current = UInt32(ring * (sphereSegments + 1) + segment)
+        let next = UInt32(ring * (sphereSegments + 1) + (segment + 1))
+        let currentNext = UInt32((ring + 1) * (sphereSegments + 1) + segment)
+        let nextNext = UInt32((ring + 1) * (sphereSegments + 1) + (segment + 1))
 
-        // Second triangle of rectangle (inner2, outer1, outer2)
-        cellIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        cellIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
-      }
-      // cover the top of the lamp with triangles
-      let topCenter = verticesBase + patelPerLamp * 2
-      let topCenterIndexBase = indexBase + rectIndexesPerRect
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = topCenterIndexBase + p * 3
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(topCenter)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+        // First triangle
+        indices[indexOffset] = current
+        indices[indexOffset + 1] = currentNext
+        indices[indexOffset + 2] = next
+
+        // Second triangle
+        indices[indexOffset + 3] = next
+        indices[indexOffset + 4] = currentNext
+        indices[indexOffset + 5] = nextNext
+
+        indexOffset += 6
       }
     }
-
   }
 
-  private func createLampComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<CellBase>.stride * lampCount
+  /// Create point data on the dome
+  private func createDomeComputeBuffer(device: MTLDevice) {
+    let bufferLength = MemoryLayout<SpherePoint>.stride * pointCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -188,33 +156,41 @@ class LampsRenderer: CustomRenderer {
       print("Failed to create compute buffer")
       return
     }
-    computeBuffer.addLabel("Lamp compute buffer")
+    computeBuffer.addLabel("Sphere points compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let lampBase = contents.bindMemory(to: CellBase.self, capacity: lampCount)
+    let spherePoints = contents.bindMemory(to: SpherePoint.self, capacity: pointCount)
 
-    for i in 0..<lampCount {
-      // Random position offsets for each lamp
-      let xOffset = Float.random(in: -20...20)
-      let zOffset = Float.random(in: -30...10)
-      let yOffset = Float.random(in: 0...2)
+    for i in 0..<pointCount {
+      // Randomly distribute points on the dome
+      let phi = Float.random(in: 0...Float.pi)  // Latitude angle
+      let theta = Float.random(in: 0...(2 * Float.pi))  // Longitude angle
 
-      let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      // let dimColor = color * 0.5
+      let x = sin(phi) * cos(theta) * sphereRadius
+      let y = cos(phi) * sphereRadius
+      let z = sin(phi) * sin(theta) * sphereRadius
 
-      let velocity = SIMD3<Float>(
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8)
+      let position = SIMD3<Float>(x, y, z)
+
+      // Generate random rotation axis (line direction through sphere center)
+      let axisTheta = Float.random(in: 0...(2 * Float.pi))
+      let axisPhi = Float.random(in: 0...Float.pi)
+      let rotationAxis = normalize(
+        SIMD3<Float>(
+          sin(axisPhi) * cos(axisTheta),
+          cos(axisPhi),
+          sin(axisPhi) * sin(axisTheta)
+        ))
+
+      // Set angular speed (radians/second), range from 0.1 to 1.0 radians/second
+      let angularSpeed = Float.random(in: 0.1...1.0)
+
+      spherePoints[i] = SpherePoint(
+        position: position,
+        angularSpeed: angularSpeed,
+        rotationAxis: rotationAxis,
+        pointId: Float(i)
       )
-
-      lampBase[i] = CellBase(
-        position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
     }
 
     computeBuffer.copyToNext()
@@ -262,13 +238,13 @@ class LampsRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "lampsVertexShader")
-    let fragmentFunction = library.makeFunction(name: "lampsFragmentShader")
+    let vertexFunction = library.makeFunction(name: "domeVertexShader")
+    let fragmentFunction = library.makeFunction(name: "domeFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
 
-    pipelineDescriptor.label = "TriangleRenderPipeline"
+    pipelineDescriptor.label = "DomeRenderPipeline"
     pipelineDescriptor.vertexDescriptor = self.buildMetalVertexDescriptor()
 
     return try layerRenderer.device.makeRenderPipelineState(descriptor: pipelineDescriptor)
@@ -282,6 +258,13 @@ class LampsRenderer: CustomRenderer {
   }
 
   func computeCommandCommit() {
+    let currentTime = -Float(viewStartTime.timeIntervalSinceNow)
+    
+    // Optimization: limit compute shader execution frequency
+    if currentTime - lastComputeTime < computeInterval {
+      return  // Skip computation for this frame
+    }
+    
     guard let computeBuffer: PingPongBuffer = computeBuffer,
       let commandBuffer = computeCommandQueue.makeCommandBuffer(),
       let computeEncoder = commandBuffer.makeComputeCommandEncoder()
@@ -294,21 +277,23 @@ class LampsRenderer: CustomRenderer {
     computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
     computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
 
-    let delta = -Float(viewStartTime.timeIntervalSinceNow)
-    let dt = delta - frameDelta
+    let delta = currentTime
     frameDelta = delta
+    lastComputeTime = currentTime
 
     var params = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: dt,
+      time: computeInterval,  // Use fixed time step
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
     computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
-    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
+    
+    // Optimization: use smaller thread group size
+    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 64)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (lampCount + threadGroupSize - 1) / threadGroupSize,
+      width: (pointCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
@@ -329,6 +314,8 @@ class LampsRenderer: CustomRenderer {
 
   private var viewStartTime: Date = Date()
   private var frameDelta: Float = 0.0
+  private var lastComputeTime: Float = 0.0
+  private let computeInterval: Float = 1.0/60.0  // Limit compute shader to 60FPS
 
   func encodeDraw(
     _ drawCommand: TintDrawCommand,
@@ -358,25 +345,33 @@ class LampsRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
+    let currentParamsBuffer = paramsBuffer[Int(drawCommand.frameIndex % UInt64(Renderer.maxFramesInFlight))]
+
     var params_data = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: getTimeSinceStart(),
+      time: 0.016,  // Use fixed time step to avoid flickering
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
 
-    let params: any MTLBuffer = device.makeBuffer(
-      bytes: &params_data,
-      length: MemoryLayout<Params>.size,
-      options: .storageModeShared
-    )!
+    currentParamsBuffer.contents().copyMemory(
+      from: &params_data, byteCount: MemoryLayout<Params>.stride)
 
     encoder.setVertexBuffer(
-      params,
+      currentParamsBuffer,
       offset: 0,
       index: BufferIndex.params.rawValue)
 
     encoder.setVertexBuffer(
+      computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
+
+    // Set buffers for fragment shader
+    encoder.setFragmentBuffer(
+      currentParamsBuffer,
+      offset: 0,
+      index: BufferIndex.params.rawValue)
+
+    encoder.setFragmentBuffer(
       computeBuffer?.currentBuffer, offset: 0, index: BufferIndex.base.rawValue)
 
     encoder.drawIndexedPrimitives(

@@ -51,6 +51,8 @@ class AttractorRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
+  private var paramsBuffer: [MTLBuffer]
+
   /// a buffer to hold the vertices of the lamp
   var vertexBuffer: MTLBuffer!
 
@@ -66,6 +68,9 @@ class AttractorRenderer: CustomRenderer {
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
       layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
+    }
+    paramsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
+      layerRenderer.device.makeBuffer(length: MemoryLayout<Params>.stride, options: .storageModeShared)!
     }
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
@@ -323,27 +328,22 @@ class AttractorRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.uniforms.rawValue)
 
-    // let bufferLength = MemoryLayout<LampsVertex>.stride * numVertices
-
     encoder.setVertexBuffer(
       buffer,
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
+    let currentParamsBuffer = paramsBuffer[Int(drawCommand.frameIndex % Renderer.maxFramesInFlight)]
     var params_data = Params(
       time: getTimeSinceStart(),
       viewerPosition: self.gestureManager.viewerPosition,
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)
 
-    let params: any MTLBuffer = device.makeBuffer(
-      bytes: &params_data,
-      length: MemoryLayout<Params>.size,
-      options: .storageModeShared
-    )!
+    currentParamsBuffer.contents().copyMemory(from: &params_data, byteCount: MemoryLayout<Params>.stride)
 
     encoder.setVertexBuffer(
-      params,
+      currentParamsBuffer,
       offset: 0,
       index: BufferIndex.params.rawValue)
 

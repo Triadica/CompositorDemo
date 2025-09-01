@@ -1,10 +1,3 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-A renderer that displays a set of color swatches.
-*/
-
 import CompositorServices
 import Metal
 import MetalKit
@@ -14,27 +7,28 @@ import simd
 
 private let maxFramesInFlight = 3
 
-private let lampCount: Int = 2000
-private let patelPerLamp: Int = 24
-private let verticesPerLamp = patelPerLamp * 2 + 1
-private let verticesCount = verticesPerLamp * lampCount
+private let raindropCount: Int = 10000  // Increased to 10000 raindrops
+    private let segmentsPerRaindrop: Int = 4  // Further simplified to 4 segments, reducing triangle count
+    private let verticesPerRaindrop = segmentsPerRaindrop * 2 + 2  // One center point for top and bottom faces each
+private let verticesCount = verticesPerRaindrop * raindropCount
 
-private let rectIndexesPerRect: Int = 6 * patelPerLamp  // 6 vertices per rectangle
-private let ceilingIndexesPerLamp: Int = patelPerLamp * 3  // cover the top of the lamp with triangles
-// prepare the vertices for the lamp, 1 extra vertex for the top center of the lamp
-private let indexesPerLamp = rectIndexesPerRect + ceilingIndexesPerLamp
-// prepare the indices for the lamp
-private let indexesCount: Int = lampCount * indexesPerLamp
+private let sideIndexesPerRaindrop: Int = 6 * segmentsPerRaindrop  // 6 vertices per rectangle (side faces)
+private let topIndexesPerRaindrop: Int = segmentsPerRaindrop * 3  // cover the top with triangles
+private let bottomIndexesPerRaindrop: Int = segmentsPerRaindrop * 3  // cover the bottom with triangles
+private let indexesPerRaindrop =
+  sideIndexesPerRaindrop + topIndexesPerRaindrop + bottomIndexesPerRaindrop
+private let indexesCount: Int = raindropCount * indexesPerRaindrop
 
-private let verticalScale: Float = 0.4
-private let upperRadius: Float = 0.14
-private let lowerRadius: Float = 0.18
+private let raindropHeight: Float = 0.04  // Smaller raindrop size
+    private let raindropRadius: Float = 0.01  // Smaller raindrop radius
 
-private struct CellBase {
+private struct RaindropBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
-  var lampIdf: Float
+  var raindropId: Float
   var velocity: SIMD3<Float> = .zero
+  var groundTime: Float = 0.0  // Time staying on the ground
+  var isOnGround: Bool = false  // Whether on the ground
 }
 
 private struct Params {
@@ -46,7 +40,7 @@ private struct Params {
 }
 
 @MainActor
-class LampsRenderer: CustomRenderer {
+class RainRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
@@ -71,7 +65,7 @@ class LampsRenderer: CustomRenderer {
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
-    let cellUpdateBase = library.makeFunction(name: "lampsComputeShader")!
+    let cellUpdateBase = library.makeFunction(name: "rainComputeShader")!
     computePipeLine = try computeDevice.makeComputePipelineState(function: cellUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
@@ -81,52 +75,52 @@ class LampsRenderer: CustomRenderer {
     self.createLampComputeBuffer(device: layerRenderer.device)
   }
 
-  /// create and sets the vertices of the lamp
+  /// create and sets the vertices of the raindrop
   private func createLampVerticesBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<VertexWithSeed>.stride * verticesCount
     vertexBuffer = device.makeBuffer(length: bufferLength)!
-    vertexBuffer.label = "Lamp vertex buffer"
+    vertexBuffer.label = "Raindrop vertex buffer"
     var cellVertices: UnsafeMutablePointer<VertexWithSeed> {
       vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
     }
 
-    for i in 0..<lampCount {
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      let dimColor = color * 0.5
-      let baseIndex = i * verticesPerLamp
+    for i in 0..<raindropCount {
+      let baseIndex = i * verticesPerRaindrop
 
-      for p in 0..<patelPerLamp {
-        let angle = Float(p) * (2 * Float.pi / Float(patelPerLamp))
+      // Create raindrop vertices
+      for s in 0..<segmentsPerRaindrop {
+        let angle = Float(s) * (2 * Float.pi / Float(segmentsPerRaindrop))
 
-        // Calculate the four corners of this rectangular petal
-        // Calculate the upper and lower points of petals on x-z plane
-        // upper ring
-        let upperEdge = SIMD3<Float>(
-          cos(angle) * upperRadius, verticalScale, sin(angle) * upperRadius)
+        // Top edge (white)
+        let topEdge = SIMD3<Float>(
+          cos(angle) * raindropRadius, raindropHeight / 2, sin(angle) * raindropRadius)
 
-        // lower ring
-        let lowerEdge = SIMD3<Float>(
-          cos(angle) * lowerRadius, 0, sin(angle) * lowerRadius)
+        // Bottom edge (blue)
+        let bottomEdge = SIMD3<Float>(
+          cos(angle) * raindropRadius, -raindropHeight / 2, sin(angle) * raindropRadius)
 
-        let vertexBase = baseIndex + p
+        // White color (top)
+        let whiteColor = SIMD3<Float>(0.9, 0.9, 1.0)
+        // Blue color (bottom)
+        let blueColor = SIMD3<Float>(0.2, 0.4, 0.8)
 
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellVertices[vertexBase] = VertexWithSeed(
-          position: upperEdge, color: color, seed: Int32(i))
-        cellVertices[vertexBase + patelPerLamp] = VertexWithSeed(
-          position: lowerEdge,
-          color: dimColor,
-          seed: Int32(i)
-        )
+        cellVertices[baseIndex + s] = VertexWithSeed(
+          position: topEdge, color: whiteColor, seed: Int32(i))
+        cellVertices[baseIndex + s + segmentsPerRaindrop] = VertexWithSeed(
+          position: bottomEdge, color: blueColor, seed: Int32(i))
       }
-      // top center of the lamp
-      cellVertices[baseIndex + patelPerLamp * 2] = VertexWithSeed(
-        position: SIMD3<Float>(0, verticalScale, 0),
-        color: color * 2.0,
+
+      // Top center point (white)
+      cellVertices[baseIndex + segmentsPerRaindrop * 2] = VertexWithSeed(
+        position: SIMD3<Float>(0, raindropHeight / 2, 0),
+        color: SIMD3<Float>(1.0, 1.0, 1.0),
+        seed: Int32(i)
+      )
+
+      // Bottom center point (blue)
+      cellVertices[baseIndex + segmentsPerRaindrop * 2 + 1] = VertexWithSeed(
+        position: SIMD3<Float>(0, -raindropHeight / 2, 0),
+        color: SIMD3<Float>(0.1, 0.2, 0.6),
         seed: Int32(i)
       )
     }
@@ -139,48 +133,65 @@ class LampsRenderer: CustomRenderer {
   private func createLampIndexBuffer(device: MTLDevice) {
     let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
-    indexBuffer.label = "Lamp index buffer"
+    indexBuffer.label = "Raindrop index buffer"
 
     let cellIndices = indexBuffer.contents().bindMemory(
       to: UInt32.self, capacity: indexesCount)
-    for i in 0..<lampCount {
-      // for vertices in each lamp, layout is top "vertices, bottom vertices, top center"
-      let verticesBase = i * verticesPerLamp
 
-      let indexBase = i * indexesPerLamp
-      // rect angles of patel size
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = indexBase + p * 6
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+    for i in 0..<raindropCount {
+      let verticesBase = i * verticesPerRaindrop
+      let indexBase = i * indexesPerRaindrop
 
-        // Second triangle of rectangle (inner2, outer1, outer2)
-        cellIndices[nextIndexBase + 3] = UInt32(nextVertexBase)
-        cellIndices[nextIndexBase + 4] = UInt32(vertexBase + patelPerLamp)
-        cellIndices[nextIndexBase + 5] = UInt32(nextVertexBase + patelPerLamp)
+      // Side faces (rectangles)
+      for s in 0..<segmentsPerRaindrop {
+        let topCurrent = verticesBase + s
+        let topNext = verticesBase + (s + 1) % segmentsPerRaindrop
+        let bottomCurrent = verticesBase + s + segmentsPerRaindrop
+        let bottomNext = verticesBase + (s + 1) % segmentsPerRaindrop + segmentsPerRaindrop
+
+        let sideIndexBase = indexBase + s * 6
+
+        // First triangle
+        cellIndices[sideIndexBase] = UInt32(topCurrent)
+        cellIndices[sideIndexBase + 1] = UInt32(bottomCurrent)
+        cellIndices[sideIndexBase + 2] = UInt32(topNext)
+
+        // Second triangle
+        cellIndices[sideIndexBase + 3] = UInt32(topNext)
+        cellIndices[sideIndexBase + 4] = UInt32(bottomCurrent)
+        cellIndices[sideIndexBase + 5] = UInt32(bottomNext)
       }
-      // cover the top of the lamp with triangles
-      let topCenter = verticesBase + patelPerLamp * 2
-      let topCenterIndexBase = indexBase + rectIndexesPerRect
-      for p in 0..<patelPerLamp {
-        let vertexBase = verticesBase + p
-        let nextVertexBase = verticesBase + (p + 1) % patelPerLamp
-        let nextIndexBase = topCenterIndexBase + p * 3
-        // First triangle of rectangle (inner1, outer1, inner2)
-        cellIndices[nextIndexBase] = UInt32(vertexBase)
-        cellIndices[nextIndexBase + 1] = UInt32(topCenter)
-        cellIndices[nextIndexBase + 2] = UInt32(nextVertexBase)
+
+      // Top cap
+      let topCenter = verticesBase + segmentsPerRaindrop * 2
+      let topIndexBase = indexBase + sideIndexesPerRaindrop
+      for s in 0..<segmentsPerRaindrop {
+        let current = verticesBase + s
+        let next = verticesBase + (s + 1) % segmentsPerRaindrop
+        let triangleBase = topIndexBase + s * 3
+
+        cellIndices[triangleBase] = UInt32(topCenter)
+        cellIndices[triangleBase + 1] = UInt32(current)
+        cellIndices[triangleBase + 2] = UInt32(next)
+      }
+
+      // Bottom cap
+      let bottomCenter = verticesBase + segmentsPerRaindrop * 2 + 1
+      let bottomIndexBase = indexBase + sideIndexesPerRaindrop + topIndexesPerRaindrop
+      for s in 0..<segmentsPerRaindrop {
+        let current = verticesBase + s + segmentsPerRaindrop
+        let next = verticesBase + (s + 1) % segmentsPerRaindrop + segmentsPerRaindrop
+        let triangleBase = bottomIndexBase + s * 3
+
+        cellIndices[triangleBase] = UInt32(bottomCenter)
+        cellIndices[triangleBase + 1] = UInt32(next)
+        cellIndices[triangleBase + 2] = UInt32(current)
       }
     }
-
   }
 
   private func createLampComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<CellBase>.stride * lampCount
+    let bufferLength = MemoryLayout<RaindropBase>.stride * raindropCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -188,33 +199,39 @@ class LampsRenderer: CustomRenderer {
       print("Failed to create compute buffer")
       return
     }
-    computeBuffer.addLabel("Lamp compute buffer")
+    computeBuffer.addLabel("Raindrop compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let lampBase = contents.bindMemory(to: CellBase.self, capacity: lampCount)
+    let raindropBase = contents.bindMemory(to: RaindropBase.self, capacity: raindropCount)
 
-    for i in 0..<lampCount {
-      // Random position offsets for each lamp
-      let xOffset = Float.random(in: -20...20)
-      let zOffset = Float.random(in: -30...10)
-      let yOffset = Float.random(in: 0...2)
+    for i in 0..<raindropCount {
+      // Randomly distributed in the sky
+      let xOffset = Float.random(in: (-25)...25)
+      let zOffset = Float.random(in: (-30)...30)
+      let yOffset = Float.random(in: 8...15)  // Start from high altitude
 
-      let lampPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
-      // Random color for each lamp
-      let r = Float.random(in: 0.1...1.0)
-      let g = Float.random(in: 0.1...1.0)
-      let b = Float.random(in: 0.1...1.0)
-      let color = SIMD3<Float>(r, g, b)
-      // let dimColor = color * 0.5
+      let raindropPosition = SIMD3<Float>(xOffset, yOffset, zOffset)
 
+      // Raindrop color (white to blue gradient, base color set here)
+      let color = SIMD3<Float>(0.6, 0.7, 0.9)
+
+      // Falling velocity
+      let minY: Float = -2.0
+      let maxY: Float = -1.2
       let velocity = SIMD3<Float>(
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8),
-        Float.random(in: -0.8...0.8)
+        Float.random(in: (-0.2)...0.2),  // Slight horizontal drift
+        Float.random(in: minY...maxY),  // Main downward velocity
+        Float.random(in: (-0.2)...0.2)  // Slight horizontal drift
       )
 
-      lampBase[i] = CellBase(
-        position: lampPosition, color: color, lampIdf: Float(i), velocity: velocity)
+      raindropBase[i] = RaindropBase(
+        position: raindropPosition,
+        color: color,
+        raindropId: Float(i),
+        velocity: velocity,
+        groundTime: 0.0,
+        isOnGround: false
+      )
     }
 
     computeBuffer.copyToNext()
@@ -262,8 +279,8 @@ class LampsRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "lampsVertexShader")
-    let fragmentFunction = library.makeFunction(name: "lampsFragmentShader")
+    let vertexFunction = library.makeFunction(name: "rainVertexShader")
+    let fragmentFunction = library.makeFunction(name: "rainFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
@@ -308,7 +325,7 @@ class LampsRenderer: CustomRenderer {
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (lampCount + threadGroupSize - 1) / threadGroupSize,
+      width: (raindropCount + threadGroupSize - 1) / threadGroupSize,
       height: 1,
       depth: 1
     )
@@ -360,7 +377,7 @@ class LampsRenderer: CustomRenderer {
 
     var params_data = Params(
       viewerPosition: gestureManager.viewerPosition,
-      time: getTimeSinceStart(),
+      time: frameDelta,  // Use the same delta time as compute shader
       viewerScale: gestureManager.viewerScale,
       viewerRotation: gestureManager.viewerRotation
     )
