@@ -52,7 +52,7 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .flowers
+  @State private var selectedDemo: DemoTab = .spreadAroundBall
 
   var body: some View {
     HStack {
@@ -70,6 +70,7 @@ struct InteractionView: View {
         Text("Bounce In Ball").tag(DemoTab.bounceInBall)
         Text("Bounce In Cube").tag(DemoTab.bounceInCube)
         Text("Bounce Around Ball").tag(DemoTab.bounceAroundBall)
+        Text("Spread Around Ball").tag(DemoTab.spreadAroundBall)
         Text("Bounce Around Cube").tag(DemoTab.bounceAroundCube)
         Text("Bounce Gravity").tag(DemoTab.bounceGravity)
         Text("Multi Gravity").tag(DemoTab.multiGravity)
