@@ -15,7 +15,7 @@ import simd
 private let maxFramesInFlight = 3
 
 /// how many lines for this attractor
-private let linesCount: Int = 80000
+private let linesCount: Int = 120000
 /// how many rectangles in a line
 private let lineGroupSize: Int = 2
 /// 1 for leading point, others are following points
@@ -177,28 +177,36 @@ class SpreadAroundBallRenderer: CustomRenderer {
           sin(angle) * distance
         )
 
-      let smallSphereRadius = Float.random(in: 0.3...0.6)
+      let smallSphereRadius = Float.random(in: 0.01...0.1)
+
+      // Generate fixed velocity parameters for this small sphere (same for all particles in this sphere)
+      let inwardSpeed = Float.random(in: 0.01...0.06)
+      let expansionSpeed = Float.random(in: 0.001...0.01)
+
+      // Generate random offset direction for this small sphere (creates deviation from center)
+      let offsetDirection = SIMD3<Float>(
+        Float.random(in: -1.0...1.0),
+        Float.random(in: -1.0...1.0),
+        Float.random(in: -1.0...1.0)
+      )
+      let normalizedOffset = normalize(offsetDirection)
+      let offsetStrength = Float.random(in: 0.002...0.008)
 
       // Generate particles within this small sphere
       for particleIndex in 0..<particlesPerSphere {
-        // Random position within the small sphere
-        let randomDirection = normalize(
-          SIMD3<Float>(
-            Float.random(in: -1.0...1.0),
-            Float.random(in: -1.0...1.0),
-            Float.random(in: -1.0...1.0)
-          ))
-        let randomRadius = pow(Float.random(in: 0.0...1.0), 1.0 / 3.0) * smallSphereRadius
-        let particlePosition = sphereCenter + randomDirection * randomRadius
+        // Use global fibonacci grid function for uniform sphere distribution
+        let unitPosition = fibonacciGrid(n: Float(particleIndex), total: Float(particlesPerSphere))
+        let particlePosition = sphereCenter + unitPosition * smallSphereRadius
 
         // Calculate velocity towards target sphere with expansion
         let directionToTarget = normalize(targetCenter - particlePosition)
         let expansionDirection = normalize(particlePosition - sphereCenter)
 
-        // Combine inward motion towards target and outward expansion
-        let inwardSpeed = Float.random(in: 0.02...0.05)
-        let expansionSpeed = Float.random(in: 0.01...0.02)
-        let velocity = directionToTarget * inwardSpeed + expansionDirection * expansionSpeed
+        // Apply fixed offset direction for this small sphere (creates deviation from center)
+        let offsetVelocity = normalizedOffset * offsetStrength
+
+        let velocity =
+          directionToTarget * inwardSpeed + expansionDirection * expansionSpeed + offsetVelocity
 
         // Color based on sphere index
         let hue = Float(sphereIndex) / Float(numSpheres)
@@ -230,10 +238,10 @@ class SpreadAroundBallRenderer: CustomRenderer {
     let attractorBase = contents.bindMemory(to: SpreadBase.self, capacity: controlCount)
 
     let targetCenter = SIMD3<Float>(0.0, 0.0, -1.0)
-    let targetRadius: Float = 1.2
+    let targetRadius: Float = 1.6
 
     // Generate multiple small spheres with particles
-    let numSpheres = 8
+    let numSpheres = 24
     let particlesPerSphere = linesCount / numSpheres
     let particles = generateSmallSpheres(
       numSpheres: numSpheres,
