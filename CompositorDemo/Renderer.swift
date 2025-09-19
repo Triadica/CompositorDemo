@@ -225,6 +225,18 @@ extension Renderer {
 
     _ = await arSession.requestAuthorization(for: authorizations)
     try await arSession.run(dataProviders)
+    
+    // 等待ARKit会话完全启动
+    var retryCount = 0
+    while worldTracking.state != .running && retryCount < 30 {
+      try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+      retryCount += 1
+    }
+    
+    if worldTracking.state != .running {
+      print("Warning: ARKit world tracking failed to start after 3 seconds")
+    }
+    
     // Render loop
     while true {
       if layerRenderer.state == .invalidated {
@@ -238,8 +250,14 @@ extension Renderer {
         layerRenderer.waitUntilRunning()
         continue
       } else {
-        await customRenderer.computeCommandCommit()
-        try await self.renderFrame()
+        do {
+          await customRenderer.computeCommandCommit()
+          try await self.renderFrame()
+        } catch {
+          print("Render frame error: \(error)")
+          // 继续渲染循环，不因单帧错误而退出
+          continue
+        }
       }
     }
   }
@@ -344,11 +362,17 @@ extension Renderer {
     frame.startSubmission()
 
     // Get the drawable device anchor state at presentation time.
-    let time = LayerRenderer.Clock.Instant.epoch.duration(
-      to: drawable.frameTiming.presentationTime
-    ).timeInterval
-    let deviceAnchor = worldTracking.queryDeviceAnchor(atTimestamp: time)
-    drawable.deviceAnchor = deviceAnchor
+    // 检查世界跟踪提供者状态，避免在未运行时查询设备锚点
+    if worldTracking.state == .running {
+      let time = LayerRenderer.Clock.Instant.epoch.duration(
+        to: drawable.frameTiming.presentationTime
+      ).timeInterval
+      let deviceAnchor = worldTracking.queryDeviceAnchor(atTimestamp: time)
+      drawable.deviceAnchor = deviceAnchor
+    } else {
+      // 如果世界跟踪未运行，使用默认设备锚点或跳过设置
+      drawable.deviceAnchor = nil
+    }
 
     // Update the renderer uniforms using the latest device anchor.
     await customRenderer.updateUniformBuffers(lampsDrawCommand, drawable: drawable)

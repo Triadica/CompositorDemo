@@ -53,6 +53,7 @@ struct InteractionView: View {
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
   @State private var selectedDemo: DemoTab = .spreadInBall
+  @State private var isUpdatingDemo = false
 
   var body: some View {
     HStack {
@@ -167,7 +168,16 @@ struct InteractionView: View {
       appModel.immersionStyle = newStyle.style
     }
     .onChange(of: selectedDemo) { _, newDemo in
-      appModel.selectedTab = newDemo
+      // 防止UIPickerView并发更新冲突
+      guard !isUpdatingDemo else { return }
+      isUpdatingDemo = true
+      
+      Task { @MainActor in
+        // 添加短暂延迟以避免并发更新
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        appModel.selectedTab = newDemo
+        isUpdatingDemo = false
+      }
     }
   }
 }
