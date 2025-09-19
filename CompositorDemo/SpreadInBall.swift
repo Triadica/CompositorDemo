@@ -164,10 +164,10 @@ class SpreadInBallRenderer: CustomRenderer {
 
     // Create small spheres inside the target sphere (no random positioning)
     for sphereIndex in 0..<numSpheres {
-      // Position each small sphere at fixed locations inside the target sphere
+      // Position each small sphere uniformly in a ring inside the target sphere
       let angle = Float(sphereIndex) * 2.0 * Float.pi / Float(numSpheres)
-      let distance = 0.3 + Float(sphereIndex % 3) * 0.2  // Fixed distances: 0.3, 0.5, 0.7
-      let height = -0.3 + Float(sphereIndex % 5) * 0.15  // Fixed heights from -0.3 to 0.3
+      let distance = Float(0.4)  // Fixed ring radius
+      let height = Float(0.0)  // All spheres at same height level
 
       let sphereCenter =
         targetCenter
@@ -199,9 +199,9 @@ class SpreadInBallRenderer: CustomRenderer {
 
         // Calculate velocity for internal movement (no target attraction)
         let expansionDirection = normalize(particlePosition - sphereCenter)
-        
+
         // Apply fixed direction for this small sphere with slight expansion
-        let velocity = normalizedDirection * baseSpeed + expansionDirection * (baseSpeed * 0.3)
+        let velocity = normalizedDirection * baseSpeed + expansionDirection * (baseSpeed * 0.1)
 
         // Color based on sphere index
         let hue = Float(sphereIndex) / Float(numSpheres)
@@ -236,7 +236,7 @@ class SpreadInBallRenderer: CustomRenderer {
     let targetRadius: Float = 1.6
 
     // Generate multiple small spheres with particles
-    let numSpheres = 24
+    let numSpheres = 16
     let particlesPerSphere = linesCount / numSpheres
     let particles = generateSmallSpheres(
       numSpheres: numSpheres,

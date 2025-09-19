@@ -147,8 +147,8 @@ kernel void spreadInBallComputeShader(
     // Removed angular velocity component - following natural physics
 
     // Add gravity force (slight downward acceleration)
-    float3 gravity = float3(0.0, -0.001, 0.0);
-    
+    float3 gravity = float3(0.0, -0.0002, 0.0);
+
     // Remove center attraction for InBall mode - particles move freely inside
     float3 totalForce = gravity;
 
@@ -159,18 +159,21 @@ kernel void spreadInBallComputeShader(
 
     if (newDistanceToCenter >= r) {
       // Particle would exit sphere: handle internal collision
-      float3 directionToCenter = normalize(center - cell.position);
-      float3 normal = -directionToCenter;  // Normal points inward for internal collision
-      
+      float3 directionFromCenter = normalize(newPosition - center);
+      float3 normal = -directionFromCenter;  // Normal points inward for internal collision
+
+      // Calculate intersection point on sphere surface
+      float3 intersectionPoint = center + directionFromCenter * r;
+
       // Reflect velocity off internal sphere surface
       float3 reflectedVelocity = newVelocity - 2.0 * dot(newVelocity, normal) * normal;
-      
+
       // Apply damping to reflected velocity
-      reflectedVelocity *= 0.8;
-      
-      // Position particle slightly inside surface to prevent escape
-      float3 correctedPosition = center + directionToCenter * (r - 0.01);
-      
+      reflectedVelocity *= 0.94;
+
+      // Position particle slightly inside surface at intersection point
+      float3 correctedPosition = intersectionPoint + normal * 0.01;
+
       outputCell.position = correctedPosition;
       outputCell.velocity = reflectedVelocity;
       outputCell.color = cell.color;
