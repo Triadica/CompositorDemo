@@ -32,13 +32,13 @@ private let verticesCount = controlCount * 6
 /// rectangle indexes per rectangle
 private let indexesCount: Int = controlCount * 6
 
-private struct SpreadBase {
+private struct SpreadInBallBase {
   var position: SIMD3<Float>
   var color: SIMD3<Float>
   var velocity: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
 }
 
-private struct Params {
+private struct SpreadInBallParams {
   var time: Float
   var groupSize: Int32 = Int32(lineGroupSize)
   var viewerPosition: SIMD3<Float>
@@ -48,7 +48,7 @@ private struct Params {
 }
 
 @MainActor
-class SpreadAroundBallRenderer: CustomRenderer {
+class SpreadInBallRenderer: CustomRenderer {
   private let renderPipelineState: MTLRenderPipelineState & Sendable
 
   private var uniformsBuffer: [MTLBuffer]
@@ -73,7 +73,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
-    let attractorUpdateBase = library.makeFunction(name: "spreadAroundBallComputeShader")!
+    let attractorUpdateBase = library.makeFunction(name: "spreadInBallComputeShader")!
     computePipeLine = try computeDevice.makeComputePipelineState(function: attractorUpdateBase)
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
@@ -156,18 +156,18 @@ class SpreadAroundBallRenderer: CustomRenderer {
 
   }
 
-  // Generate multiple small spheres positioned around the target sphere
+  // Generate multiple small spheres positioned inside the target sphere
   private func generateSmallSpheres(
     numSpheres: Int, particlesPerSphere: Int, targetCenter: SIMD3<Float>, targetRadius: Float
   ) -> [(position: SIMD3<Float>, velocity: SIMD3<Float>, color: SIMD3<Float>)] {
     var particles: [(position: SIMD3<Float>, velocity: SIMD3<Float>, color: SIMD3<Float>)] = []
 
-    // Create small spheres at various distances and angles around the target
+    // Create small spheres inside the target sphere (no random positioning)
     for sphereIndex in 0..<numSpheres {
-      // Position each small sphere at different locations around the target
+      // Position each small sphere at fixed locations inside the target sphere
       let angle = Float(sphereIndex) * 2.0 * Float.pi / Float(numSpheres)
-      let distance = Float.random(in: 3.0...5.0)  // Distance from target center
-      let height = Float.random(in: -1.0...1.0)
+      let distance = 0.3 + Float(sphereIndex % 3) * 0.2  // Fixed distances: 0.3, 0.5, 0.7
+      let height = -0.3 + Float(sphereIndex % 5) * 0.15  // Fixed heights from -0.3 to 0.3
 
       let sphereCenter =
         targetCenter
@@ -177,36 +177,31 @@ class SpreadAroundBallRenderer: CustomRenderer {
           sin(angle) * distance
         )
 
-      let smallSphereRadius = Float.random(in: 0.01...0.1)
+      let smallSphereRadius = 0.05  // Fixed radius instead of random
 
-      // Generate fixed velocity parameters for this small sphere (same for all particles in this sphere)
-      let inwardSpeed = Float.random(in: 0.01...0.06)
-      let expansionSpeed = Float.random(in: 0.001...0.01)
+      // Generate fixed velocity parameters for this small sphere (reduced for internal movement)
+      let baseSpeed = Float(0.02)  // Fixed base speed
+      let randomDirection = Float(sphereIndex) * 0.1  // Deterministic variation
 
-      // Generate random offset direction for this small sphere (creates deviation from center)
-      let offsetDirection = SIMD3<Float>(
-        Float.random(in: -1.0...1.0),
-        Float.random(in: -1.0...1.0),
-        Float.random(in: -1.0...1.0)
+      // Generate fixed direction for this small sphere (no random offset)
+      let sphereDirection = SIMD3<Float>(
+        cos(angle + Float.pi * 0.5),
+        0.2,  // Slight upward component
+        sin(angle + Float.pi * 0.5)
       )
-      let normalizedOffset = normalize(offsetDirection)
-      let offsetStrength = Float.random(in: 0.002...0.008)
+      let normalizedDirection = normalize(sphereDirection)
 
       // Generate particles within this small sphere
       for particleIndex in 0..<particlesPerSphere {
         // Use global fibonacci grid function for uniform sphere distribution
         let unitPosition = fibonacciGrid(n: Float(particleIndex), total: Float(particlesPerSphere))
-        let particlePosition = sphereCenter + unitPosition * smallSphereRadius
+        let particlePosition = sphereCenter + unitPosition * Float(smallSphereRadius)
 
-        // Calculate velocity towards target sphere with expansion
-        let directionToTarget = normalize(targetCenter - particlePosition)
+        // Calculate velocity for internal movement (no target attraction)
         let expansionDirection = normalize(particlePosition - sphereCenter)
-
-        // Apply fixed offset direction for this small sphere (creates deviation from center)
-        let offsetVelocity = normalizedOffset * offsetStrength
-
-        let velocity =
-          directionToTarget * inwardSpeed + expansionDirection * expansionSpeed + offsetVelocity
+        
+        // Apply fixed direction for this small sphere with slight expansion
+        let velocity = normalizedDirection * baseSpeed + expansionDirection * (baseSpeed * 0.3)
 
         // Color based on sphere index
         let hue = Float(sphereIndex) / Float(numSpheres)
@@ -224,7 +219,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
   }
 
   private func createAttractorComputeBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<SpreadBase>.stride * controlCount
+    let bufferLength = MemoryLayout<SpreadInBallBase>.stride * controlCount
 
     computeBuffer = PingPongBuffer(device: device, length: bufferLength)
 
@@ -235,7 +230,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
     computeBuffer.addLabel("Attractor compute buffer")
 
     let contents = computeBuffer.currentBuffer.contents()
-    let attractorBase = contents.bindMemory(to: SpreadBase.self, capacity: controlCount)
+    let attractorBase = contents.bindMemory(to: SpreadInBallBase.self, capacity: controlCount)
 
     let targetCenter = SIMD3<Float>(0.0, 0.0, -1.0)
     let targetRadius: Float = 1.6
@@ -258,7 +253,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
 
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
-        attractorBase[index] = SpreadBase(
+        attractorBase[index] = SpreadInBallBase(
           position: particle.position,
           color: particle.color,
           velocity: particle.velocity
@@ -311,8 +306,8 @@ class SpreadAroundBallRenderer: CustomRenderer {
 
     let library = layerRenderer.device.makeDefaultLibrary()!
 
-    let vertexFunction = library.makeFunction(name: "spreadAroundBallVertexShader")
-    let fragmentFunction = library.makeFunction(name: "spreadAroundBallFragmentShader")
+    let vertexFunction = library.makeFunction(name: "spreadInBallVertexShader")
+    let fragmentFunction = library.makeFunction(name: "spreadInBallFragmentShader")
 
     pipelineDescriptor.fragmentFunction = fragmentFunction
     pipelineDescriptor.vertexFunction = vertexFunction
@@ -347,11 +342,11 @@ class SpreadAroundBallRenderer: CustomRenderer {
     let dt = delta - frameDelta
     frameDelta = delta
 
-    var params = Params(
+    var params = SpreadInBallParams(
       time: dt, viewerPosition: self.gestureManager.viewerPosition,
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)
-    computeEncoder.setBytes(&params, length: MemoryLayout<Params>.size, index: 2)
+    computeEncoder.setBytes(&params, length: MemoryLayout<SpreadInBallParams>.size, index: 2)
     let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
     let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
@@ -405,7 +400,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
       offset: 0,
       index: BufferIndex.meshPositions.rawValue)
 
-    var params_data = Params(
+    var params_data = SpreadInBallParams(
       time: getTimeSinceStart(),
       viewerPosition: self.gestureManager.viewerPosition,
       viewerScale: self.gestureManager.viewerScale,
@@ -413,7 +408,7 @@ class SpreadAroundBallRenderer: CustomRenderer {
 
     let params: any MTLBuffer = device.makeBuffer(
       bytes: &params_data,
-      length: MemoryLayout<Params>.size,
+      length: MemoryLayout<SpreadInBallParams>.size,
       options: .storageModeShared
     )!
 

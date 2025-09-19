@@ -22,12 +22,12 @@ typedef struct {
   int lineNumber [[attribute(1)]];
   int groupNumber [[attribute(2)]];
   int cellSide [[attribute(3)]];
-} SpreadAroundBallVertexIn;
+} SpreadInBallVertexIn;
 
 typedef struct {
   float4 position [[position]];
   float4 color;
-} SpreadAroundBallInOut;
+} SpreadInBallInOut;
 
 typedef struct {
   float time;
@@ -35,9 +35,9 @@ typedef struct {
   float3 viewerPosition;
   float viewerScale;
   float viewerRotation;
-} SpreadAroundBallParams;
+} SpreadInBallParams;
 
-struct SpreadAroundBallBase {
+struct SpreadInBallBase {
   float3 position;
   float3 color;
   float3 velocity;
@@ -128,67 +128,57 @@ static float4 applyGestureViewer(
   return position;
 }
 
-kernel void spreadAroundBallComputeShader(
-    device SpreadAroundBallBase *attractor [[buffer(0)]],
-    device SpreadAroundBallBase *outputAttractor [[buffer(1)]],
-    constant SpreadAroundBallParams &params [[buffer(2)]],
+kernel void spreadInBallComputeShader(
+    device SpreadInBallBase *attractor [[buffer(0)]],
+    device SpreadInBallBase *outputAttractor [[buffer(1)]],
+    constant SpreadInBallParams &params [[buffer(2)]],
     uint id [[thread_position_in_grid]]) {
-  SpreadAroundBallBase cell = attractor[id];
-  device SpreadAroundBallBase &outputCell = outputAttractor[id];
+  SpreadInBallBase cell = attractor[id];
+  device SpreadInBallBase &outputCell = outputAttractor[id];
 
   bool leading = (id % (params.groupSize + 1) == 0);
   float3 center = float3(0.0, 0.0, -1.0);
-  float r = 1.6;
+  float r = 1.0;  // Collision sphere radius = 1.0m (diameter = 2.0m)
   float dt = params.time * 8;
 
   if (leading) {
-    float3 newPosition = cell.position + cell.velocity * dt;
     float distanceToCenter = distance(cell.position, center);
 
     // Removed angular velocity component - following natural physics
 
-    // Apply only center attraction force
-    // Random drift is now initialized in Swift code
-    float3 centerAttraction = normalize(center - cell.position) * 0.002;
+    // Add gravity force (slight downward acceleration)
+    float3 gravity = float3(0.0, -0.001, 0.0);
+    
+    // Remove center attraction for InBall mode - particles move freely inside
+    float3 totalForce = gravity;
 
-    float3 totalForce = centerAttraction;
+    // Calculate new position
+    float3 newVelocity = cell.velocity + totalForce * dt;
+    float3 newPosition = cell.position + newVelocity * dt;
+    float newDistanceToCenter = distance(newPosition, center);
 
-    if (distanceToCenter <= r) {
-      // Inside sphere: apply forces and gentle damping
-      outputCell.velocity = cell.velocity + totalForce * dt;
-      outputCell.position = cell.position + outputCell.velocity * dt;
+    if (newDistanceToCenter >= r) {
+      // Particle would exit sphere: handle internal collision
+      float3 directionToCenter = normalize(center - cell.position);
+      float3 normal = -directionToCenter;  // Normal points inward for internal collision
+      
+      // Reflect velocity off internal sphere surface
+      float3 reflectedVelocity = newVelocity - 2.0 * dot(newVelocity, normal) * normal;
+      
+      // Apply damping to reflected velocity
+      reflectedVelocity *= 0.8;
+      
+      // Position particle slightly inside surface to prevent escape
+      float3 correctedPosition = center + directionToCenter * (r - 0.01);
+      
+      outputCell.position = correctedPosition;
+      outputCell.velocity = reflectedVelocity;
       outputCell.color = cell.color;
     } else {
-      // Outside sphere: check for collision
-      IntersectionInfo info =
-          calculateSphereIntersection(center, r, cell.position, cell.velocity);
-
-      if (info.intersected && info.moveDistance <= length(cell.velocity * dt)) {
-        // Collision with sphere: slide along surface instead of bouncing
-        float3 perpVelocity = dot(cell.velocity, info.normal) * info.normal;
-        float3 parallelVelocity = cell.velocity - perpVelocity;
-
-        // Convert perpendicular velocity to tangential motion along sphere
-        // surface
-        float3 tangentialFromPerp =
-            normalize(cross(cross(info.normal, cell.velocity), info.normal));
-
-        // New velocity: keep parallel component unchanged, convert
-        // perpendicular to tangential with damping
-        float3 newVelocity =
-            parallelVelocity * 0.96 + tangentialFromPerp * 0.02;
-
-        // Position particle slightly above surface to prevent penetration
-        float3 surfacePosition = center + info.normal * (r + 0.001);
-        outputCell.position = surfacePosition;
-        outputCell.velocity = newVelocity;
-        outputCell.color = cell.color;
-      } else {
-        // No collision: apply forces with inertial motion (no damping)
-        outputCell.velocity = cell.velocity + totalForce * dt;
-        outputCell.position = newPosition;
-        outputCell.color = cell.color;
-      }
+      // Particle stays inside sphere: normal movement
+      outputCell.velocity = newVelocity;
+      outputCell.position = newPosition;
+      outputCell.color = cell.color;
     }
   } else {
     // Following particles: copy from previous with slight delay
@@ -198,14 +188,14 @@ kernel void spreadAroundBallComputeShader(
   }
 }
 
-vertex SpreadAroundBallInOut spreadAroundBallVertexShader(
-    SpreadAroundBallVertexIn in [[stage_in]],
+vertex SpreadInBallInOut spreadInBallVertexShader(
+    SpreadInBallVertexIn in [[stage_in]],
     ushort amp_id [[amplification_id]],
     constant Uniforms &uniforms [[buffer(BufferIndexUniforms)]],
     constant TintUniforms &tintUniform [[buffer(BufferIndexTintUniforms)]],
-    constant SpreadAroundBallParams &params [[buffer(BufferIndexParams)]],
-    const device SpreadAroundBallBase *linesData [[buffer(BufferIndexBase)]]) {
-  SpreadAroundBallInOut out;
+    constant SpreadInBallParams &params [[buffer(BufferIndexParams)]],
+    const device SpreadInBallBase *linesData [[buffer(BufferIndexBase)]]) {
+  SpreadInBallInOut out;
 
   UniformsPerView uniformsPerView = uniforms.perView[amp_id];
   // float3 cameraAt = uniforms.cameraPos;
@@ -215,9 +205,9 @@ vertex SpreadAroundBallInOut spreadAroundBallVertexShader(
   int groupNumber = in.groupNumber;
   int cellSide = in.cellSide;
 
-  SpreadAroundBallBase cell =
+  SpreadInBallBase cell =
       linesData[lineNumber * (params.groupSize + 1) + groupNumber + 1];
-  SpreadAroundBallBase prevCell =
+  SpreadInBallBase prevCell =
       linesData[lineNumber * (params.groupSize + 1) + groupNumber];
 
   float3 direction = cell.position - prevCell.position;
@@ -249,8 +239,8 @@ vertex SpreadAroundBallInOut spreadAroundBallVertexShader(
   return out;
 }
 
-fragment float4 spreadAroundBallFragmentShader(SpreadAroundBallInOut in
-                                               [[stage_in]]) {
+fragment float4 spreadInBallFragmentShader(SpreadInBallInOut in
+                                           [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

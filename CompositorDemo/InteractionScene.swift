@@ -77,6 +77,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try SpreadAroundBallRenderer(
               layerRenderer: layerRenderer
             )
+          case .spreadInBall:
+            currentRenderer = try SpreadInBallRenderer(
+              layerRenderer: layerRenderer
+            )
           case .bounceAroundCube:
             currentRenderer = try BounceAroundCubeRenderer(
               layerRenderer: layerRenderer

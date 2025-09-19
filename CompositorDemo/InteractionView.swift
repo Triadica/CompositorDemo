@@ -71,6 +71,7 @@ struct InteractionView: View {
         Text("Bounce In Cube").tag(DemoTab.bounceInCube)
         Text("Bounce Around Ball").tag(DemoTab.bounceAroundBall)
         Text("Spread Around Ball").tag(DemoTab.spreadAroundBall)
+        Text("Spread In Ball").tag(DemoTab.spreadInBall)
         Text("Bounce Around Cube").tag(DemoTab.bounceAroundCube)
         Text("Bounce Gravity").tag(DemoTab.bounceGravity)
         Text("Multi Gravity").tag(DemoTab.multiGravity)

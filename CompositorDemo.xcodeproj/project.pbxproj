@@ -13,6 +13,8 @@
 		9A228C6D2DB56C6200160CF9 /* Blocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6C2DB56C5400160CF9 /* Blocks.swift */; };
 		9A228C6F2DB56C6F00160CF9 /* Blocks.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A228C6E2DB56C6700160CF9 /* Blocks.metal */; };
 		9A45F3AA2D889E1B0042486A /* Lamps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A45F3A92D889E1B0042486A /* Lamps.swift */; };
+		9A7532C32E7DA22F005DD245 /* SpreadInBall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7532C22E7DA229005DD245 /* SpreadInBall.swift */; };
+		9A7532C52E7DA240005DD245 /* SpreadInBall.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A7532C42E7DA239005DD245 /* SpreadInBall.metal */; };
 		9A92D3772D91D35A0021FFCE /* Lamps.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3762D91D35A0021FFCE /* Lamps.metal */; };
 		9A92D3852D994EB00021FFCE /* Polylines.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3842D994EB00021FFCE /* Polylines.swift */; };
 		9A92D3872D994ECB0021FFCE /* Polylines.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9A92D3862D994EBB0021FFCE /* Polylines.metal */; };
@@ -70,6 +72,8 @@
 		9A228C6C2DB56C5400160CF9 /* Blocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Blocks.swift; sourceTree = "<group>"; };
 		9A228C6E2DB56C6700160CF9 /* Blocks.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Blocks.metal; sourceTree = "<group>"; };
 		9A45F3A92D889E1B0042486A /* Lamps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lamps.swift; sourceTree = "<group>"; };
+		9A7532C22E7DA229005DD245 /* SpreadInBall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpreadInBall.swift; sourceTree = "<group>"; };
+		9A7532C42E7DA239005DD245 /* SpreadInBall.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = SpreadInBall.metal; sourceTree = "<group>"; };
 		9A92D3762D91D35A0021FFCE /* Lamps.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Lamps.metal; sourceTree = "<group>"; };
 		9A92D3842D994EB00021FFCE /* Polylines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polylines.swift; sourceTree = "<group>"; };
 		9A92D3862D994EBB0021FFCE /* Polylines.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Polylines.metal; sourceTree = "<group>"; };
@@ -191,7 +195,9 @@
 				9A9A3E1A2E1A557300330D1B /* BounceAroundCube.swift */,
 				9A9A3E182E1A3DC500330D1B /* BounceAroundBall.metal */,
 				9ABC5F222E79BC780066ADEE /* SpreadAroundBall.metal */,
+				9A7532C22E7DA229005DD245 /* SpreadInBall.swift */,
 				9ABC5F202E79BC6A0066ADEE /* SpreadAroundBall.swift */,
+				9A7532C42E7DA239005DD245 /* SpreadInBall.metal */,
 				9A9A3E162E1A3DB700330D1B /* BounceAroundBall.swift */,
 				9A9A3E122E19997000330D1B /* BounceInCube.metal */,
 				9A9A3E102E19995E00330D1B /* BounceInCube.swift */,
@@ -335,6 +341,7 @@
 				9A96FD282E5AF2D500B9E415 /* Octahedron.metal in Sources */,
 				9A92D3902D9FFD670021FFCE /* JsonGen.swift in Sources */,
 				9A9A3E0F2E16EDE800330D1B /* BounceInBall.metal in Sources */,
+				9A7532C52E7DA240005DD245 /* SpreadInBall.metal in Sources */,
 				9A96FD262E5AF2CD00B9E415 /* Octahedron.swift in Sources */,
 				D112742E2BC7318900E194CF /* AppModel.swift in Sources */,
 				9A92D38E2D9FBE210021FFCE /* ExtendingLine.swift in Sources */,
@@ -350,6 +357,7 @@
 				9ABC5F212E79BC740066ADEE /* SpreadAroundBall.swift in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				9A9A3E3F2E202A1C00330D1B /* ShareShaderAddress.swift in Sources */,
+				9A7532C32E7DA22F005DD245 /* SpreadInBall.swift in Sources */,
 				9A9A3E1D2E1A558A00330D1B /* BounceAroundCube.metal in Sources */,
 				9A92D38A2D9FBAE50021FFCE /* Triangles.swift in Sources */,
 				9AF975B52DBEA5BC00B78645 /* Images.metal in Sources */,

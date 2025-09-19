@@ -22,6 +22,7 @@ enum DemoTab: String, CaseIterable, Identifiable {
   case bounceInCube
   case bounceAroundBall
   case spreadAroundBall
+  case spreadInBall
   case bounceAroundCube
   case bounceGravity
   case multiGravity
