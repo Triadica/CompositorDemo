@@ -52,7 +52,7 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .spreadAroundBall
+  @State private var selectedDemo: DemoTab = .spreadInBall
 
   var body: some View {
     HStack {

@@ -15,7 +15,7 @@ import simd
 private let maxFramesInFlight = 3
 
 /// how many lines for this attractor
-private let linesCount: Int = 90000
+private let linesCount: Int = 80000
 /// how many rectangles in a line
 private let lineGroupSize: Int = 2
 /// 1 for leading point, others are following points
@@ -164,30 +164,60 @@ class SpreadInBallRenderer: CustomRenderer {
 
     // Create small spheres inside the target sphere (no random positioning)
     for sphereIndex in 0..<numSpheres {
-      // Position each small sphere uniformly in a ring inside the target sphere
-      let angle = Float(sphereIndex) * 2.0 * Float.pi / Float(numSpheres)
-      let distance = Float(0.4)  // Fixed ring radius
-      let height = Float(0.0)  // All spheres at same height level
+      // Create two separate rings - one large, one small
+      let largeRingCount = Int(Float(numSpheres) * 0.7)  // 70% of spheres in large ring
+      let smallRingCount = numSpheres - largeRingCount  // 30% of spheres in small ring
 
-      let sphereCenter =
-        targetCenter
-        + SIMD3<Float>(
-          cos(angle) * distance,
+      let spherePosition: SIMD3<Float>
+      if sphereIndex < largeRingCount {
+        // Large ring - positioned higher for greater potential energy
+        let angle = Float(sphereIndex) / Float(largeRingCount) * 2.0 * Float.pi
+        let distance: Float = 0.5  // Larger radius
+        let height: Float = 0.3  // Higher position for greater potential energy
+        spherePosition = SIMD3<Float>(
+          distance * cos(angle),
           height,
-          sin(angle) * distance
+          distance * sin(angle)
         )
+      } else {
+        // Small ring - positioned lower
+        let smallIndex = sphereIndex - largeRingCount
+        let angle = Float(smallIndex) / Float(smallRingCount) * 2.0 * Float.pi
+        let distance: Float = 0.25  // Smaller radius
+        let height: Float = -0.1  // Lower position
+        spherePosition = SIMD3<Float>(
+          distance * cos(angle),
+          height,
+          distance * sin(angle)
+        )
+      }
+      let sphereCenter = targetCenter + spherePosition
 
       let smallSphereRadius = 0.05  // Fixed radius instead of random
 
       // Generate fixed velocity parameters for this small sphere (reduced for internal movement)
-      let baseSpeed = Float(0.02)  // Fixed base speed
+      let baseSpeed: Float
       let randomDirection = Float(sphereIndex) * 0.1  // Deterministic variation
 
-      // Generate fixed direction for this small sphere (no random offset)
+      // Generate fixed direction for this small sphere based on its ring position
+      let sphereAngle: Float
+      if sphereIndex < largeRingCount {
+        // Large ring: slightly slower speed and direction
+        baseSpeed = Float(0.015)  // Reduced from 0.02 for slower angular velocity
+        let largeIndex = sphereIndex
+        sphereAngle = Float(largeIndex) / Float(largeRingCount) * 2.0 * Float.pi
+      } else {
+        // Small ring: slower speed and same direction pattern
+        baseSpeed = Float(0.01)  // Smaller speed for small ring
+        let smallIndex = sphereIndex - largeRingCount
+        // Use the same angle calculation as position, but apply direction change in velocity
+        sphereAngle = Float(smallIndex) / Float(smallRingCount) * 2.0 * Float.pi
+      }
+
       let sphereDirection = SIMD3<Float>(
-        cos(angle + Float.pi * 0.5),
-        0.2,  // Slight upward component
-        sin(angle + Float.pi * 0.5)
+        -sin(sphereAngle),  // Tangent direction for circular motion
+        0.0,  // Keep horizontal movement
+        cos(sphereAngle)  // Tangent direction for circular motion
       )
       let normalizedDirection = normalize(sphereDirection)
 
@@ -200,8 +230,11 @@ class SpreadInBallRenderer: CustomRenderer {
         // Calculate velocity for internal movement (no target attraction)
         let expansionDirection = normalize(particlePosition - sphereCenter)
 
-        // Apply fixed direction for this small sphere with slight expansion
-        let velocity = normalizedDirection * baseSpeed + expansionDirection * (baseSpeed * 0.1)
+        // Apply fixed direction for this small sphere with minimal expansion to maintain ring shape
+        let ringDirection =
+          sphereIndex < largeRingCount ? normalizedDirection : -normalizedDirection  // Opposite direction for small ring
+        let velocity: SIMD3<Float> =
+          ringDirection * baseSpeed + expansionDirection * (baseSpeed * 0.08)
 
         // Color based on sphere index
         let hue = Float(sphereIndex) / Float(numSpheres)
@@ -236,7 +269,7 @@ class SpreadInBallRenderer: CustomRenderer {
     let targetRadius: Float = 1.6
 
     // Generate multiple small spheres with particles
-    let numSpheres = 16
+    let numSpheres: Int = 18
     let particlesPerSphere = linesCount / numSpheres
     let particles = generateSmallSpheres(
       numSpheres: numSpheres,
