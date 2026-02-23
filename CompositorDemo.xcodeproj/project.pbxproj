@@ -60,6 +60,7 @@
 		D11274452BC734AD00E194CF /* InteractionScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274402BC734AD00E194CF /* InteractionScene.swift */; };
 		D11274462BC734AD00E194CF /* InteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274412BC734AD00E194CF /* InteractionView.swift */; };
 		D11274472BC734AD00E194CF /* Uniforms.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11274442BC734AD00E194CF /* Uniforms.swift */; };
+		8139CB5546C14E479562A0AB /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B39CB61223B64ED8B893EFB5 /* GameManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -124,6 +125,7 @@
 		D11274402BC734AD00E194CF /* InteractionScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionScene.swift; sourceTree = "<group>"; };
 		D11274412BC734AD00E194CF /* InteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionView.swift; sourceTree = "<group>"; };
 		D11274442BC734AD00E194CF /* Uniforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Uniforms.swift; sourceTree = "<group>"; };
+		B39CB61223B64ED8B893EFB5 /* GameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -215,8 +217,7 @@
 				9AEFD39C2DAC396400C96226 /* Attractor.metal */,
 				D112743F2BC734AD00E194CF /* Bridging-Header.h */,
 				9A92D38D2D9FBE1D0021FFCE /* ExtendingLine.swift */,
-				9A228C6A2DB5025D00160CF9 /* Gesture.swift */,
-				D11274392BC7318A00E194CF /* Info.plist */,
+				9A228C6A2DB5025D00160CF9 /* Gesture.swift */,					B39CB61223B64ED8B893EFB5 /* GameManager.swift */,				D11274392BC7318A00E194CF /* Info.plist */,
 				D11274292BC7318900E194CF /* InteractionApp.swift */,
 				D11274402BC734AD00E194CF /* InteractionScene.swift */,
 				D11274412BC734AD00E194CF /* InteractionView.swift */,
@@ -332,8 +333,7 @@
 				9AD002F22E52604E0074380A /* Rain.metal in Sources */,
 				9A9A3E132E19998200330D1B /* BounceInCube.metal in Sources */,
 				9A9A3E1B2E1A557B00330D1B /* BounceAroundCube.swift in Sources */,
-				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,
-				9A228C6F2DB56C6F00160CF9 /* Blocks.metal in Sources */,
+				9A228C6B2DB5026600160CF9 /* Gesture.swift in Sources */,					8139CB5546C14E479562A0AB /* GameManager.swift in Sources */,				9A228C6F2DB56C6F00160CF9 /* Blocks.metal in Sources */,
 				9AEFD39D2DAC396B00C96226 /* Attractor.metal in Sources */,
 				9A13D89F2DC9395000EEA863 /* DragSparks.swift in Sources */,
 				9A96FD2C2E5B753C00B9E415 /* Flowers.metal in Sources */,
