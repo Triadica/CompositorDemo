@@ -50,7 +50,10 @@ struct InteractionApp: App {
         .environmentObject(computeStateNotify)
         .environmentObject(sharedShaderAddress)
         .onAppear {
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] InteractionApp: App appeared")
           if appModel.isFirstLaunch {
+            print("[\(timestamp)] InteractionApp: First launch detected, showing immersive space")
             appModel.isFirstLaunch = false
             // Immediately show immersive space on first launch.
             appModel.showImmersiveSpace = true
@@ -59,18 +62,26 @@ struct InteractionApp: App {
         .onChange(of: appModel.showImmersiveSpace) { _, newValue in
           // Manage the lifecycle of the immersive space.
           Task { @MainActor in
+            let timestamp = Date().formatted(.dateTime.minute().second())
             if newValue {
+              print("[\(timestamp)] InteractionApp: Attempting to open immersive space")
               switch await openImmersiveSpace(id: ImmersiveInteractionScene.id) {
               case .opened:
+                print("[\(Date().formatted(.dateTime.minute().second()))] InteractionApp: Immersive space opened successfully")
                 appModel.immersiveSpaceIsShown = true
               case .error, .userCancelled:
+                print("[\(Date().formatted(.dateTime.minute().second()))] InteractionApp: Failed to open immersive space (error or user cancelled)")
                 fallthrough
               @unknown default:
+                print("[\(Date().formatted(.dateTime.minute().second()))] InteractionApp: Unknown error opening immersive space")
                 appModel.immersiveSpaceIsShown = false
                 appModel.showImmersiveSpace = false
               }
             } else if appModel.immersiveSpaceIsShown {
+              print("[\(timestamp)] InteractionApp: Dismissing immersive space")
               await dismissImmersiveSpace()
+              print("[\(Date().formatted(.dateTime.minute().second()))] InteractionApp: Immersive space dismissed")
+              appModel.immersiveSpaceIsShown = false
             }
           }
         }

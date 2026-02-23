@@ -108,21 +108,33 @@ struct ImmersiveInteractionScene: Scene {
             )
           }
         } catch {
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] InteractionScene: Failed to create renderer for \(appModel.selectedTab): \(error)")
           fatalError("Failed to create renderer \(error)")
         }
 
         Task(priority: .high) { @RendererActor in
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] InteractionScene: Creating renderer for \(appModel.selectedTab)")
+          
           Task { @MainActor in
             appModel.lampsRenderer = currentRenderer
           }
 
-          let renderer = try await Renderer(
-            layerRenderer,
-            appModel,
-            currentRenderer)
-          try await renderer.renderLoop()
+          do {
+            let renderer = try await Renderer(
+              layerRenderer,
+              appModel,
+              currentRenderer)
+            print("[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Starting render loop for \(appModel.selectedTab)")
+            try await renderer.renderLoop()
+            print("[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Render loop ended for \(appModel.selectedTab)")
+          } catch {
+            print("[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Renderer error for \(appModel.selectedTab): \(error)")
+          }
 
           Task { @MainActor in
+            print("[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Cleaning up renderer for \(appModel.selectedTab)")
             appModel.lampsRenderer = nil
           }
         }

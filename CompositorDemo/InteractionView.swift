@@ -54,6 +54,7 @@ struct InteractionView: View {
 
   @State private var selectedDemo: DemoTab = .spreadInBall
   @State private var isUpdatingDemo = false
+  @State private var backgroundTask: Task<Void, Never>? = nil
 
   var body: some View {
     HStack {
@@ -85,6 +86,8 @@ struct InteractionView: View {
         alignment: .center)
       VStack {
         Button {
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] InteractionView: User toggled immersive space (current: \(appModel.showImmersiveSpace))")
           appModel.showImmersiveSpace.toggle()
         } label: {
           Text(
@@ -123,6 +126,8 @@ struct InteractionView: View {
             // }
             HStack {
               Button {
+                let timestamp = Date().formatted(.dateTime.minute().second())
+                print("[\(timestamp)] InteractionView: User pressed Reset Base button")
                 // to reset states in compute shader
                 computeStateNotify.reset += 1
               } label: {
@@ -152,9 +157,31 @@ struct InteractionView: View {
     .padding()
     .frame(width: 800, height: appModel.showImmersiveSpace ? 600 : 300)
     .onChange(of: scenePhase) { _, newPhase in
+      let timestamp = Date().formatted(.dateTime.minute().second())
+      print("[\(timestamp)] InteractionView: Scene phase changed to \(newPhase)")
+      
+      // 取消之前的后台任务
+      backgroundTask?.cancel()
+      backgroundTask = nil
+      
       Task { @MainActor in
         if newPhase == .background {
-          appModel.showImmersiveSpace = false
+          print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App going to background, starting delay timer")
+          // 添加5秒延迟，避免短暂的后台状态导致immersive空间退出
+          backgroundTask = Task {
+            do {
+              try await Task.sleep(nanoseconds: 5_000_000_000) // 5秒
+              if !Task.isCancelled {
+                print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timeout reached, hiding immersive space")
+                appModel.showImmersiveSpace = false
+              }
+            } catch {
+              // Task被取消，不做任何操作
+              print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timer cancelled")
+            }
+          }
+        } else if newPhase == .active {
+          print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App became active, cancelling background timer")
         }
       }
     }
@@ -172,9 +199,13 @@ struct InteractionView: View {
       guard !isUpdatingDemo else { return }
       isUpdatingDemo = true
       
+      let timestamp = Date().formatted(.dateTime.minute().second())
+      print("[\(timestamp)] InteractionView: Demo selection changed from \(appModel.selectedTab) to \(newDemo)")
+      
       Task { @MainActor in
         // 添加短暂延迟以避免并发更新
         try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Applying demo change to \(newDemo)")
         appModel.selectedTab = newDemo
         isUpdatingDemo = false
       }

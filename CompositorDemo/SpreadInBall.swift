@@ -63,24 +63,46 @@ class SpreadInBallRenderer: CustomRenderer {
   let computeCommandQueue: MTLCommandQueue
 
   var gestureManager: GestureManager = GestureManager()
+  
+  // 优化：预分配参数缓冲区，避免每帧创建新buffer
+  private var paramsBuffers: [MTLBuffer]
+  private var currentParamsBufferIndex = 0
+  
+  // 性能监控
+  private var lastFrameTime: CFTimeInterval = 0
+  private var frameCount = 0
+  private var averageFrameTime: Double = 0
 
   init(layerRenderer: LayerRenderer) throws {
+    print("🚀 SpreadInBall: 开始初始化渲染器")
+    
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
       layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
     }
+    print("✅ SpreadInBall: uniforms缓冲区创建完成")
+    
+    // 初始化参数缓冲区池
+    paramsBuffers = (0..<maxFramesInFlight).map { _ in
+      layerRenderer.device.makeBuffer(length: MemoryLayout<SpreadInBallParams>.stride, options: .storageModeShared)!
+    }
+    print("✅ SpreadInBall: 参数缓冲区池创建完成")
 
     renderPipelineState = try Self.makeRenderPipelineDescriptor(layerRenderer: layerRenderer)
+    print("✅ SpreadInBall: 渲染管线状态创建完成")
 
     self.computeDevice = MTLCreateSystemDefaultDevice()!
     let library = computeDevice.makeDefaultLibrary()!
     let attractorUpdateBase = library.makeFunction(name: "spreadInBallComputeShader")!
     computePipeLine = try computeDevice.makeComputePipelineState(function: attractorUpdateBase)
+    print("✅ SpreadInBall: 计算管线创建完成")
 
     computeCommandQueue = computeDevice.makeCommandQueue()!
 
     self.createAttractorVerticesBuffer(device: layerRenderer.device)
     self.createAttractorIndexBuffer(device: layerRenderer.device)
     self.createAttractorComputeBuffer(device: layerRenderer.device)
+    
+    print("🎉 SpreadInBall: 渲染器初始化完成，控制点数量: \(controlCount)，顶点数量: \(verticesCount)")
   }
 
   /// create and sets the vertices of the lamp
@@ -140,7 +162,9 @@ class SpreadInBallRenderer: CustomRenderer {
   }
 
   func resetComputeState() {
+    print("🔄 SpreadInBall: 重置计算状态")
     self.createAttractorComputeBuffer(device: computeDevice)
+    print("✅ SpreadInBall: 计算状态重置完成")
   }
 
   private func createAttractorIndexBuffer(device: MTLDevice) {
@@ -352,6 +376,7 @@ class SpreadInBallRenderer: CustomRenderer {
   }
 
   func drawCommand(frame: LayerRenderer.Frame) throws -> TintDrawCommand {
+    print("🎨 SpreadInBall: 创建绘制命令，帧索引: \(frame.frameIndex)")
     return TintDrawCommand(
       frameIndex: frame.frameIndex,
       uniforms: self.uniformsBuffer[Int(frame.frameIndex % Renderer.maxFramesInFlight)],
@@ -359,17 +384,45 @@ class SpreadInBallRenderer: CustomRenderer {
   }
 
   func computeCommandCommit() {
-    guard let computeBuffer: PingPongBuffer = computeBuffer,
-      let commandBuffer = computeCommandQueue.makeCommandBuffer(),
-      let computeEncoder = commandBuffer.makeComputeCommandEncoder()
-    else {
-      print("Failed to create compute command buffer")
+    let frameStartTime = CACurrentMediaTime()
+    print("⚡ SpreadInBall: 开始计算命令提交，时间戳: \(frameStartTime)")
+    
+    guard let computeBuffer: PingPongBuffer = computeBuffer else {
+      print("❌ SpreadInBall: 计算缓冲区为空，无法继续")
       return
+    }
+    
+    guard let commandBuffer = computeCommandQueue.makeCommandBuffer() else {
+      print("❌ SpreadInBall: 无法创建命令缓冲区")
+      return
+    }
+    
+    guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+      print("❌ SpreadInBall: 无法创建计算编码器")
+      return
+    }
+    
+    print("✅ SpreadInBall: 计算资源准备完成")
+    
+    // 添加错误监控
+    commandBuffer.addCompletedHandler { [weak self] buffer in
+      let completionTime = CACurrentMediaTime()
+      if let error = buffer.error {
+        print("❌ SpreadInBall 计算错误: \(error.localizedDescription)")
+        print("❌ 错误详情: \(error)")
+      } else {
+        print("✅ SpreadInBall: 计算命令完成，耗时: \(String(format: "%.2f", (completionTime - frameStartTime) * 1000))ms")
+      }
+      
+      // 性能监控
+      let frameTime = CACurrentMediaTime() - frameStartTime
+      self?.updatePerformanceMetrics(frameTime: frameTime)
     }
 
     computeEncoder.setComputePipelineState(computePipeLine)
     computeEncoder.setBuffer(computeBuffer.currentBuffer, offset: 0, index: 0)
     computeEncoder.setBuffer(computeBuffer.nextBuffer, offset: 0, index: 1)
+    print("🔧 SpreadInBall: 计算管线和缓冲区设置完成")
 
     let delta = -Float(viewStartTime.timeIntervalSinceNow)
     let dt = delta - frameDelta
@@ -380,19 +433,62 @@ class SpreadInBallRenderer: CustomRenderer {
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)
     computeEncoder.setBytes(&params, length: MemoryLayout<SpreadInBallParams>.size, index: 2)
-    let threadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 256)
-    let threadsPerThreadgroup = MTLSize(width: threadGroupSize, height: 1, depth: 1)
+    print("📊 SpreadInBall: 参数设置完成 - 时间: \(dt), 观察者位置: \(params.viewerPosition), 缩放: \(params.viewerScale)")
+    
+    // 优化线程组大小，根据设备能力动态调整
+    let optimalThreadGroupSize = min(computePipeLine.maxTotalThreadsPerThreadgroup, 512)
+    let threadsPerThreadgroup = MTLSize(width: optimalThreadGroupSize, height: 1, depth: 1)
     let threadGroups = MTLSize(
-      width: (controlCount + threadGroupSize - 1) / threadGroupSize,
+      width: (controlCount + optimalThreadGroupSize - 1) / optimalThreadGroupSize,
       height: 1,
       depth: 1
     )
+    print("🧮 SpreadInBall: 线程组配置 - 线程组大小: \(optimalThreadGroupSize), 线程组数量: \(threadGroups.width)")
+    
     computeEncoder.dispatchThreadgroups(
       threadGroups, threadsPerThreadgroup: threadsPerThreadgroup)
     computeEncoder.endEncoding()
-    commandBuffer.commit()
+    print("🚀 SpreadInBall: 计算任务分发完成")
+    
+    // 智能负载管理：在高负载时等待完成
+    let shouldWait = shouldWaitForCompletion()
+    print("⏱️ SpreadInBall: 负载检查 - 平均帧时间: \(String(format: "%.2f", averageFrameTime * 1000))ms, 需要等待: \(shouldWait)")
+    
+    if shouldWait {
+      print("⏳ SpreadInBall: 高负载模式，等待命令完成")
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+      print("✅ SpreadInBall: 命令同步完成")
+    } else {
+      print("🏃 SpreadInBall: 异步提交命令")
+      commandBuffer.commit()
+    }
 
     computeBuffer.swap()
+    print("🔄 SpreadInBall: 缓冲区交换完成")
+  }
+  
+  private func shouldWaitForCompletion() -> Bool {
+    // 如果平均帧时间超过16.67ms（60fps），则等待完成避免积压
+    return averageFrameTime > 0.0167
+  }
+  
+  private func updatePerformanceMetrics(frameTime: Double) {
+    frameCount += 1
+    
+    // 计算移动平均
+    let alpha = 0.1 // 平滑因子
+    averageFrameTime = averageFrameTime * (1 - alpha) + frameTime * alpha
+    
+    // 检测性能异常
+    if frameTime > 0.033 { // 超过33ms（约30fps）
+      print("⚠️ SpreadInBall: 检测到性能异常，帧时间: \(String(format: "%.2f", frameTime * 1000))ms")
+    }
+    
+    // 每100帧输出一次统计
+    if frameCount % 100 == 0 {
+      print("📊 SpreadInBall: 性能统计 - 帧数: \(frameCount), 平均帧时间: \(String(format: "%.2f", averageFrameTime * 1000))ms")
+    }
   }
 
   // in seconds
@@ -413,6 +509,8 @@ class SpreadInBallRenderer: CustomRenderer {
     buffer: MTLBuffer,
     indexBuffer: MTLBuffer
   ) {
+    print("🖼️ SpreadInBall: 开始编码绘制命令，帧索引: \(drawCommand.frameIndex)")
+    
     encoder.setCullMode(.none)
 
     encoder.setRenderPipelineState(renderPipelineState)
@@ -439,14 +537,16 @@ class SpreadInBallRenderer: CustomRenderer {
       viewerScale: self.gestureManager.viewerScale,
       viewerRotation: self.gestureManager.viewerRotation)
 
-    let params: any MTLBuffer = device.makeBuffer(
-      bytes: &params_data,
-      length: MemoryLayout<SpreadInBallParams>.size,
-      options: .storageModeShared
-    )!
+    // 使用预分配的参数缓冲区池，避免每帧创建新缓冲区
+    let paramsBuffer = paramsBuffers[currentParamsBufferIndex]
+    let contents = paramsBuffer.contents().bindMemory(to: SpreadInBallParams.self, capacity: 1)
+    contents.pointee = params_data
+    
+    // 循环使用缓冲区索引
+    currentParamsBufferIndex = (currentParamsBufferIndex + 1) % maxFramesInFlight
 
     encoder.setVertexBuffer(
-      params,
+      paramsBuffer,
       offset: 0,
       index: BufferIndex.params.rawValue)
 
@@ -460,6 +560,8 @@ class SpreadInBallRenderer: CustomRenderer {
       indexBuffer: indexBuffer,
       indexBufferOffset: 0
     )
+    
+    print("✅ SpreadInBall: 绘制命令编码完成，绘制了 \(indexesCount) 个索引")
   }
 
   func updateUniformBuffers(
@@ -473,6 +575,7 @@ class SpreadInBallRenderer: CustomRenderer {
   /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
   /// other other chirality events are used for scaling the entity
   func onSpatialEvents(events: SpatialEventCollection) {
+    print("👆 SpreadInBall: 处理空间事件，事件数量: \(events.count)")
     for event in events {
       gestureManager.onSpatialEvent(event: event)
     }
