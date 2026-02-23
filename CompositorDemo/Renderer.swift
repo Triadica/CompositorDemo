@@ -34,6 +34,14 @@ protocol CustomRenderer {
 
   /// handle spatial events
   func onSpatialEvents(events: SpatialEventCollection)
+
+  /// Whether this renderer is compatible with foveation (rasterization rate maps).
+  /// Return false for renderers that draw non-triangle primitives (lines, points).
+  nonisolated var usesFoveation: Bool { get }
+}
+
+extension CustomRenderer {
+  nonisolated var usesFoveation: Bool { true }
 }
 
 /// Represents a ping-pong or bilateral oscillation behavior
@@ -128,6 +136,7 @@ class Renderer {
   private let device: MTLDevice
   private let supportsMSAA: Bool
   private let commandQueue: MTLCommandQueue
+  private let usesFoveation: Bool
   nonisolated static let maxFramesInFlight: UInt64 = 3
   private let depthState: MTLDepthStencilState
   private let layerRenderer: LayerRenderer
@@ -148,6 +157,7 @@ class Renderer {
     self.appModel = appModel
 
     self.customRenderer = customRenderer
+    self.usesFoveation = customRenderer.usesFoveation
 
     self.layerRenderer = layerRenderer
     self.device = layerRenderer.device
@@ -331,7 +341,9 @@ extension Renderer {
     renderPassDescriptor.depthAttachment.loadAction = .clear
     renderPassDescriptor.depthAttachment.clearDepth = 0.0
 
-    renderPassDescriptor.rasterizationRateMap = drawable.rasterizationRateMaps.first
+    if usesFoveation {
+      renderPassDescriptor.rasterizationRateMap = drawable.rasterizationRateMaps.first
+    }
     if layerRenderer.configuration.layout == .layered {
       renderPassDescriptor.renderTargetArrayLength = drawable.views.count
     }

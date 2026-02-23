@@ -54,7 +54,7 @@ private struct Params {
   var time: Float
   var viewerScale: Float
   var viewerRotation: Float = .zero
-  var _padding: SIMD2<Float> = .zero  // required for 48 bytes alignment
+  var _padding: SIMD4<Float> = .zero  // offset 32 (alignment 16), total = 48 bytes to match Metal float3 struct padding
 }
 
 @MainActor
@@ -72,7 +72,8 @@ class FlowersRenderer: CustomRenderer {
   private var paramsBuffer: MTLBuffer!
   
   var gestureManager: GestureManager = GestureManager(onScene: false)
-  
+  nonisolated var usesFoveation: Bool { false }
+
   init(layerRenderer: LayerRenderer) throws {
     uniformsBuffer = (0..<Renderer.maxFramesInFlight).map { _ in
       layerRenderer.device.makeBuffer(length: MemoryLayout<PathProperties>.uniformStride)!
