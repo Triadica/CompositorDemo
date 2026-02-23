@@ -85,6 +85,22 @@ struct InteractionApp: App {
             }
           }
         }
+        .onChange(of: appModel.selectedTab) { _, newTab in
+          // Restart immersive space with the new renderer when demo changes.
+          guard appModel.immersiveSpaceIsShown else { return }
+          Task { @MainActor in
+            let timestamp = Date().formatted(.dateTime.minute().second())
+            print("[\(timestamp)] InteractionApp: Demo changed to \(newTab), restarting immersive space")
+            // Set immersiveSpaceIsShown = false first so the showImmersiveSpace=false
+            // handler below does not attempt a second dismiss.
+            appModel.immersiveSpaceIsShown = false
+            appModel.showImmersiveSpace = false
+            await dismissImmersiveSpace()
+            // Brief pause to let the layer fully tear down before recreating.
+            try? await Task.sleep(nanoseconds: 300_000_000)  // 300 ms
+            appModel.showImmersiveSpace = true
+          }
+        }
     }
     .windowResizability(.contentSize)
     ImmersiveInteractionScene()
