@@ -52,7 +52,7 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .spreadInBall
+  @State private var selectedDemo: DemoTab = .magField
   @State private var isUpdatingDemo = false
   @State private var backgroundTask: Task<Void, Never>? = nil
 
@@ -80,6 +80,8 @@ struct InteractionView: View {
         Text("Conflict Force").tag(DemoTab.conflictForce)
         Text("Rain").tag(DemoTab.rain)
         Text("Dome").tag(DemoTab.dome)
+        Text("Mag Field").tag(DemoTab.magField)
+        Text("Black Hole").tag(DemoTab.blackHole)
       }.pickerStyle(.wheel).padding(.bottom, 32).frame(
         width: 300,
         height: 400,
@@ -87,7 +89,9 @@ struct InteractionView: View {
       VStack {
         Button {
           let timestamp = Date().formatted(.dateTime.minute().second())
-          print("[\(timestamp)] InteractionView: User toggled immersive space (current: \(appModel.showImmersiveSpace))")
+          print(
+            "[\(timestamp)] InteractionView: User toggled immersive space (current: \(appModel.showImmersiveSpace))"
+          )
           appModel.showImmersiveSpace.toggle()
         } label: {
           Text(
@@ -159,29 +163,37 @@ struct InteractionView: View {
     .onChange(of: scenePhase) { _, newPhase in
       let timestamp = Date().formatted(.dateTime.minute().second())
       print("[\(timestamp)] InteractionView: Scene phase changed to \(newPhase)")
-      
+
       // 取消之前的后台任务
       backgroundTask?.cancel()
       backgroundTask = nil
-      
+
       Task { @MainActor in
         if newPhase == .background {
-          print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App going to background, starting delay timer")
+          print(
+            "[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App going to background, starting delay timer"
+          )
           // 添加5秒延迟，避免短暂的后台状态导致immersive空间退出
           backgroundTask = Task {
             do {
-              try await Task.sleep(nanoseconds: 5_000_000_000) // 5秒
+              try await Task.sleep(nanoseconds: 5_000_000_000)  // 5秒
               if !Task.isCancelled {
-                print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timeout reached, hiding immersive space")
+                print(
+                  "[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timeout reached, hiding immersive space"
+                )
                 appModel.showImmersiveSpace = false
               }
             } catch {
               // Task被取消，不做任何操作
-              print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timer cancelled")
+              print(
+                "[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Background timer cancelled"
+              )
             }
           }
         } else if newPhase == .active {
-          print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App became active, cancelling background timer")
+          print(
+            "[\(Date().formatted(.dateTime.minute().second()))] InteractionView: App became active, cancelling background timer"
+          )
         }
       }
     }
@@ -198,14 +210,18 @@ struct InteractionView: View {
       // 防止UIPickerView并发更新冲突
       guard !isUpdatingDemo else { return }
       isUpdatingDemo = true
-      
+
       let timestamp = Date().formatted(.dateTime.minute().second())
-      print("[\(timestamp)] InteractionView: Demo selection changed from \(appModel.selectedTab) to \(newDemo)")
-      
+      print(
+        "[\(timestamp)] InteractionView: Demo selection changed from \(appModel.selectedTab) to \(newDemo)"
+      )
+
       Task { @MainActor in
         // 添加短暂延迟以避免并发更新
-        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        print("[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Applying demo change to \(newDemo)")
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
+        print(
+          "[\(Date().formatted(.dateTime.minute().second()))] InteractionView: Applying demo change to \(newDemo)"
+        )
         appModel.selectedTab = newDemo
         isUpdatingDemo = false
       }
