@@ -126,13 +126,11 @@ extension MTLDevice {
 
 @RendererActor
 class Renderer {
-  
+
   private let appModel: AppModel
 
-  
   private let customRenderer: CustomRenderer
 
-  
   private let device: MTLDevice
   private let supportsMSAA: Bool
   private let commandQueue: MTLCommandQueue
@@ -145,7 +143,6 @@ class Renderer {
   private var lastWorldTrackingState: DataProviderState = .stopped
   private var worldTrackingStateChangeCount: Int = 0
 
-  
   private let arSession: ARKitSession
   private let worldTracking: WorldTrackingProvider
 
@@ -233,7 +230,7 @@ extension Renderer {
   func renderLoop() async throws {
     let timestamp = Date().formatted(.dateTime.minute().second())
     print("[\(timestamp)] Renderer: Starting render loop")
-    
+
     // Setup ARKit Session
     let authorizations: [ARKitSession.AuthorizationType] = WorldTrackingProvider
       .requiredAuthorizations
@@ -241,41 +238,49 @@ extension Renderer {
 
     print("[\(timestamp)] Renderer: Requesting ARKit authorization")
     _ = await arSession.requestAuthorization(for: authorizations)
-    
+
     print("[\(timestamp)] Renderer: Starting ARKit session")
     try await arSession.run(dataProviders)
-    
+
     // 等待ARKit会话完全启动
     var retryCount = 0
     while worldTracking.state != .running && retryCount < 30 {
-      try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+      try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
       retryCount += 1
-      print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Waiting for ARKit, current state: \(worldTracking.state), retry: \(retryCount)")
+      print(
+        "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Waiting for ARKit, current state: \(worldTracking.state), retry: \(retryCount)"
+      )
     }
-    
+
     if worldTracking.state != .running {
-      print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Warning - ARKit world tracking failed to start after 3 seconds, current state: \(worldTracking.state)")
+      print(
+        "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Warning - ARKit world tracking failed to start after 3 seconds, current state: \(worldTracking.state)"
+      )
     } else {
       print("[\(timestamp)] Renderer: ARKit world tracking started successfully")
     }
-    
+
     var frameCounter = 0
     let startTime = Date()
-    
+
     // Render loop
     while true {
       frameCounter += 1
-      
+
       if layerRenderer.state == .invalidated {
         let endTime = Date()
         let duration = endTime.timeIntervalSince(startTime)
-        print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Layer is invalidated after \(frameCounter) frames (\(String(format: "%.2f", duration))s)")
+        print(
+          "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Layer is invalidated after \(frameCounter) frames (\(String(format: "%.2f", duration))s)"
+        )
         Task { @MainActor in
           arSession.stop()
         }
         return
       } else if layerRenderer.state == .paused {
-        print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Layer is paused, waiting...")
+        print(
+          "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Layer is paused, waiting..."
+        )
         layerRenderer.waitUntilRunning()
         print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Layer resumed")
         continue
@@ -284,23 +289,29 @@ extension Renderer {
           // 监控ARKit状态变化
           if worldTracking.state != lastWorldTrackingState {
             worldTrackingStateChangeCount += 1
-            print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: ARKit state changed from \(lastWorldTrackingState) to \(worldTracking.state) (change #\(worldTrackingStateChangeCount))")
+            print(
+              "[\(Date().formatted(.dateTime.minute().second()))] Renderer: ARKit state changed from \(lastWorldTrackingState) to \(worldTracking.state) (change #\(worldTrackingStateChangeCount))"
+            )
             lastWorldTrackingState = worldTracking.state
-            
+
             // 如果从暂停状态恢复到运行状态，记录恢复信息
             if worldTracking.state == .running {
-              print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: ARKit world tracking recovered successfully")
+              print(
+                "[\(Date().formatted(.dateTime.minute().second()))] Renderer: ARKit world tracking recovered successfully"
+              )
             }
           }
-          
+
           await customRenderer.computeCommandCommit()
           try await self.renderFrame()
-          
+
           // 每1000帧输出一次状态
           if frameCounter % 1000 == 0 {
             let currentTime = Date()
             let duration = currentTime.timeIntervalSince(startTime)
-            print("[\(currentTime.formatted(.dateTime.minute().second()))] Renderer: Completed \(frameCounter) frames in \(String(format: "%.2f", duration))s, ARKit state: \(worldTracking.state)")
+            print(
+              "[\(currentTime.formatted(.dateTime.minute().second()))] Renderer: Completed \(frameCounter) frames in \(String(format: "%.2f", duration))s, ARKit state: \(worldTracking.state)"
+            )
           }
         } catch {
           print("[\(Date().formatted(.dateTime.minute().second()))] Render frame error: \(error)")
@@ -337,7 +348,7 @@ extension Renderer {
 
     renderPassDescriptor.colorAttachments[0].loadAction = .clear
     renderPassDescriptor.colorAttachments[0].clearColor = .init(
-      red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
+      red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
     renderPassDescriptor.depthAttachment.loadAction = .clear
     renderPassDescriptor.depthAttachment.clearDepth = 0.0
 
@@ -352,16 +363,17 @@ extension Renderer {
   }
 
   func renderFrame() async throws {
-    guard let frame = layerRenderer.queryNextFrame() else { 
-      print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to query next frame")
-      return 
+    guard let frame = layerRenderer.queryNextFrame() else {
+      print(
+        "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to query next frame")
+      return
     }
 
     frame.startUpdate()
 
-    guard let timing = frame.predictTiming() else { 
+    guard let timing = frame.predictTiming() else {
       print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to predict timing")
-      return 
+      return
     }
 
     // Update scene and generate draw commands.
@@ -370,13 +382,15 @@ extension Renderer {
     }.result.get()
 
     // Query the drawable after scene update to avoid blocking on the drawable.
-    guard let drawable = frame.queryDrawable() else { 
+    guard let drawable = frame.queryDrawable() else {
       print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to query drawable")
-      return 
+      return
     }
 
     guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-      print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to create command buffer")
+      print(
+        "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Failed to create command buffer"
+      )
       fatalError("Failed to create command buffer")
     }
 
@@ -432,9 +446,11 @@ extension Renderer {
       drawable.deviceAnchor = deviceAnchor
     } else {
       // 如果世界跟踪未运行，记录状态但不频繁打印
-       if frameCounter % 60 == 0 { // 每60帧（约1秒）打印一次
-         print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: World tracking not running (state: \(worldTracking.state)), skipping device anchor")
-       }
+      if frameCounter % 60 == 0 {  // 每60帧（约1秒）打印一次
+        print(
+          "[\(Date().formatted(.dateTime.minute().second()))] Renderer: World tracking not running (state: \(worldTracking.state)), skipping device anchor"
+        )
+      }
       drawable.deviceAnchor = nil
     }
 
@@ -446,10 +462,12 @@ extension Renderer {
     // 添加命令缓冲区完成处理程序
     commandBuffer.addCompletedHandler { buffer in
       if let error = buffer.error {
-        print("[\(Date().formatted(.dateTime.minute().second()))] Renderer: Command buffer error: \(error)")
+        print(
+          "[\(Date().formatted(.dateTime.minute().second()))] Renderer: Command buffer error: \(error)"
+        )
       }
     }
-    
+
     commandBuffer.commit()
 
     frame.endSubmission()

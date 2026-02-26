@@ -45,6 +45,8 @@
 		AAB000032F00000000000003 /* MagField.metal in Sources */ = {isa = PBXBuildFile; fileRef = AAB000042F00000000000004 /* MagField.metal */; };
 		AAB000052F00000000000005 /* BlackHole.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000062F00000000000006 /* BlackHole.swift */; };
 		AAB000072F00000000000007 /* BlackHole.metal in Sources */ = {isa = PBXBuildFile; fileRef = AAB000082F00000000000008 /* BlackHole.metal */; };
+		AAB000092F00000000000009 /* WindTunnel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB0000A2F0000000000000A /* WindTunnel.swift */; };
+		AAB0000B2F0000000000000B /* WindTunnel.metal in Sources */ = {isa = PBXBuildFile; fileRef = AAB0000C2F0000000000000C /* WindTunnel.metal */; };
 		9A9A3E3F2E202A1C00330D1B /* ShareShaderAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9A3E3E2E202A1300330D1B /* ShareShaderAddress.swift */; };
 		9ABC5F212E79BC740066ADEE /* SpreadAroundBall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ABC5F202E79BC6A0066ADEE /* SpreadAroundBall.swift */; };
 		9ABC5F232E79BC7B0066ADEE /* SpreadAroundBall.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9ABC5F222E79BC780066ADEE /* SpreadAroundBall.metal */; };
@@ -110,6 +112,8 @@
 		AAB000042F00000000000004 /* MagField.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MagField.metal; sourceTree = "<group>"; };
 		AAB000062F00000000000006 /* BlackHole.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackHole.swift; sourceTree = "<group>"; };
 		AAB000082F00000000000008 /* BlackHole.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BlackHole.metal; sourceTree = "<group>"; };
+		AAB0000A2F0000000000000A /* WindTunnel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindTunnel.swift; sourceTree = "<group>"; };
+		AAB0000C2F0000000000000C /* WindTunnel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = WindTunnel.metal; sourceTree = "<group>"; };
 		9A9A3E3E2E202A1300330D1B /* ShareShaderAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareShaderAddress.swift; sourceTree = "<group>"; };
 		9ABC5F202E79BC6A0066ADEE /* SpreadAroundBall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpreadAroundBall.swift; sourceTree = "<group>"; };
 		9ABC5F222E79BC780066ADEE /* SpreadAroundBall.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = SpreadAroundBall.metal; sourceTree = "<group>"; };
@@ -201,6 +205,8 @@
 				AAB000022F00000000000002 /* MagField.swift */,
 				AAB000082F00000000000008 /* BlackHole.metal */,
 				AAB000062F00000000000006 /* BlackHole.swift */,
+				AAB0000C2F0000000000000C /* WindTunnel.metal */,
+				AAB0000A2F0000000000000A /* WindTunnel.swift */,
 				9A9A3E242E1C325500330D1B /* MultiGravity.metal */,
 				9A9A3E222E1C324100330D1B /* MultiGravity.swift */,
 				9A9A3E202E1ADA6C00330D1B /* BounceGravity.metal */,
@@ -370,6 +376,8 @@
 				AAB000032F00000000000003 /* MagField.metal in Sources */,
 				AAB000052F00000000000005 /* BlackHole.swift in Sources */,
 				AAB000072F00000000000007 /* BlackHole.metal in Sources */,
+				AAB000092F00000000000009 /* WindTunnel.swift in Sources */,
+				AAB0000B2F0000000000000B /* WindTunnel.metal in Sources */,
 				9ABC5F212E79BC740066ADEE /* SpreadAroundBall.swift in Sources */,
 				D11274462BC734AD00E194CF /* InteractionView.swift in Sources */,
 				9A9A3E3F2E202A1C00330D1B /* ShareShaderAddress.swift in Sources */,

@@ -36,16 +36,13 @@ typedef struct {
 } Params;
 
 struct CellBase {
-  float3 position;        // 三角形在正八面体内的相对位置
-  float3 color;           // 三角形颜色（与所属正八面体一致）
-  float octahedronId;     // 所属正八面体的ID
+  float3 position;         // 三角形在正八面体内的相对位置
+  float3 color;            // 三角形颜色（与所属正八面体一致）
+  float octahedronId;      // 所属正八面体的ID
   float3 octahedronCenter; // 正八面体中心位置
-  float rotationAngle;    // 正八面体当前旋转角度
-  float triangleSize;     // 三角形大小
+  float rotationAngle;     // 正八面体当前旋转角度
+  float triangleSize;      // 三角形大小
 };
-
-static float random1D(float seed) { return fract(sin(seed) * 43758.5453123); }
-
 
 static float4 applyGestureViewer(
     float4 p0,
@@ -93,21 +90,20 @@ vertex LampInOut octahedronVertexShader(
   // 获取三角形数据
   int triangleIndex = in.seed;
   CellBase triangleInfo = triangleData[triangleIndex];
-  
+
   // 优化的旋转计算
   float angle = params.time * 0.5; // 缓慢旋转
   // uint octahedronId = uint(triangleIndex) / 1000; // 每个正八面体1000个三角形
-  
+
   // 直接计算旋转后的位置，避免矩阵乘法
   float cosAngle = cos(angle);
   float sinAngle = sin(angle);
   float3 pos = in.position;
   float3 rotatedPos = float3(
-    pos.x * cosAngle - pos.z * sinAngle,
-    pos.y,
-    pos.x * sinAngle + pos.z * cosAngle
-  );
-  
+      pos.x * cosAngle - pos.z * sinAngle,
+      pos.y,
+      pos.x * sinAngle + pos.z * cosAngle);
+
   // 计算最终世界位置
   float4 position = float4(triangleInfo.octahedronCenter + rotatedPos, 1.0);
 

@@ -51,7 +51,7 @@ struct IntersectionInfo {
 };
 
 /// find out the point a ray intersects with a sphere
-static IntersectionInfo
+__attribute__((unused)) static IntersectionInfo
     calculateSphereIntersection(float3 center, float r, float3 p0, float3 v0) {
   IntersectionInfo info;
   info.intersected = false;
@@ -138,12 +138,10 @@ kernel void spreadInBallComputeShader(
 
   bool leading = (id % (params.groupSize + 1) == 0);
   float3 center = float3(0.0, 0.0, -1.0);
-  float r = 1.0;  // Collision sphere radius = 1.0m (diameter = 2.0m)
+  float r = 1.0; // Collision sphere radius = 1.0m (diameter = 2.0m)
   float dt = params.time * 8;
 
   if (leading) {
-    float distanceToCenter = distance(cell.position, center);
-
     // Removed angular velocity component - following natural physics
 
     // Add gravity force (slight downward acceleration)
@@ -160,13 +158,15 @@ kernel void spreadInBallComputeShader(
     if (newDistanceToCenter >= r) {
       // Particle would exit sphere: handle internal collision
       float3 directionFromCenter = normalize(newPosition - center);
-      float3 normal = -directionFromCenter;  // Normal points inward for internal collision
+      float3 normal =
+          -directionFromCenter; // Normal points inward for internal collision
 
       // Calculate intersection point on sphere surface
       float3 intersectionPoint = center + directionFromCenter * r;
 
       // Reflect velocity off internal sphere surface
-      float3 reflectedVelocity = newVelocity - 2.0 * dot(newVelocity, normal) * normal;
+      float3 reflectedVelocity =
+          newVelocity - 2.0 * dot(newVelocity, normal) * normal;
 
       // Apply damping to reflected velocity
       reflectedVelocity *= 0.94;
@@ -242,8 +242,7 @@ vertex SpreadInBallInOut spreadInBallVertexShader(
   return out;
 }
 
-fragment float4 spreadInBallFragmentShader(SpreadInBallInOut in
-                                           [[stage_in]]) {
+fragment float4 spreadInBallFragmentShader(SpreadInBallInOut in [[stage_in]]) {
   if (in.color.a <= 0.0) {
     discard_fragment();
   }

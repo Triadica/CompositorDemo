@@ -114,6 +114,10 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try BlackHoleRenderer(
               layerRenderer: layerRenderer
             )
+          case .windTunnel:
+            currentRenderer = try WindTunnelRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
           let timestamp = Date().formatted(.dateTime.minute().second())
@@ -123,9 +127,10 @@ struct ImmersiveInteractionScene: Scene {
           fatalError("Failed to create renderer \(error)")
         }
 
+        let selectedTab = appModel.selectedTab
         Task(priority: .high) { @RendererActor in
           let timestamp = Date().formatted(.dateTime.minute().second())
-          print("[\(timestamp)] InteractionScene: Creating renderer for \(appModel.selectedTab)")
+          print("[\(timestamp)] InteractionScene: Creating renderer for \(selectedTab)")
 
           Task { @MainActor in
             appModel.lampsRenderer = currentRenderer
@@ -137,21 +142,21 @@ struct ImmersiveInteractionScene: Scene {
               appModel,
               currentRenderer)
             print(
-              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Starting render loop for \(appModel.selectedTab)"
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Starting render loop for \(selectedTab)"
             )
             try await renderer.renderLoop()
             print(
-              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Render loop ended for \(appModel.selectedTab)"
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Render loop ended for \(selectedTab)"
             )
           } catch {
             print(
-              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Renderer error for \(appModel.selectedTab): \(error)"
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Renderer error for \(selectedTab): \(error)"
             )
           }
 
           Task { @MainActor in
             print(
-              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Cleaning up renderer for \(appModel.selectedTab)"
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Cleaning up renderer for \(selectedTab)"
             )
             appModel.lampsRenderer = nil
           }

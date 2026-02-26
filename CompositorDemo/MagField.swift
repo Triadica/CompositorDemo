@@ -33,6 +33,15 @@ private let indexesCount: Int = controlCount * 6
 
 // ─── CPU-side structs (must match MagField.metal byte-for-byte) ───────────────
 
+/// Mirrors Metal's `hashFloat()` — must stay in sync with MagField.metal.
+private func magHashFloat(_ seed: UInt32) -> Float {
+  var s = seed
+  s ^= s << 13
+  s ^= s >> 17
+  s ^= s << 5
+  return Float(s & 0x000F_FFFF) / Float(0x000F_FFFF)
+}
+
 /// Matches `struct MagFieldBase` in MagField.metal.
 /// Four SIMD3<Float> → 4 × 12 bytes = 48 bytes (Swift alignment matches Metal).
 private struct MagFieldBase {
@@ -143,8 +152,11 @@ class MagFieldRenderer: CustomRenderer {
 
     let ptr = buf.currentBuffer.contents().bindMemory(to: MagFieldBase.self, capacity: controlCount)
 
-    // Single fixed emission point (matches kEmitPoint in MagField.metal)
-    let emitPoint = SIMD3<Float>(-5.0, 0.0, -2.0)
+    // 2×2×2 box centred at (0, 0, -2), half-extent = 1
+    let boxCenterY: Float = 0.0
+    let boxCenterZ: Float = -2.0
+    let boxHalf: Float = 1.0
+    let flowSpeed: Float = 0.5
     let half = linesCount / 2
 
     for i in 0..<linesCount {
@@ -155,19 +167,20 @@ class MagFieldRenderer: CustomRenderer {
         : SIMD3<Float>(0.07, 0.48, 1.0)  // cyan-blue   (-)
       let charge: Float = positive ? 1.0 : -1.0
 
-      // All particles start from the same single point
-      let emitPos = emitPoint
+      // Random YZ on the left face
+      let h1 = magHashFloat(UInt32(i) * 7 + 1)
+      let h2 = magHashFloat(UInt32(i) * 7 + 2)
+      let hAge = magHashFloat(UInt32(i) * 7 + 5)
+      let y = boxCenterY + (h1 * 2.0 - 1.0) * boxHalf
+      let z = boxCenterZ + (h2 * 2.0 - 1.0) * boxHalf
 
-      // Fan out toward dipole with narrow, uniform speed
-      // Uniform spherical cap, 7.5° half-angle (full cone = 15°) toward +x (Earth).
-      let cosHalfAngle: Float = 0.9914  // cos(7.5°)
-      let fib = fibonacciGrid(n: Float(i), total: Float(linesCount))
-      let phi2: Float = (fib.x * 0.5 + 0.5) * 2.0 * .pi
-      let u: Float = fib.y * 0.5 + 0.5
-      let cosT: Float = cosHalfAngle + u * (1.0 - cosHalfAngle)
-      let sinT: Float = sqrt(max(0, 1 - cosT * cosT))
-      let dir = SIMD3<Float>(cosT, sinT * cos(phi2), sinT * sin(phi2))
-      let vel = dir * 0.15
+      // Pre-fill: spread uniformly along x within the box
+      let hx = magHashFloat(UInt32(i) &* 374_761_393)
+      let px = -boxHalf + hx * (2.0 * boxHalf)  // boxCenter.x = 0
+      let emitPos = SIMD3<Float>(px, y, z)
+
+      let vel = SIMD3<Float>(flowSpeed, 0.0, 0.0)
+      let initialAge = hAge * 2.0
 
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j
@@ -175,7 +188,7 @@ class MagFieldRenderer: CustomRenderer {
           position: emitPos,
           color: color,
           velocity: vel,
-          extra: SIMD3<Float>(charge, 0, 0))
+          extra: SIMD3<Float>(charge, initialAge, 0))
       }
     }
 

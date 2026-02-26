@@ -82,6 +82,7 @@ struct InteractionView: View {
         Text("Dome").tag(DemoTab.dome)
         Text("Mag Field").tag(DemoTab.magField)
         Text("Black Hole").tag(DemoTab.blackHole)
+        Text("Wind Tunnel").tag(DemoTab.windTunnel)
       }.pickerStyle(.wheel).padding(.bottom, 32).frame(
         width: 300,
         height: 400,

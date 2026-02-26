@@ -96,20 +96,18 @@ static float4 applyGestureViewer(
 constant float3 kDipoleCenter = float3(0.0, 0.0, -2.0);
 /// Dipole strength – tuned for clearly visible Larmor-radius curvature.
 constant float kDipoleStrength = 3.5;
-/// Single emission point: all particles start here and fan toward the dipole.
-constant float3 kEmitPoint = float3(-5.0, 0.0, -2.0);
+/// 2×2×2 cubic region centred on kDipoleCenter.
+constant float3 kBoxCenter = float3(0.0, 0.0, -2.0);
+constant float kBoxHalf = 1.0f;   // half-extent → full size = 2
+constant float kFlowSpeed = 0.5;  // rightward flow speed (uniform)
 /// Magnetosphere boundary: dipole force only applied within this radius.
-/// Kept small so the field region is a tight, visible sphere around Earth.
-constant float kMagnetosphereRadius = 2.0;
+constant float kMagnetosphereRadius = 1.0;
 
-/// Deterministically reconstruct the initial emission state for particle
-/// `lineIdx`. All particles start from a single point (kEmitPoint) and fan
-/// out in random directions biased toward the dipole region.
-/// Positive charge: lineIdx < totalLines/2  (orange-red)
-/// Negative charge: lineIdx >= totalLines/2 (cyan-blue)
+/// Emit a particle from the left face of the 2×2×2 box with rightward velocity.
 static void initialState(
     uint lineIdx,
     int totalLines,
+    float time,
     thread float3 &outPos,
     thread float3 &outVel,
     thread float3 &outColor,
@@ -121,20 +119,12 @@ static void initialState(
 
   float h1 = hashFloat(lineIdx * 7u + 1u);
   float h2 = hashFloat(lineIdx * 7u + 2u);
-  float h3 = hashFloat(lineIdx * 7u + 3u);
 
-  // All particles start from the same single point
-  outPos = kEmitPoint;
-
-  // Uniform spherical cap sampling, 7.5° half-angle (full cone = 15°) toward Earth (+x axis).
-  const float kCosHalfAngle = 0.9914f; // cos(7.5°)
-  float phi = h1 * 2.0 * M_PI_F;
-  float cosT = kCosHalfAngle + h2 * (1.0 - kCosHalfAngle);
-  float sinT = sqrt(max(0.0, 1.0 - cosT * cosT));
-  float3 dir = float3(cosT, sinT * cos(phi), sinT * sin(phi));
-
-  // Fixed uniform speed
-  outVel = dir * 0.15f;
+  // Random position on the left face (x = boxCenter.x - boxHalf)
+  float y = kBoxCenter.y + (h1 * 2.0f - 1.0f) * kBoxHalf;
+  float z = kBoxCenter.z + (h2 * 2.0f - 1.0f) * kBoxHalf;
+  outPos = float3(kBoxCenter.x - kBoxHalf, y, z);
+  outVel = float3(kFlowSpeed, 0.0f, 0.0f);
 }
 
 // ─── Compute kernel
@@ -168,7 +158,10 @@ kernel void magFieldComputeShader(
     float3 force = float3(0.0);
     if (distToDipole < kMagnetosphereRadius) {
       // Smoothly ramp force to zero at the boundary to avoid sharp jumps
-      float boundary = 1.0 - smoothstep(kMagnetosphereRadius * 0.7, kMagnetosphereRadius, distToDipole);
+      float boundary =
+          1.0 -
+          smoothstep(
+              kMagnetosphereRadius * 0.7, kMagnetosphereRadius, distToDipole);
       float3 B = earthDipoleField(pos, kDipoleCenter, kDipoleStrength);
       force = charge * cross(vel, B) * boundary;
     }
@@ -178,11 +171,11 @@ kernel void magFieldComputeShader(
     float3 newPos = pos + newVel * dt;
 
     // ── Periodic velocity/direction perturbation ──────────────────────────
-    // Each particle has a unique golden-ratio phase offset so kicks are
-    // fully desynchronised, producing a natural wave-like variation.
+    // Keep this extremely small to avoid visible wave bands.
     float pPhase = float(lineIdx) * 2.39996f;
     float pFreq = 0.5f + hashFloat(lineIdx * 5u + 6u) * 0.9f; // [0.5, 1.4] Hz
-    float kick = sin(params.time * pFreq + pPhase) * 0.008f; // small perturbation
+    float kick =
+        sin(params.time * pFreq + pPhase) * 0.001f; // very small perturbation
     float3 pDir = normalize(float3(
         cos(params.time * pFreq * 0.7f + pPhase),
         sin(params.time * pFreq * 1.3f + pPhase * 0.5f),
@@ -193,18 +186,19 @@ kernel void magFieldComputeShader(
     float spd = length(newVel);
     stuckT = (spd < 0.08) ? stuckT + dt : 0.0;
 
-    // ── Recycle conditions ───────────────────────────────────────────────
-    float distFromDipole = length(newPos - kDipoleCenter);
-    bool escaped = (distFromDipole > 15.0) || (distFromDipole < 0.06) ||
-                   (newPos.x < -8.0) || (newPos.x > 10.0);
-    bool tooOld = age > 40.0;  // 4× extended lifetime
-    bool stuck = stuckT > 1.0; // stuck 1 physics-s → recycle
+    // ── Recycle conditions: particle left the 2×2×2 box ─────────────────
+    float3 rel = newPos - kBoxCenter;
+    bool outsideBox = (abs(rel.x) > kBoxHalf) || (abs(rel.y) > kBoxHalf) ||
+                      (abs(rel.z) > kBoxHalf);
+    bool tooOld = age > 40.0;
+    bool stuck = stuckT > 1.0;
 
-    if (escaped || tooOld || stuck) {
+    if (outsideBox || tooOld || stuck) {
       float3 c;
       float q;
-      initialState(lineIdx, params.totalLines, newPos, newVel, c, q);
-      age = 0.0;
+      uint seed = lineIdx + uint(params.time * 37.0f);
+      initialState(seed, params.totalLines, params.time, newPos, newVel, c, q);
+      age = hashFloat(seed * 13u + 11u) * 2.0f;
       stuckT = 0.0;
     }
 

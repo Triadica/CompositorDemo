@@ -91,7 +91,8 @@ constant float3 kBHCenter = float3(0.0, 0.0, -2.0);
 constant float kEmitR = 20.0f;
 /// Photons farther than this are considered escaped and recycled.
 constant float kEscapeR = 30.0f;
-/// Maximum particle lifetime in physics seconds (4× extended for long orbits near the photon sphere).
+/// Maximum particle lifetime in physics seconds (4× extended for long orbits
+/// near the photon sphere).
 constant float kMaxAge = 720.0f;
 /// Maximum time with near-zero speed before forced recycle.
 constant float kMaxStuck = 1.0f;
@@ -143,9 +144,12 @@ static void bhInitState(
   float sinT_v = sqrt(max(0.0f, 1.0f - cosT_v * cosT_v));
   float3 rndDir = float3(sinT_v * cos(phi_v), sinT_v * sin(phi_v), cosT_v);
   float absy = abs(emitDir.y);
-  float diskFactor = smoothstep(0.28f, 0.0f, absy); // 1 at equator, 0 outside disk
-  float tangential = mix(0.04f, 0.55f, diskFactor);  // 0.04 (polar) … 0.55 (equatorial)
-  float3 velDir = normalize(rndDir * tangential + (-emitDir) * (1.0f - tangential));
+  float diskFactor =
+      smoothstep(0.28f, 0.0f, absy); // 1 at equator, 0 outside disk
+  float tangential =
+      mix(0.04f, 0.55f, diskFactor); // 0.04 (polar) … 0.55 (equatorial)
+  float3 velDir =
+      normalize(rndDir * tangential + (-emitDir) * (1.0f - tangential));
 
   // Speed: photons travel at c = 1 (scene units / physics second).
   outVel = velDir;
