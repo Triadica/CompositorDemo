@@ -42,6 +42,20 @@ private func magHashFloat(_ seed: UInt32) -> Float {
   return Float(s & 0x000F_FFFF) / Float(0x000F_FFFF)
 }
 
+private func magMixBits(_ x: UInt32) -> UInt32 {
+  var v = x
+  v ^= v >> 16
+  v &*= 0x7feb_352d
+  v ^= v >> 15
+  v &*= 0x846c_a68b
+  v ^= v >> 16
+  return v
+}
+
+private func magRand01(_ seed: UInt32) -> Float {
+  Float(magMixBits(seed) & 0x00FF_FFFF) / 16_777_215.0
+}
+
 /// Matches `struct MagFieldBase` in MagField.metal.
 /// Four SIMD3<Float> → 4 × 12 bytes = 48 bytes (Swift alignment matches Metal).
 private struct MagFieldBase {
@@ -156,7 +170,8 @@ class MagFieldRenderer: CustomRenderer {
     let boxCenterY: Float = 0.0
     let boxCenterZ: Float = -2.0
     let boxHalf: Float = 1.0
-    let flowSpeed: Float = 0.5
+    let flowSpeed: Float = 0.3
+    let spawnWindow: Float = 3.0
     let half = linesCount / 2
 
     for i in 0..<linesCount {
@@ -167,20 +182,19 @@ class MagFieldRenderer: CustomRenderer {
         : SIMD3<Float>(0.07, 0.48, 1.0)  // cyan-blue   (-)
       let charge: Float = positive ? 1.0 : -1.0
 
-      // Random YZ on the left face
-      let h1 = magHashFloat(UInt32(i) * 7 + 1)
-      let h2 = magHashFloat(UInt32(i) * 7 + 2)
-      let hAge = magHashFloat(UInt32(i) * 7 + 5)
+      // Random and uniform YZ on the left face (decorrelated seeds)
+      let h1 = magRand01(UInt32(i) &* 747_796_405 &+ 277_803_737)
+      let h2 = magRand01(UInt32(i) &* 3_266_489_917 &+ 2_246_822_519)
+      let hAge = magRand01(UInt32(i) &* 668_265_263 &+ 0xa511_e9b3)
       let y = boxCenterY + (h1 * 2.0 - 1.0) * boxHalf
       let z = boxCenterZ + (h2 * 2.0 - 1.0) * boxHalf
 
-      // Pre-fill: spread uniformly along x within the box
-      let hx = magHashFloat(UInt32(i) &* 374_761_393)
-      let px = -boxHalf + hx * (2.0 * boxHalf)  // boxCenter.x = 0
+      // Initial state also emits from left face
+      let px = -boxHalf  // boxCenter.x = 0
       let emitPos = SIMD3<Float>(px, y, z)
 
       let vel = SIMD3<Float>(flowSpeed, 0.0, 0.0)
-      let initialAge = hAge * 2.0
+      let initialAge = -hAge * spawnWindow
 
       for j in 0..<controlCountPerLine {
         let index = i * controlCountPerLine + j

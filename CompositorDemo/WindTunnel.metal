@@ -59,11 +59,12 @@ constant float kInletHalfY = 0.48f;      // inlet half-extent (slightly smaller)
 constant float kInletHalfZ = 0.48f;
 constant float kBaseFlowSpeed = 0.75f;
 
-// Cube obstacle (oriented box, rotates around z-axis)
+// Cube obstacle (oriented box, rotates mostly around z-axis with slight y-axis)
 constant float3 kCubeCenter =
     float3(0.0, -0.15, -2.0); // slightly below tunnel center
-constant float3 kCubeHalf = float3(0.14f, 0.14f, 0.14f); // half-extents
-constant float kCubeRotSpeed = 0.6f; // radians per second around z-axis
+constant float3 kCubeHalf = float3(0.17f, 0.17f, 0.17f); // slightly larger, not full height
+constant float kCubeRotSpeedZ = 0.6f; // radians per second around z-axis (primary)
+constant float kCubeRotSpeedY = 0.12f; // radians per second around y-axis (secondary, slower)
 
 constant float kPressureRadius = 0.35f;    // interaction range (was 0.18)
 constant float kPressureStiffness = 18.0f; // repulsion strength (was 12)
@@ -78,11 +79,17 @@ constant float kSpeedDamping = 1.0f;
 constant float kSpeedRegulation = 3.0f; // soft drag toward base speed (per sec)
 constant float kMaxAge = 36.0f;
 
-static float hashFloat(uint seed) {
-  seed ^= seed << 13u;
-  seed ^= seed >> 17u;
-  seed ^= seed << 5u;
-  return float(seed & 0xFFFFFu) / float(0xFFFFFu);
+static uint mixBits(uint x) {
+  x ^= x >> 16u;
+  x *= 0x7feb352du;
+  x ^= x >> 15u;
+  x *= 0x846ca68bu;
+  x ^= x >> 16u;
+  return x;
+}
+
+static float rand01(uint seed) {
+  return float(mixBits(seed) & 0x00FFFFFFu) / 16777215.0f;
 }
 
 static float4 applyGestureViewer(
@@ -106,16 +113,18 @@ static float3 windTimeColor(float time) {
 }
 
 static void windInitState(
-    uint n, // particle index
-    uint N, // total particles
+    uint lineIdx,
+    uint spawnNonce,
     float time,
     thread float3 &outPos,
     thread float3 &outVel,
     thread float3 &outColor,
     thread float &outRadial) {
   // Random rectangular cross-section position on the inlet plane
-  float h1 = hashFloat(n * 2654435761u);
-  float h2 = hashFloat(n * 2654435761u + 7u);
+  float h1 =
+      rand01(lineIdx * 747796405u + spawnNonce * 2891336453u + 277803737u);
+  float h2 =
+      rand01(lineIdx * 3266489917u + spawnNonce * 668265263u + 2246822519u);
   float dy = (h1 * 2.0f - 1.0f) * kInletHalfY;
   float dz = (h2 * 2.0f - 1.0f) * kInletHalfZ;
   outPos =
@@ -250,15 +259,32 @@ kernel void windTunnelComputeShader(
     // Transform newPos/vel into cube's local frame, do AABB test,
     // push out & reflect, then transform back.  Running AFTER
     // integration guarantees the final position is always outside.
-    float cubeAngle = params.time * kCubeRotSpeed;
-    float cosA = cos(cubeAngle);
-    float sinA = sin(cubeAngle);
+    float cubeAngleZ = params.time * kCubeRotSpeedZ;
+    float cosZ = cos(cubeAngleZ);
+    float sinZ = sin(cubeAngleZ);
+    float cubeAngleY = params.time * kCubeRotSpeedY;
+    float cosY = cos(cubeAngleY);
+    float sinY = sin(cubeAngleY);
 
     float3 relW = newPos - kCubeCenter;
+    // world -> local: inverse Z rotation, then inverse Y rotation
+    float3 relZInv = float3(
+      relW.x * cosZ + relW.y * sinZ,
+      -relW.x * sinZ + relW.y * cosZ,
+      relW.z);
     float3 relLocal = float3(
-        relW.x * cosA + relW.y * sinA, -relW.x * sinA + relW.y * cosA, relW.z);
+      relZInv.x * cosY - relZInv.z * sinY,
+      relZInv.y,
+      relZInv.x * sinY + relZInv.z * cosY);
+
+    float3 velZInv = float3(
+      vel.x * cosZ + vel.y * sinZ,
+      -vel.x * sinZ + vel.y * cosZ,
+      vel.z);
     float3 velLocal = float3(
-        vel.x * cosA + vel.y * sinA, -vel.x * sinA + vel.y * cosA, vel.z);
+      velZInv.x * cosY - velZInv.z * sinY,
+      velZInv.y,
+      velZInv.x * sinY + velZInv.z * cosY);
 
     // Expand half-extents by a small skin so particles never tunnel through.
     const float kSkin = 0.005f;
@@ -297,15 +323,24 @@ kernel void windTunnelComputeShader(
       }
     }
 
-    // Transform back to world frame.
+    // Transform back to world frame: forward Y rotation, then forward Z rotation.
+    float3 relYFwd = float3(
+      relLocal.x * cosY + relLocal.z * sinY,
+      relLocal.y,
+      -relLocal.x * sinY + relLocal.z * cosY);
+    float3 velYFwd = float3(
+      velLocal.x * cosY + velLocal.z * sinY,
+      velLocal.y,
+      -velLocal.x * sinY + velLocal.z * cosY);
+
     newPos = kCubeCenter + float3(
-                               relLocal.x * cosA - relLocal.y * sinA,
-                               relLocal.x * sinA + relLocal.y * cosA,
-                               relLocal.z);
+                   relYFwd.x * cosZ - relYFwd.y * sinZ,
+                   relYFwd.x * sinZ + relYFwd.y * cosZ,
+                   relYFwd.z);
     vel = float3(
-        velLocal.x * cosA - velLocal.y * sinA,
-        velLocal.x * sinA + velLocal.y * cosA,
-        velLocal.z);
+      velYFwd.x * cosZ - velYFwd.y * sinZ,
+      velYFwd.x * sinZ + velYFwd.y * cosZ,
+      velYFwd.z);
 
     // Tunnel wall collision (square cross-section) — bounce inward
     float dy = newPos.y - kTunnelCenter.y;
@@ -340,19 +375,20 @@ kernel void windTunnelComputeShader(
       }
     }
 
-    // Right wall: lifecycle ends → recycle from left at random fibonacci pos
+    // Right wall: lifecycle ends → recycle from left at random inlet pos
     bool outRight = newPos.x > kTunnelHalfLength;
     bool tooOld = age > kMaxAge;
     bool stuck = stuckT > 1.2f;
 
     if (outRight || tooOld || stuck) {
-      uint fiboN = uint(params.totalLines);
-      // Pick random fibonacci grid index using line + time as seed
-      uint seed = lineIdx * 997u + uint(params.time * 41.3f);
-      uint n = uint(hashFloat(seed) * float(fiboN)) % fiboN;
+      uint timeTick = uint(max(params.time, 0.0f) * 10000.0f);
+      uint seed = mixBits(
+          lineIdx * 2246822519u ^ timeTick * 3266489917u ^
+          as_type<uint>(newPos.y * 997.0f) ^ as_type<uint>(newPos.z * 619.0f) ^
+          as_type<uint>(age * 431.0f));
       float3 c;
       float radial;
-      windInitState(n, fiboN, params.time, newPos, vel, c, radial);
+      windInitState(lineIdx, seed, params.time, newPos, vel, c, radial);
       cell.color = c;
       inletRadial = radial;
       age = 0.0f;

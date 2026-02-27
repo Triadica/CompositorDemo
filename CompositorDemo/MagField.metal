@@ -52,12 +52,17 @@ struct MagFieldBase {
 // ─── Helper functions
 // ─────────────────────────────────────────────────────────
 
-/// Low-quality but fast hash → [0, 1)
-static float hashFloat(uint seed) {
-  seed ^= seed << 13u;
-  seed ^= seed >> 17u;
-  seed ^= seed << 5u;
-  return float(seed & 0xFFFFFu) / float(0xFFFFFu);
+static uint mixBits(uint x) {
+  x ^= x >> 16u;
+  x *= 0x7feb352du;
+  x ^= x >> 15u;
+  x *= 0x846ca68bu;
+  x ^= x >> 16u;
+  return x;
+}
+
+static float rand01(uint seed) {
+  return float(mixBits(seed) & 0x00FFFFFFu) / 16777215.0f;
 }
 
 /// Earth magnetic dipole field at world position `pos`.
@@ -92,22 +97,23 @@ static float4 applyGestureViewer(
 // ─── Constants
 // ────────────────────────────────────────────────────────────────
 
-/// Dipole center in world space (roughly 2 m in front of the user, centred).
-constant float3 kDipoleCenter = float3(0.0, 0.0, -2.0);
-/// Dipole strength – tuned for clearly visible Larmor-radius curvature.
-constant float kDipoleStrength = 3.5;
 /// 2×2×2 cubic region centred on kDipoleCenter.
 constant float3 kBoxCenter = float3(0.0, 0.0, -2.0);
-constant float kBoxHalf = 1.0f;   // half-extent → full size = 2
-constant float kFlowSpeed = 0.5;  // rightward flow speed (uniform)
+/// Earth center is exactly at cube center.
+constant float3 kDipoleCenter = kBoxCenter;
+/// Dipole strength (reduced to shrink bending intensity).
+constant float kDipoleStrength = 1.2;
+constant float kBoxHalf = 1.0f;  // half-extent → full size = 2
+constant float kFlowSpeed = 0.3; // rightward flow speed (uniform, slower)
 /// Magnetosphere boundary: dipole force only applied within this radius.
-constant float kMagnetosphereRadius = 1.0;
+constant float kMagnetosphereRadius = 0.55;
+constant float kSpawnWindow = 3.0f; // seconds for staggered emission
 
 /// Emit a particle from the left face of the 2×2×2 box with rightward velocity.
 static void initialState(
     uint lineIdx,
+    uint spawnNonce,
     int totalLines,
-    float time,
     thread float3 &outPos,
     thread float3 &outVel,
     thread float3 &outColor,
@@ -117,8 +123,10 @@ static void initialState(
   outColor = positive ? float3(1.0, 0.38, 0.07)  // orange-red
                       : float3(0.07, 0.48, 1.0); // cyan-blue
 
-  float h1 = hashFloat(lineIdx * 7u + 1u);
-  float h2 = hashFloat(lineIdx * 7u + 2u);
+  float h1 =
+      rand01(lineIdx * 747796405u + spawnNonce * 2891336453u + 277803737u);
+  float h2 =
+      rand01(lineIdx * 3266489917u + spawnNonce * 668265263u + 2246822519u);
 
   // Random position on the left face (x = boxCenter.x - boxHalf)
   float y = kBoxCenter.y + (h1 * 2.0f - 1.0f) * kBoxHalf;
@@ -144,7 +152,9 @@ kernel void magFieldComputeShader(
     float3 pos = cell.position;
     float3 vel = cell.velocity;
     float charge = cell.extra.x;
-    float age = cell.extra.y;    // accumulated physics time (seconds)
+    float age =
+        cell.extra
+            .y; // accumulated physics time (seconds), can be <0 as spawn delay
     float stuckT = cell.extra.z; // time spent with near-zero speed
 
     uint lineIdx = id / uint(params.groupSize + 1);
@@ -152,6 +162,13 @@ kernel void magFieldComputeShader(
     // ── Scaled time step (1/8 of original for slower visual motion) ───────
     float dt = params.elapsed * 0.3125f;
     age += dt;
+
+    // Spawn delay phase: keep particle at inlet before activation.
+    if (age < 0.0f) {
+      out = cell;
+      out.extra.y = age;
+      return;
+    }
 
     // ── Magnetic force: F = q * (v × B), only inside the magnetosphere ──
     float distToDipole = length(pos - kDipoleCenter);
@@ -166,21 +183,16 @@ kernel void magFieldComputeShader(
       force = charge * cross(vel, B) * boundary;
     }
 
-    // ── Semi-implicit Euler integration ──────────────────────────────────
+    // ── Semi-implicit Euler integration (energy-conserving speed clamp) ─
+    float baseSpeed = max(length(vel), 1e-4f);
     float3 newVel = vel + force * dt;
+    float newLen = length(newVel);
+    if (newLen > 1e-4f) {
+      newVel = (newVel / newLen) * baseSpeed;
+    } else {
+      newVel = float3(kFlowSpeed, 0.0f, 0.0f);
+    }
     float3 newPos = pos + newVel * dt;
-
-    // ── Periodic velocity/direction perturbation ──────────────────────────
-    // Keep this extremely small to avoid visible wave bands.
-    float pPhase = float(lineIdx) * 2.39996f;
-    float pFreq = 0.5f + hashFloat(lineIdx * 5u + 6u) * 0.9f; // [0.5, 1.4] Hz
-    float kick =
-        sin(params.time * pFreq + pPhase) * 0.001f; // very small perturbation
-    float3 pDir = normalize(float3(
-        cos(params.time * pFreq * 0.7f + pPhase),
-        sin(params.time * pFreq * 1.3f + pPhase * 0.5f),
-        sin(params.time * pFreq * 0.4f + pPhase * 1.2f)));
-    newVel += pDir * kick;
 
     // ── Stuck-near-origin timer ───────────────────────────────────────────
     float spd = length(newVel);
@@ -196,9 +208,14 @@ kernel void magFieldComputeShader(
     if (outsideBox || tooOld || stuck) {
       float3 c;
       float q;
-      uint seed = lineIdx + uint(params.time * 37.0f);
-      initialState(seed, params.totalLines, params.time, newPos, newVel, c, q);
-      age = hashFloat(seed * 13u + 11u) * 2.0f;
+      uint timeTick = uint(max(params.time, 0.0f) * 10000.0f);
+      uint seed = mixBits(
+          lineIdx * 2246822519u ^ timeTick * 3266489917u ^
+          as_type<uint>(cell.position.y * 997.0f) ^
+          as_type<uint>(cell.position.z * 619.0f) ^
+          as_type<uint>(age * 431.0f));
+      initialState(lineIdx, seed, params.totalLines, newPos, newVel, c, q);
+      age = -rand01(seed ^ 0xa511e9b3u) * kSpawnWindow;
       stuckT = 0.0;
     }
 

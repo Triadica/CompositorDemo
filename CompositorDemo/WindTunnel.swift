@@ -22,12 +22,18 @@ private var controlCount: Int { linesCount * controlCountPerLine }
 private let verticesCount: Int = controlCount * 6
 private let indexesCount: Int = controlCount * 6
 
-private func windHashFloat(_ seed: UInt32) -> Float {
-  var s = seed
-  s ^= s << 13
-  s ^= s >> 17
-  s ^= s << 5
-  return Float(s & 0x000F_FFFF) / Float(0x000F_FFFF)
+private func windMixBits(_ x: UInt32) -> UInt32 {
+  var v = x
+  v ^= v >> 16
+  v &*= 0x7feb_352d
+  v ^= v >> 15
+  v &*= 0x846c_a68b
+  v ^= v >> 16
+  return v
+}
+
+private func windRand01(_ seed: UInt32) -> Float {
+  Float(windMixBits(seed) & 0x00FF_FFFF) / 16_777_215.0
 }
 
 private struct WindTunnelBase {
@@ -133,13 +139,13 @@ class WindTunnelRenderer: CustomRenderer {
 
     for i in 0..<linesCount {
       // Random rectangular cross-section position
-      let h1 = windHashFloat(UInt32(i) &* 2_654_435_761)
-      let h2 = windHashFloat(UInt32(i) &* 2_654_435_761 &+ 7)
+      let h1 = windRand01(UInt32(i) &* 747_796_405 &+ 277_803_737)
+      let h2 = windRand01(UInt32(i) &* 3_266_489_917 &+ 2_246_822_519)
       let dy = (h1 * 2.0 - 1.0) * inletHalfY
       let dz = (h2 * 2.0 - 1.0) * inletHalfZ
 
       // Spread uniformly along the full tunnel length using a second hash
-      let xHash = windHashFloat(UInt32(i) &* 374_761_393)
+      let xHash = windRand01(UInt32(i) &* 668_265_263 &+ 0x9e37_79b9)
       let px = -tunnelHalfLength + xHash * (2.0 * tunnelHalfLength)
       let emitPos = SIMD3<Float>(px, tunnelCenterY + dy, tunnelCenterZ + dz)
 
