@@ -17,26 +17,25 @@ import CompositorServices
 
 private let maxFramesInFlight = 3
 
-  // 花朵相关常量
+  // 桃花相关常量
 // 性能优化：使用编译时常量减少运行时计算
-private let flowerCount: Int = 3  // 3朵花
+private let flowerCount: Int = 12 // 增加花朵数量 (3 -> 12)
 private let petalsPerFlower: Int = 6  // 每朵花6个花瓣
-private let segmentsPerPetal: Int = 20  // 每个花瓣的曲线段数
-private let linesPerPetal: Int = 15  // 每个花瓣内部填充线条数
 
-// 预计算的常量，避免运行时重复计算
-private let totalPetals = 18  // flowerCount * petalsPerFlower = 3 * 6
-private let totalOutlineSegments = 360  // totalPetals * segmentsPerPetal = 18 * 20
-private let totalFillLines = 270  // totalPetals * linesPerPetal = 18 * 15
-private let totalRenderElements = 630  // totalOutlineSegments + totalFillLines = 360 + 270
-private let verticesCount = 1260  // totalRenderElements * 2
-private let indexesCount = 1260  // totalRenderElements * 2
+// 与 Metal 里的常量同步
+private let kRadialSegments = 32
+private let kLateralSegments = 16
+private let kVerticesPerPetal = kRadialSegments * kLateralSegments * 6
+
+// 预计算的常量
+private let totalPetals = flowerCount * petalsPerFlower 
+private let verticesCount = totalPetals * kVerticesPerPetal 
 
 // 花朵尺寸常量
-private let flowerSize: Float = 0.3  // 花朵直径约0.3米
-private let flowerRadius: Float = 0.15  // flowerSize * 0.5
-private let petalLength: Float = 0.08  // 花瓣长度
-private let petalWidth: Float = 0.04   // 花瓣宽度
+private let flowerSize: Float = 0.3  
+private let flowerRadius: Float = 0.15  
+private let petalLength: Float = 0.12  // 适当增大基础尺度
+private let petalWidth: Float = 0.08   
 
 private struct CellBase {
   var position: SIMD3<Float>  // 线段在花朵内的相对位置
@@ -101,131 +100,34 @@ class FlowersRenderer: CustomRenderer {
       vertexBuffer.contents().assumingMemoryBound(to: VertexWithSeed.self)
     }
     
-    var vertexIndex = 0
-    var elementIndex = 0
-    
-    // 为每朵花生成花瓣
+    // 我们只需要填入 seed，Shader 会根据 vid(0...kVerticesPerPetal-1) 和 seed 自动生成网格
+    var vCount = 0
     for flowerId in 0..<flowerCount {
       for petalId in 0..<petalsPerFlower {
-        let petalAngle = Float(petalId) * 2.0 * Float.pi / Float(petalsPerFlower)
-        
-        // 生成花瓣轮廓曲线
-        for segmentId in 0..<segmentsPerPetal {
-          let t1 = Float(segmentId) / Float(segmentsPerPetal)
-          let t2 = Float(segmentId + 1) / Float(segmentsPerPetal)
-          
-          // 使用心形曲线变形创建花瓣形状
-          let point1 = createPetalPoint(t: t1, petalAngle: petalAngle)
-          let point2 = createPetalPoint(t: t2, petalAngle: petalAngle)
-          
-          // 创建轮廓线段的两个顶点
-          cellVertices[vertexIndex] = VertexWithSeed(
-            position: point1,
-            color: SIMD3<Float>(1.0, 0.8, 0.9), // 粉色轮廓
-            seed: Int32(flowerId * petalsPerFlower + petalId)
+        let seed = Int32(flowerId * petalsPerFlower + petalId)
+        for _ in 0..<kVerticesPerPetal {
+          cellVertices[vCount] = VertexWithSeed(
+            position: .zero,
+            color: .zero,
+            seed: seed
           )
-          vertexIndex += 1
-          
-          cellVertices[vertexIndex] = VertexWithSeed(
-            position: point2,
-            color: SIMD3<Float>(1.0, 0.8, 0.9),
-            seed: Int32(flowerId * petalsPerFlower + petalId)
-          )
-          vertexIndex += 1
-          elementIndex += 1
+          vCount += 1
         }
-        
-        // 生成花瓣内部填充线条 - 从中心向边缘的简单线条
-        for lineId in 0..<linesPerPetal {
-          let t = Float(lineId) / Float(linesPerPetal - 1)
-          
-          // 从花瓣中心向边缘绘制线条
-          let centerPoint = SIMD3<Float>(0, 0, 0)
-          
-          // 在花瓣边缘上找到对应的点
-          let edgePoint = createPetalPoint(t: t, petalAngle: petalAngle)
-          
-          // 颜色渐变：中心深，边缘浅
-          let fillColor = SIMD3<Float>(1.0, 0.7 + 0.2 * t, 0.8 + 0.1 * t)
-          
-          cellVertices[vertexIndex] = VertexWithSeed(
-            position: centerPoint,
-            color: fillColor,
-            seed: Int32(flowerId * petalsPerFlower + petalId)
-          )
-          vertexIndex += 1
-          
-          cellVertices[vertexIndex] = VertexWithSeed(
-            position: edgePoint,
-            color: fillColor,
-            seed: Int32(flowerId * petalsPerFlower + petalId)
-          )
-          vertexIndex += 1
-          elementIndex += 1
-        }
-       }
-     }
-   }
-   
-   /// 创建花瓣上的点，使用简单的椭圆形状
-  private func createPetalPoint(t: Float, petalAngle: Float) -> SIMD3<Float> {
-    // t 从 0 到 1，描述花瓣轮廓
-    // 使用椭圆方程创建花瓣形状
-    
-    let angle = t * 2.0 * Float.pi
-    
-    // 创建椭圆形花瓣，长轴是短轴的2倍
-    let x = petalLength * cos(angle)
-    let y = petalWidth * sin(angle)
-    
-    // 应用花瓣在花朵中的旋转
-    let cosPetalAngle = cos(petalAngle)
-    let sinPetalAngle = sin(petalAngle)
-    let rotatedX = x * cosPetalAngle - y * sinPetalAngle
-    let rotatedY = x * sinPetalAngle + y * cosPetalAngle
-    
-    return SIMD3<Float>(rotatedX, rotatedY, 0)
+      }
+    }
   }
 
-
-  
-
-
-  
-    
-  
   private func createFlowerIndexBuffer(device: MTLDevice) {
-    let bufferLength = MemoryLayout<UInt32>.stride * indexesCount
+    let bufferLength = MemoryLayout<UInt32>.stride * verticesCount
     indexBuffer = device.makeBuffer(length: bufferLength)!
     indexBuffer.label = "Flower petal index buffer"
     
     let cellIndices = indexBuffer.contents().bindMemory(
-      to: UInt32.self, capacity: indexesCount)
-    
-    var indexOffset = 0
-    
-    // 为每朵花的每个花瓣生成线段索引
-    for flowerId in 0..<flowerCount {
-      for petalId in 0..<petalsPerFlower {
-        let baseVertexIndex = (flowerId * petalsPerFlower + petalId) * (segmentsPerPetal + linesPerPetal) * 2
-        
-        // 花瓣轮廓线段索引
-        for segmentId in 0..<segmentsPerPetal {
-          let segmentBaseIndex = baseVertexIndex + segmentId * 2
-          cellIndices[indexOffset] = UInt32(segmentBaseIndex)
-          cellIndices[indexOffset + 1] = UInt32(segmentBaseIndex + 1)
-          indexOffset += 2
-        }
-        
-        // 花瓣填充线段索引
-        let fillBaseIndex = baseVertexIndex + segmentsPerPetal * 2
-        for lineId in 0..<linesPerPetal {
-          let lineBaseIndex = fillBaseIndex + lineId * 2
-          cellIndices[indexOffset] = UInt32(lineBaseIndex)
-          cellIndices[indexOffset + 1] = UInt32(lineBaseIndex + 1)
-          indexOffset += 2
-        }
-      }
+      to: UInt32.self, capacity: verticesCount)
+      
+    // 简单的 1:1 映射
+    for i in 0..<verticesCount {
+      cellIndices[i] = UInt32(i)
     }
   }
   
@@ -236,43 +138,43 @@ class FlowersRenderer: CustomRenderer {
     let petalBase = petalDataBuffer.contents().bindMemory(
       to: CellBase.self, capacity: totalPetals)
     
-    // 改进的花朵分布 - 创建更自然的3D空间分布
-    let flowerCenters: [SIMD3<Float>] = [
-      SIMD3<Float>(-1.2, 0.3, -2.8),   // 左上花朵
-      SIMD3<Float>(1.0, -0.2, -2.2),   // 右下花朵
-      SIMD3<Float>(0.0, 0.8, -3.5)     // 中央后方花朵
-    ]
-    
-    // 为每朵花设置不同的颜色主题
-    let flowerColors: [SIMD3<Float>] = [
+    // 基础颜色主题
+    let baseColors: [SIMD3<Float>] = [
       SIMD3<Float>(1.0, 0.3, 0.4),     // 粉红色
       SIMD3<Float>(0.9, 0.7, 0.2),     // 金黄色
-      SIMD3<Float>(0.7, 0.4, 0.9)      // 紫色
+      SIMD3<Float>(0.7, 0.4, 0.9),     // 紫色
+      SIMD3<Float>(1.0, 0.5, 0.2),     // 橙色
+      SIMD3<Float>(1.0, 0.1, 0.6)      // 深粉
     ]
     
     var petalIndex = 0
     
     for flowerId in 0..<flowerCount {
-      let flowerCenter = flowerCenters[flowerId]
-      let flowerColor = flowerColors[flowerId]
+      let flowerColor = baseColors[flowerId % baseColors.count]
       
-      // 为每个花瓣设置不同的角度和属性
+      // 在 3D 空间内生成更广泛的分布
+      // x: -2.5 ~ 2.5, y: -0.5 ~ 1.5, z: -2.0 ~ -5.5
+      let seed = Float(flowerId)
+      let randX = sin(seed * 0.5) * 2.2 + cos(seed * 0.2) * 0.5
+      let randY = cos(seed * 0.8) * 0.8 + 0.5
+      let randZ = -2.5 - abs(sin(seed * 1.3)) * 3.5
+      let flowerCenter = SIMD3<Float>(randX, randY, randZ)
+      
       for petalId in 0..<petalsPerFlower {
         let petalAngle = Float(petalId) * (2.0 * Float.pi / Float(petalsPerFlower))
-        let relativePosition = SIMD3<Float>(0, 0, 0)  // 花瓣相对位置将在着色器中计算
         let petalSize = Float.random(in: petalWidth...petalLength)
         
-        // 添加轻微的颜色变化，使每个花瓣略有不同
-        let colorVariation = Float.random(in: 0.9...1.1)
+        // 每个花瓣颜色微调
+        let colorVariation = Float.random(in: 0.94...1.06)
         let variedColor = flowerColor * colorVariation
         
         petalBase[petalIndex] = CellBase(
-          position: relativePosition,
+          position: .zero,
           color: variedColor,
           flowerId: Float(flowerId),
           flowerCenter: flowerCenter,
           petalId: Float(petalId),
-          lineType: 0.0,  // 轮廓线
+          lineType: 0.0,
           petalAngle: petalAngle,
           petalSize: petalSize
         )
@@ -404,8 +306,8 @@ class FlowersRenderer: CustomRenderer {
       petalDataBuffer, offset: 0, index: BufferIndex.base.rawValue)
     
     encoder.drawIndexedPrimitives(
-      type: .line,
-      indexCount: indexesCount,
+      type: .triangle,
+      indexCount: verticesCount,
       indexType: .uint32,
       indexBuffer: indexBuffer,
       indexBufferOffset: 0

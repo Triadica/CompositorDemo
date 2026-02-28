@@ -52,7 +52,7 @@ struct InteractionView: View {
   @EnvironmentObject var sharedShaderAddress: SharedShaderAddress
   @State private var textInput: String = "http://192.168.31.166:8080/link.metal"
 
-  @State private var selectedDemo: DemoTab = .magField
+  @State private var selectedDemo: DemoTab = .flowers
   @State private var isUpdatingDemo = false
   @State private var backgroundTask: Task<Void, Never>? = nil
 
