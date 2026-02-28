@@ -71,10 +71,11 @@ static float rand01(uint seed) {
 static float3 earthDipoleField(float3 pos, float3 dipoleCenter, float M) {
   float3 r = pos - dipoleCenter;
   float rLen = length(r);
-  if (rLen < 0.08)
+  // Prevent division by zero and singularity at the core (Earth's radius)
+  if (rLen < 0.12)
     return float3(0.0);
   float3 rHat = r / rLen;
-  float3 mDir = float3(0.0, 1.0, 0.0); // dipole axis (geographic north ≈ +y)
+  float3 mDir = float3(0.0, 1.0, 0.0); // Dipole axis (Magnetic South ≈ +y)
   float mDotR = dot(mDir, rHat);
   // Dipole formula
   return M * (3.0 * mDotR * rHat - mDir) / (rLen * rLen * rLen);
@@ -101,13 +102,13 @@ static float4 applyGestureViewer(
 constant float3 kBoxCenter = float3(0.0, 0.0, -2.0);
 /// Earth center is exactly at cube center.
 constant float3 kDipoleCenter = kBoxCenter;
-/// Dipole strength (reduced to shrink bending intensity).
-constant float kDipoleStrength = 1.2;
-constant float kBoxHalf = 1.0f;  // half-extent → full size = 2
-constant float kFlowSpeed = 0.3; // rightward flow speed (uniform, slower)
+/// Dipole strength (tuned for capturing particles).
+constant float kDipoleStrength = 4.5;
+constant float kBoxHalf = 1.0f;   // half-extent → full size = 2
+constant float kFlowSpeed = 0.18; // solar wind speed (uniform, slower)
 /// Magnetosphere boundary: dipole force only applied within this radius.
-constant float kMagnetosphereRadius = 0.55;
-constant float kSpawnWindow = 3.0f; // seconds for staggered emission
+constant float kMagnetosphereRadius = 0.95;
+constant float kSpawnWindow = 5.0f; // seconds for staggered emission
 
 /// Emit a particle from the left face of the 2×2×2 box with rightward velocity.
 static void initialState(
@@ -156,11 +157,12 @@ kernel void magFieldComputeShader(
         cell.extra
             .y; // accumulated physics time (seconds), can be <0 as spawn delay
     float stuckT = cell.extra.z; // time spent with near-zero speed
+    float3 color = cell.color;
 
     uint lineIdx = id / uint(params.groupSize + 1);
 
-    // ── Scaled time step (1/8 of original for slower visual motion) ───────
-    float dt = params.elapsed * 0.3125f;
+    // ── Scaled time step (higher for integration stability) ───────────────
+    float dt = params.elapsed * 0.45f;
     age += dt;
 
     // Spawn delay phase: keep particle at inlet before activation.
@@ -171,16 +173,33 @@ kernel void magFieldComputeShader(
     }
 
     // ── Magnetic force: F = q * (v × B), only inside the magnetosphere ──
-    float distToDipole = length(pos - kDipoleCenter);
+    float3 rRel = pos - kDipoleCenter;
+    float distSq = dot(rRel, rRel);
+    float distToDipole = sqrt(distSq);
     float3 force = float3(0.0);
+
     if (distToDipole < kMagnetosphereRadius) {
-      // Smoothly ramp force to zero at the boundary to avoid sharp jumps
-      float boundary =
-          1.0 -
-          smoothstep(
-              kMagnetosphereRadius * 0.7, kMagnetosphereRadius, distToDipole);
+      // 1. Calculate B-field
       float3 B = earthDipoleField(pos, kDipoleCenter, kDipoleStrength);
-      force = charge * cross(vel, B) * boundary;
+
+      // 2. Lorentz Force: F = q * (v × B)
+      force = charge * cross(vel, B);
+
+      // 3. Collision with Earth (radius 0.12)
+      // If particles hit the atmosphere at the poles, they should vanish or
+      // "glow".
+      if (distToDipole < 0.16) {
+        // If close to axis (poles), it's "trapped" and hits atmosphere
+        if (abs(rRel.y) > 0.06) {
+          // Mark as recycle (too old / stuck)
+          age = 100.0;
+        } else {
+          // Rebound/Bounce off earth mantle
+          float3 n = rRel / distToDipole;
+          pos = kDipoleCenter + n * 0.161;
+          vel = reflect(vel, n) * 0.4; // lose even more energy
+        }
+      }
     }
 
     // ── Semi-implicit Euler integration (energy-conserving speed clamp) ─
@@ -188,24 +207,28 @@ kernel void magFieldComputeShader(
     float3 newVel = vel + force * dt;
     float newLen = length(newVel);
     if (newLen > 1e-4f) {
-      newVel = (newVel / newLen) * baseSpeed;
+      // Stronger atmospheric drag at poles to simulate trapping/energy loss
+      float polarTrap = (abs(rRel.y) > 0.15 && distToDipole < 0.4) ? 0.92 : 1.0;
+      newVel = (newVel / newLen) * baseSpeed * polarTrap;
     } else {
       newVel = float3(kFlowSpeed, 0.0f, 0.0f);
     }
     float3 newPos = pos + newVel * dt;
 
-    // ── Stuck-near-origin timer ───────────────────────────────────────────
-    float spd = length(newVel);
-    stuckT = (spd < 0.08) ? stuckT + dt : 0.0;
+    // ── Visual Glow (Aurora) ──────────────────────────────────────────────
+    // Wider aurora trigger and brighter green
+    if (distToDipole < 0.35 && abs(rRel.y) > 0.1) {
+      color =
+          mix(cell.color, float3(0.0, 1.0, 0.2), 0.8); // Brighter Aurora Green
+    }
 
     // ── Recycle conditions: particle left the 2×2×2 box ─────────────────
     float3 rel = newPos - kBoxCenter;
     bool outsideBox = (abs(rel.x) > kBoxHalf) || (abs(rel.y) > kBoxHalf) ||
                       (abs(rel.z) > kBoxHalf);
-    bool tooOld = age > 40.0;
-    bool stuck = stuckT > 1.0;
+    bool tooOld = age > 30.0;
 
-    if (outsideBox || tooOld || stuck) {
+    if (outsideBox || tooOld) {
       float3 c;
       float q;
       uint timeTick = uint(max(params.time, 0.0f) * 10000.0f);
@@ -215,13 +238,14 @@ kernel void magFieldComputeShader(
           as_type<uint>(cell.position.z * 619.0f) ^
           as_type<uint>(age * 431.0f));
       initialState(lineIdx, seed, params.totalLines, newPos, newVel, c, q);
+      color = c;
       age = -rand01(seed ^ 0xa511e9b3u) * kSpawnWindow;
       stuckT = 0.0;
     }
 
     out.position = newPos;
     out.velocity = newVel;
-    out.color = cell.color;
+    out.color = color;
     out.extra = float3(charge, age, stuckT);
 
   } else {

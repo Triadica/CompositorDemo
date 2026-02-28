@@ -62,9 +62,12 @@ constant float kBaseFlowSpeed = 0.75f;
 // Cube obstacle (oriented box, rotates mostly around z-axis with slight y-axis)
 constant float3 kCubeCenter =
     float3(0.0, -0.15, -2.0); // slightly below tunnel center
-constant float3 kCubeHalf = float3(0.17f, 0.17f, 0.17f); // slightly larger, not full height
-constant float kCubeRotSpeedZ = 0.6f; // radians per second around z-axis (primary)
-constant float kCubeRotSpeedY = 0.12f; // radians per second around y-axis (secondary, slower)
+constant float3 kCubeHalf =
+    float3(0.17f, 0.17f, 0.17f); // slightly larger, not full height
+constant float kCubeRotSpeedZ =
+    0.6f; // radians per second around z-axis (primary)
+constant float kCubeRotSpeedY =
+    0.12f; // radians per second around y-axis (secondary, slower)
 
 constant float kPressureRadius = 0.35f;    // interaction range (was 0.18)
 constant float kPressureStiffness = 18.0f; // repulsion strength (was 12)
@@ -269,22 +272,18 @@ kernel void windTunnelComputeShader(
     float3 relW = newPos - kCubeCenter;
     // world -> local: inverse Z rotation, then inverse Y rotation
     float3 relZInv = float3(
-      relW.x * cosZ + relW.y * sinZ,
-      -relW.x * sinZ + relW.y * cosZ,
-      relW.z);
+        relW.x * cosZ + relW.y * sinZ, -relW.x * sinZ + relW.y * cosZ, relW.z);
     float3 relLocal = float3(
-      relZInv.x * cosY - relZInv.z * sinY,
-      relZInv.y,
-      relZInv.x * sinY + relZInv.z * cosY);
+        relZInv.x * cosY - relZInv.z * sinY,
+        relZInv.y,
+        relZInv.x * sinY + relZInv.z * cosY);
 
     float3 velZInv = float3(
-      vel.x * cosZ + vel.y * sinZ,
-      -vel.x * sinZ + vel.y * cosZ,
-      vel.z);
+        vel.x * cosZ + vel.y * sinZ, -vel.x * sinZ + vel.y * cosZ, vel.z);
     float3 velLocal = float3(
-      velZInv.x * cosY - velZInv.z * sinY,
-      velZInv.y,
-      velZInv.x * sinY + velZInv.z * cosY);
+        velZInv.x * cosY - velZInv.z * sinY,
+        velZInv.y,
+        velZInv.x * sinY + velZInv.z * cosY);
 
     // Expand half-extents by a small skin so particles never tunnel through.
     const float kSkin = 0.005f;
@@ -323,24 +322,25 @@ kernel void windTunnelComputeShader(
       }
     }
 
-    // Transform back to world frame: forward Y rotation, then forward Z rotation.
+    // Transform back to world frame: forward Y rotation, then forward Z
+    // rotation.
     float3 relYFwd = float3(
-      relLocal.x * cosY + relLocal.z * sinY,
-      relLocal.y,
-      -relLocal.x * sinY + relLocal.z * cosY);
+        relLocal.x * cosY + relLocal.z * sinY,
+        relLocal.y,
+        -relLocal.x * sinY + relLocal.z * cosY);
     float3 velYFwd = float3(
-      velLocal.x * cosY + velLocal.z * sinY,
-      velLocal.y,
-      -velLocal.x * sinY + velLocal.z * cosY);
+        velLocal.x * cosY + velLocal.z * sinY,
+        velLocal.y,
+        -velLocal.x * sinY + velLocal.z * cosY);
 
     newPos = kCubeCenter + float3(
-                   relYFwd.x * cosZ - relYFwd.y * sinZ,
-                   relYFwd.x * sinZ + relYFwd.y * cosZ,
-                   relYFwd.z);
+                               relYFwd.x * cosZ - relYFwd.y * sinZ,
+                               relYFwd.x * sinZ + relYFwd.y * cosZ,
+                               relYFwd.z);
     vel = float3(
-      velYFwd.x * cosZ - velYFwd.y * sinZ,
-      velYFwd.x * sinZ + velYFwd.y * cosZ,
-      velYFwd.z);
+        velYFwd.x * cosZ - velYFwd.y * sinZ,
+        velYFwd.x * sinZ + velYFwd.y * cosZ,
+        velYFwd.z);
 
     // Tunnel wall collision (square cross-section) — bounce inward
     float dy = newPos.y - kTunnelCenter.y;

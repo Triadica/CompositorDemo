@@ -51,6 +51,6 @@ public class AppModel {
   // Content rendering
   public var opacity: Float = 1.0
 
-  var selectedTab: DemoTab = .windTunnel
+  var selectedTab: DemoTab = .magField
   var lampsRenderer: CustomRenderer?
 }
