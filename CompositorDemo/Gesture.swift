@@ -1,6 +1,8 @@
 /// implement basic moving and scaling gesture, however not simply following your finger.
 /// it will still perform operation when you finger finished moving since it changes velocity.
 
+import GameController
+import QuartzCore
 import RealityKit
 import Spatial
 import SwiftUI
@@ -12,14 +14,89 @@ private struct PinchHappen {
 }
 
 class GestureManager {
+  // MARK: - Gamepad support
+
+  /// When true, movement and rotation are controlled by the connected gamepad.
+  /// Spatial gesture control is disabled. Set to false to re-enable gesture control.
+  var useGamepad: Bool = true
+  private let _gameManager: GameManager = GameManager()
+  private var _lastGamepadUpdate: TimeInterval = 0
+
+  // MARK: - Gesture-controlled backing stores (used when useGamepad = false)
+
   /// update this with gesture events
   private var primaryStarted: PinchHappen? = nil
   private var secondaryStarted: PinchHappen? = nil
 
-  var viewerPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
-  var viewerScale: Float = 1.0
-  /// rotation of the viewer, in radians
-  var viewerRotation: Float = 0.0
+  private var _viewerPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+  private var _viewerScale: Float = 1.0
+  private var _viewerRotation: Float = 0.0
+
+  /// Current viewer position — driven by gamepad (useGamepad=true) or gestures (useGamepad=false).
+  /// - For onScene=false renderers (rotate-then-translate shaders): returns local-space offset directly.
+  /// - For onScene=true renderers (translate-then-rotate shaders): rotates offset to world space.
+  var viewerPosition: SIMD3<Float> {
+    get {
+      if useGamepad {
+        updateGamepadIfNeeded()
+        let local = _gameManager.playerOffset
+        if onScene {
+          // translate-then-rotate shaders (Lamps, Rain, Dome, Blocks):
+          // playerOffset is already in world space → return as-is.
+          return local
+        } else {
+          // rotate-then-translate shaders (SpreadAroundBall, BounceInBall, etc.):
+          // Shader rotates scene by viewerRotation first, so viewerPosition must be
+          // expressed in the post-rotation frame → rotate world offset by +yawAngle.
+          let R = _gameManager.yawAngle
+          let cosR = cos(R)
+          let sinR = sin(R)
+          return SIMD3<Float>(
+            local.x * cosR - local.z * sinR,
+            local.y,
+            local.x * sinR + local.z * cosR
+          )
+        }
+      }
+      return _viewerPosition
+    }
+    set { _viewerPosition = newValue }
+  }
+
+  /// Current viewer scale — always 1.0 when useGamepad=true, gesture-controlled otherwise
+  var viewerScale: Float {
+    get { useGamepad ? 1.0 : _viewerScale }
+    set { _viewerScale = newValue }
+  }
+
+  /// Current viewer rotation (yaw, radians) — driven by gamepad or gestures
+  var viewerRotation: Float {
+    get {
+      if useGamepad {
+        updateGamepadIfNeeded()
+        return _gameManager.yawAngle
+      }
+      return _viewerRotation
+    }
+    set { _viewerRotation = newValue }
+  }
+
+  /// Reset gamepad player position and rotation to origin
+  func resetGamepadState() {
+    _gameManager.resetState()
+  }
+
+  private func updateGamepadIfNeeded() {
+    let now = CACurrentMediaTime()
+    guard _lastGamepadUpdate > 0 else {
+      _lastGamepadUpdate = now
+      return
+    }
+    let delta = Float(now - _lastGamepadUpdate)
+    guard delta > 0.001 else { return }  // skip if <1ms since last update
+    _lastGamepadUpdate = now
+    _gameManager.updateRigState(deltaTime: delta)
+  }
 
   /// initial length when the other chirality pinch started
   var pinchBaseLength: Float = 0.0
@@ -45,6 +122,9 @@ class GestureManager {
   /// track the position pinch started, following pinches define the velocity of moving, to update self.viewerPosition .
   /// other other chirality events are used for scaling the entity
   func onSpatialEvent(event: SpatialEventCollection.Event) {
+    // Gesture control is disabled when using gamepad
+    guard !useGamepad else { return }
+
     guard let chirality = event.chirality,
       event.inputDevicePose?.pose3D != nil,
       event.inputDevicePose?.pose3D.position != nil,

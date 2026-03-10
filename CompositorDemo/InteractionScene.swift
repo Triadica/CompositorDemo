@@ -23,6 +23,10 @@ struct ImmersiveInteractionScene: Scene {
         let currentRenderer: CustomRenderer
         do {
           switch appModel.selectedTab {
+          case .flowers:
+            currentRenderer = try FlowersRenderer(
+              layerRenderer: layerRenderer
+            )
           case .octahedron:
             currentRenderer = try OctahedronRenderer(
               layerRenderer: layerRenderer
@@ -69,6 +73,14 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try BounceAroundBallRenderer(
               layerRenderer: layerRenderer
             )
+          case .spreadAroundBall:
+            currentRenderer = try SpreadAroundBallRenderer(
+              layerRenderer: layerRenderer
+            )
+          case .spreadInBall:
+            currentRenderer = try SpreadInBallRenderer(
+              layerRenderer: layerRenderer
+            )
           case .bounceAroundCube:
             currentRenderer = try BounceAroundCubeRenderer(
               layerRenderer: layerRenderer
@@ -94,23 +106,58 @@ struct ImmersiveInteractionScene: Scene {
             currentRenderer = try DomeRenderer(
               layerRenderer: layerRenderer
             )
+          case .magField:
+            currentRenderer = try MagFieldRenderer(
+              layerRenderer: layerRenderer
+            )
+          case .blackHole:
+            currentRenderer = try BlackHoleRenderer(
+              layerRenderer: layerRenderer
+            )
+          case .windTunnel:
+            currentRenderer = try WindTunnelRenderer(
+              layerRenderer: layerRenderer
+            )
           }
         } catch {
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print(
+            "[\(timestamp)] InteractionScene: Failed to create renderer for \(appModel.selectedTab): \(error)"
+          )
           fatalError("Failed to create renderer \(error)")
         }
 
+        let selectedTab = appModel.selectedTab
         Task(priority: .high) { @RendererActor in
+          let timestamp = Date().formatted(.dateTime.minute().second())
+          print("[\(timestamp)] InteractionScene: Creating renderer for \(selectedTab)")
+
           Task { @MainActor in
             appModel.lampsRenderer = currentRenderer
           }
 
-          let renderer = try await Renderer(
-            layerRenderer,
-            appModel,
-            currentRenderer)
-          try await renderer.renderLoop()
+          do {
+            let renderer = try await Renderer(
+              layerRenderer,
+              appModel,
+              currentRenderer)
+            print(
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Starting render loop for \(selectedTab)"
+            )
+            try await renderer.renderLoop()
+            print(
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Render loop ended for \(selectedTab)"
+            )
+          } catch {
+            print(
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Renderer error for \(selectedTab): \(error)"
+            )
+          }
 
           Task { @MainActor in
+            print(
+              "[\(Date().formatted(.dateTime.minute().second()))] InteractionScene: Cleaning up renderer for \(selectedTab)"
+            )
             appModel.lampsRenderer = nil
           }
         }

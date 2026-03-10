@@ -8,6 +8,7 @@ Shared app state and renderers.
 import SwiftUI
 
 enum DemoTab: String, CaseIterable, Identifiable {
+  case flowers
   case octahedron
   case lamps
   case polylines
@@ -20,12 +21,17 @@ enum DemoTab: String, CaseIterable, Identifiable {
   case bounceInBall
   case bounceInCube
   case bounceAroundBall
+  case spreadAroundBall
+  case spreadInBall
   case bounceAroundCube
   case bounceGravity
   case multiGravity
   case conflictForce
   case rain
   case dome
+  case magField
+  case blackHole
+  case windTunnel
 
   var id: Self { self }
 }
@@ -45,6 +51,6 @@ public class AppModel {
   // Content rendering
   public var opacity: Float = 1.0
 
-  var selectedTab: DemoTab = .octahedron
+  var selectedTab: DemoTab = .flowers
   var lampsRenderer: CustomRenderer?
 }
