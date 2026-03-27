@@ -218,14 +218,14 @@ vertex FlowerInOut flowersVertexShader(
   // 从 vertex_id 推导所在的三角形网格位置 (Triangle-ready topology)
   uint triIdx = (vid % kVerticesPerPetal) / 6;
   uint vertIdxInTri = vid % 6;
-  
+
   // 网格行列坐标
   uint r = triIdx / kLateralSegments;
   uint c = triIdx % kLateralSegments;
-  
+
   // 决定当前顶点在网格 cell (r, c) 中的归一化 UV (s: 0..1, sw: -1..1)
   float s = 0.0, sw = 0.0;
-  
+
   // 三角形顶点顺序映射 (0,0)-(1,0)-(0,1) and (1,0)-(1,1)-(0,1)
   uint i = r, j = c;
   if(vertIdxInTri == 0) { i = r;   j = c; }
@@ -234,7 +234,7 @@ vertex FlowerInOut flowersVertexShader(
   else if(vertIdxInTri == 3) { i = r+1; j = c; }
   else if(vertIdxInTri == 4) { i = r+1; j = c+1; }
   else if(vertIdxInTri == 5) { i = r;   j = c+1; }
-  
+
   s = float(i) / float(kRadialSegments);
   sw = (float(j) / float(kLateralSegments)) * 2.0 - 1.0;
 
